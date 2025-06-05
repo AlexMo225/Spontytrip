@@ -1,4 +1,4 @@
-// Fichier d'export pour les composants
-// Ajoutez vos exports de composants ici
+// Fichier d'export pour les composants SpontyTrip
 
-export {};
+export { default as Button } from "./Button";
+export { default as Card } from "./Card";
