@@ -40,7 +40,7 @@ export default function App() {
                 style={[
                     Layout.container,
                     Layout.centerContent,
-                    { backgroundColor: Colors.background.primary },
+                    { backgroundColor: Colors.backgroundColors.primary },
                 ]}
             >
                 <ActivityIndicator size="large" color={Colors.primary} />
@@ -52,9 +52,10 @@ export default function App() {
         <>
             <StatusBar
                 style="auto"
-                backgroundColor={Colors.background.primary}
+                backgroundColor={Colors.backgroundColors.primary}
             />
             <StackNavigator />
         </>
     );
 }
+ 

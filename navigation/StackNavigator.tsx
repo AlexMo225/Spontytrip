@@ -21,11 +21,13 @@ import {
     // Profile Screens
     EditProfileScreen,
     EditTripScreen,
+    ExploreScreen,
     ForgotPasswordScreen,
     GalleryScreen,
     // Main Tab Screens
     HomeScreen,
     InviteMembersScreen,
+    JoinTripScreen,
     // Auth Screens
     LoginScreen,
     MyTripsScreen,
@@ -61,6 +63,9 @@ function MainTabNavigator() {
                                 : "airplane-outline";
                             break;
                         case "Discover":
+                            iconName = focused ? "globe" : "globe-outline";
+                            break;
+                        case "Explore":
                             iconName = focused ? "compass" : "compass-outline";
                             break;
                         case "Profile":
@@ -74,7 +79,7 @@ function MainTabNavigator() {
                         <Ionicons name={iconName} size={size} color={color} />
                     );
                 },
-                tabBarActiveTintColor: Colors.primary,
+                tabBarActiveTintColor: "#7ED957",
                 tabBarInactiveTintColor: Colors.text.muted,
                 tabBarStyle: {
                     height: Spacing.tabBarHeight,
@@ -105,6 +110,11 @@ function MainTabNavigator() {
                 name="Discover"
                 component={DiscoverScreen}
                 options={{ title: "Découvrir" }}
+            />
+            <Tab.Screen
+                name="Explore"
+                component={ExploreScreen}
+                options={{ title: "Explorer" }}
             />
             <Tab.Screen
                 name="Profile"
@@ -169,7 +179,7 @@ export default function StackNavigator() {
 
                 {/* Main App */}
                 <Stack.Screen
-                    name="MainTab"
+                    name="MainApp"
                     component={MainTabNavigator}
                     options={{ headerShown: false }}
                 />
@@ -179,8 +189,16 @@ export default function StackNavigator() {
                     name="CreateTrip"
                     component={CreateTripScreen}
                     options={{
-                        title: "Créer un voyage",
+                        headerShown: false,
                         presentation: "modal",
+                    }}
+                />
+                <Stack.Screen
+                    name="JoinTrip"
+                    component={JoinTripScreen}
+                    options={{
+                        title: "Rejoindre un voyage",
+                        headerShown: false,
                     }}
                 />
                 <Stack.Screen

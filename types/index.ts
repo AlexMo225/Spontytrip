@@ -85,10 +85,16 @@ export type RootStackParamList = {
     ForgotPassword: undefined;
 
     // Main App
-    MainTab: undefined;
+    MainApp:
+        | {
+              screen?: keyof MainTabParamList;
+              params?: any;
+          }
+        | undefined;
 
     // Trip Management
-    CreateTrip: undefined;
+    CreateTrip: { selectedDestination?: string } | undefined;
+    JoinTrip: undefined;
     TripDetails: { tripId: string };
     EditTrip: { tripId: string };
     CitySuggestions: undefined;
@@ -109,7 +115,8 @@ export type RootStackParamList = {
 export type MainTabParamList = {
     Home: undefined;
     MyTrips: undefined;
-    Discover: undefined;
+    Discover: { fromCreateTrip?: boolean } | undefined;
+    Explore: undefined;
     Profile: undefined;
 };
 

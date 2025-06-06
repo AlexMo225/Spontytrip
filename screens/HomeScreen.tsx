@@ -11,12 +11,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors, Fonts, Spacing } from "../constants";
+import { Colors, Fonts, Spacing } from "../constants/";
 import { RootStackParamList } from "../types";
 
 type HomeScreenNavigationProp = StackNavigationProp<
     RootStackParamList,
-    "MainTab"
+    "MainApp"
 >;
 
 const HomeScreen = () => {
@@ -70,7 +70,19 @@ const HomeScreen = () => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.logo}>SpontyTrip</Text>
+                    <View style={styles.logoContainer}>
+                        <View style={styles.logoIconContainer}>
+                            <Ionicons
+                                name="location"
+                                size={20}
+                                color="#7ED957"
+                            />
+                        </View>
+                        <View style={styles.logoTextContainer}>
+                            <Text style={styles.logoSponty}>Sponty</Text>
+                            <Text style={styles.logoTrip}>Trip</Text>
+                        </View>
+                    </View>
                     <TouchableOpacity style={styles.profileButton}>
                         <Ionicons
                             name="person-circle-outline"
@@ -99,10 +111,7 @@ const HomeScreen = () => {
                     <TouchableOpacity
                         style={[styles.actionButton, styles.joinTripButton]}
                         onPress={() => {
-                            // Pour l'instant, on peut naviguer vers MyTrips ou implémenter une logique de scan QR
-                            console.log(
-                                "Fonctionnalité 'Rejoindre un voyage' à implémenter"
-                            );
+                            navigation.navigate("JoinTrip");
                         }}
                     >
                         <Text style={styles.joinTripButtonText}>
@@ -213,12 +222,35 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.large,
         backgroundColor: Colors.backgroundColors.primary,
     },
-    logo: {
-        fontSize: 20,
+    logoContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginLeft: Spacing.medium,
+    },
+    logoIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: "#F0F8F0",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 8,
+    },
+    logoTextContainer: {
+        flexDirection: "row",
+        alignItems: "baseline",
+    },
+    logoSponty: {
+        fontSize: 22,
         fontFamily: Fonts.heading.family,
-        fontWeight: Fonts.heading.weight,
-        color: Colors.text.primary,
-        marginLeft: Spacing.large + Spacing.small,
+        fontWeight: "700",
+        color: "#4DA1A9",
+    },
+    logoTrip: {
+        fontSize: 22,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "700",
+        color: "#7ED957",
     },
     profileButton: {
         padding: Spacing.small,

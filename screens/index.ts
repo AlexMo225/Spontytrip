@@ -10,6 +10,7 @@ export { default as RegisterScreen } from "./RegisterScreen";
 
 // Main Tab Screens
 export { default as DiscoverScreen } from "./DiscoverScreen";
+export { default as ExploreScreen } from "./ExploreScreen";
 export { default as HomeScreen } from "./HomeScreen";
 export { default as MyTripsScreen } from "./MyTripsScreen";
 export { default as ProfileScreen } from "./ProfileScreen";
@@ -19,6 +20,7 @@ export { default as CitySuggestionsScreen } from "./CitySuggestionsScreen";
 export { default as CreateTripScreen } from "./CreateTripScreen";
 export { default as DateSelectionScreen } from "./DateSelectionScreen";
 export { default as EditTripScreen } from "./EditTripScreen";
+export { default as JoinTripScreen } from "./JoinTripScreen";
 export { default as TripDetailsScreen } from "./TripDetailsScreen";
 
 // Trip Features Screens

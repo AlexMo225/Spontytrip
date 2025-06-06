@@ -43,7 +43,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         setTimeout(() => {
             setIsLoading(false);
             // Connexion réussie, aller vers l'app principale
-            navigation.replace("MainTab");
+            navigation.replace("MainApp");
         }, 1500);
     };
 

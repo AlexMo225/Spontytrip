@@ -9,6 +9,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
@@ -95,10 +96,11 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
     const renderLogo = () => (
         <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-                <View style={styles.logoInnerCircle} />
-            </View>
-            <Text style={styles.logoText}>Sponty Trip</Text>
+            <SpontyTripLogoAnimated
+                size="large"
+                autoPlay={true}
+                onAnimationComplete={undefined} // Pas de navigation automatique
+            />
         </View>
     );
 
@@ -144,7 +146,10 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
                     {/* Texte principal */}
                     <View style={styles.textContainer}>
-                        <Text style={styles.title}>{item.title}</Text>
+                        {/* Ne pas afficher le titre sur la page avec le logo */}
+                        {!item.showLogo && (
+                            <Text style={styles.title}>{item.title}</Text>
+                        )}
                         {item.subtitle ? (
                             <Text style={styles.subtitle}>{item.subtitle}</Text>
                         ) : null}
@@ -234,27 +239,6 @@ const styles = StyleSheet.create({
     logoContainer: {
         alignItems: "center",
         marginTop: Spacing.xl,
-    },
-    logoCircle: {
-        width: 72,
-        height: 74,
-        borderRadius: 37,
-        backgroundColor: Colors.secondary,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: Spacing.md,
-    },
-    logoInnerCircle: {
-        width: 29,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-    },
-    logoText: {
-        ...TextStyles.h1,
-        color: Colors.textPrimary,
-        fontWeight: "700",
-        textAlign: "center",
     },
     imageContainer: {
         width: "100%",

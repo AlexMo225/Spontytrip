@@ -59,7 +59,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             Alert.alert("Succès", "Compte créé avec succès !", [
                 {
                     text: "OK",
-                    onPress: () => navigation.replace("MainTab"),
+                    onPress: () => navigation.replace("MainApp"),
                 },
             ]);
         }, 1500);
