@@ -1,18 +1,8 @@
 import { StackNavigationProp } from "@react-navigation/stack";
-import React, { useRef, useState } from "react";
-import {
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
+import { Fonts } from "../constants/Fonts";
 import { RootStackParamList } from "../types";
 
 type OnboardingScreenNavigationProp = StackNavigationProp<
@@ -24,313 +14,244 @@ interface Props {
     navigation: OnboardingScreenNavigationProp;
 }
 
-const { width } = Dimensions.get("window");
-
 const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
-    const [currentPage, setCurrentPage] = useState(0);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const [logoOpacity] = useState(new Animated.Value(0));
+    const [textOpacity] = useState(new Animated.Value(0));
+    const circleAnimation = useRef(new Animated.Value(0)).current;
 
-    const onboardingData = [
-        {
-            id: 1,
-            title: "Sponty Trip",
-            subtitle: "Préparez, partez. Ensemble.",
-            description: "",
-            showLogo: true,
-            buttonText: "Commencer",
-            showPagination: false,
-        },
-        {
-            id: 2,
-            title: "Organize without stress",
-            subtitle: "",
-            description:
-                "SpontyTrip simplifies weekend planning, so you can focus on the fun with your friends.",
-            showLogo: false,
-            buttonText: "",
-            showPagination: true,
-            imageColor: "#4DA1A9", // Couleur placeholder pour l'image
-        },
-        {
-            id: 3,
-            title: "Répartissez les objets facilement",
-            subtitle: "",
-            description:
-                "Plus besoin de se demander qui apporte quoi. SpontyTrip vous permet de répartir les objets à emporter en un clin d'oeil.",
-            showLogo: false,
-            buttonText: "Suivant",
-            showPagination: true,
-            imageColor: "#7ED957", // Couleur placeholder pour l'image
-        },
-    ];
+    useEffect(() => {
+        // Animation d'apparition du logo
+        Animated.sequence([
+            Animated.timing(logoOpacity, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true,
+            }),
+            Animated.timing(textOpacity, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+        ]).start();
 
-    const handleNext = () => {
-        if (currentPage < onboardingData.length - 1) {
-            const nextPage = currentPage + 1;
-            setCurrentPage(nextPage);
-            scrollViewRef.current?.scrollTo({
-                x: nextPage * width,
-                animated: true,
-            });
-        } else {
-            // Dernière page, aller vers Login
-            navigation.replace("Login");
-        }
-    };
+        // Animation continue du petit cercle blanc
+        const animateCircle = () => {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(circleAnimation, {
+                        toValue: 1,
+                        duration: 2000,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(circleAnimation, {
+                        toValue: 0,
+                        duration: 2000,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        };
 
-    const handleStart = () => {
-        // Premier bouton "Commencer"
-        const nextPage = currentPage + 1;
-        setCurrentPage(nextPage);
-        scrollViewRef.current?.scrollTo({
-            x: nextPage * width,
-            animated: true,
-        });
-    };
+        // Démarrer l'animation du cercle après l'apparition du logo
+        const circleTimer = setTimeout(() => {
+            animateCircle();
+        }, 1200);
 
-    const handleScroll = (event: any) => {
-        const contentOffsetX = event.nativeEvent.contentOffset.x;
-        const currentIndex = Math.round(contentOffsetX / width);
-        setCurrentPage(currentIndex);
-    };
+        // Timer de redirection après 5 secondes
+        const redirectTimer = setTimeout(() => {
+            // TODO: Vérifier si l'utilisateur est connecté
+            const isUserLoggedIn = false; // À remplacer par la vraie logique d'auth
 
-    const renderLogo = () => (
-        <View style={styles.logoContainer}>
-            <SpontyTripLogoAnimated
-                size="large"
-                autoPlay={true}
-                onAnimationComplete={undefined} // Pas de navigation automatique
-            />
-        </View>
-    );
+            if (isUserLoggedIn) {
+                // Si connecté, aller directement à l'app
+                navigation.replace("MainApp");
+            } else {
+                // Sinon, aller vers login
+                navigation.replace("Login");
+            }
+        }, 5000); // 5 secondes
 
-    const renderPagination = () => (
-        <View style={styles.paginationContainer}>
-            {onboardingData.map((_, index) => (
-                <View
-                    key={index}
-                    style={[
-                        styles.paginationDot,
-                        index === currentPage
-                            ? styles.paginationDotActive
-                            : styles.paginationDotInactive,
-                    ]}
-                />
-            ))}
-        </View>
-    );
+        // Nettoyage des timers si le component est démonté
+        return () => {
+            clearTimeout(redirectTimer);
+            clearTimeout(circleTimer);
+        };
+    }, [navigation, logoOpacity, textOpacity, circleAnimation]);
 
-    const renderPage = (item: any, index: number) => (
-        <View key={item.id} style={styles.page}>
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.content}>
-                    {/* Header avec logo ou image */}
-                    <View style={styles.headerContainer}>
-                        {item.showLogo ? (
-                            renderLogo()
-                        ) : (
-                            <View
-                                style={[
-                                    styles.imageContainer,
-                                    { backgroundColor: item.imageColor },
-                                ]}
-                            >
-                                <View style={styles.imagePlaceholder}>
-                                    <Text style={styles.imagePlaceholderText}>
-                                        📱
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
-                    </View>
+    // Calculer les positions du petit cercle (mouvement circulaire)
+    const circleTranslateX = circleAnimation.interpolate({
+        inputRange: [0, 0.25, 0.5, 0.75, 1],
+        outputRange: [0, 20, 0, -20, 0],
+    });
 
-                    {/* Texte principal */}
-                    <View style={styles.textContainer}>
-                        {/* Ne pas afficher le titre sur la page avec le logo */}
-                        {!item.showLogo && (
-                            <Text style={styles.title}>{item.title}</Text>
-                        )}
-                        {item.subtitle ? (
-                            <Text style={styles.subtitle}>{item.subtitle}</Text>
-                        ) : null}
-                        {item.description ? (
-                            <Text style={styles.description}>
-                                {item.description}
-                            </Text>
-                        ) : null}
-                    </View>
+    const circleTranslateY = circleAnimation.interpolate({
+        inputRange: [0, 0.25, 0.5, 0.75, 1],
+        outputRange: [-20, 0, 20, 0, -20],
+    });
 
-                    {/* Pagination */}
-                    <View style={styles.bottomContainer}>
-                        {item.showPagination && renderPagination()}
-
-                        {/* Bouton */}
-                        {item.buttonText ? (
-                            <TouchableOpacity
-                                style={[
-                                    styles.button,
-                                    index === 0
-                                        ? styles.startButton
-                                        : styles.nextButton,
-                                ]}
-                                onPress={index === 0 ? handleStart : handleNext}
-                                activeOpacity={0.8}
-                            >
-                                <Text
-                                    style={[
-                                        styles.buttonText,
-                                        index === 0
-                                            ? styles.startButtonText
-                                            : styles.nextButtonText,
-                                    ]}
-                                >
-                                    {item.buttonText}
-                                </Text>
-                            </TouchableOpacity>
-                        ) : null}
-                    </View>
-                </View>
-            </SafeAreaView>
-        </View>
-    );
+    const circleScale = circleAnimation.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [1, 1.2, 1],
+    });
 
     return (
-        <View style={styles.container}>
-            <ScrollView
-                ref={scrollViewRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
-                style={styles.scrollView}
-            >
-                {onboardingData.map((item, index) => renderPage(item, index))}
-            </ScrollView>
-        </View>
+        <SafeAreaView style={styles.container}>
+            <View style={styles.content}>
+                {/* Logo animé */}
+                <Animated.View
+                    style={[styles.logoContainer, { opacity: logoOpacity }]}
+                >
+                    <View style={styles.logoCircle}>
+                        <Animated.View
+                            style={[
+                                styles.logoInnerCircle,
+                                {
+                                    transform: [
+                                        { translateX: circleTranslateX },
+                                        { translateY: circleTranslateY },
+                                        { scale: circleScale },
+                                    ],
+                                },
+                            ]}
+                        />
+                    </View>
+                    <Text style={styles.logoText}>
+                        <Text style={styles.logoTextSponty}>Sponty</Text>
+                        {"\n"}
+                        <Text style={styles.logoTextTrip}>Trip</Text>
+                    </Text>
+                </Animated.View>
+
+                {/* Slogan animé */}
+                <Animated.View
+                    style={[styles.sloganContainer, { opacity: textOpacity }]}
+                >
+                    <Text style={styles.slogan}>
+                        Préparez, partez. Ensemble.
+                    </Text>
+                </Animated.View>
+            </View>
+
+            {/* Indicateur de chargement subtil */}
+            <View style={styles.footer}>
+                <View style={styles.loadingDots}>
+                    <LoadingDot delay={0} />
+                    <LoadingDot delay={300} />
+                    <LoadingDot delay={600} />
+                </View>
+            </View>
+        </SafeAreaView>
     );
+};
+
+// Composant pour les points de chargement animés
+const LoadingDot: React.FC<{ delay: number }> = ({ delay }) => {
+    const [opacity] = useState(new Animated.Value(0.3));
+
+    useEffect(() => {
+        const animate = () => {
+            Animated.sequence([
+                Animated.timing(opacity, {
+                    toValue: 1,
+                    duration: 500,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(opacity, {
+                    toValue: 0.3,
+                    duration: 500,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => animate());
+        };
+
+        const timer = setTimeout(animate, delay);
+        return () => clearTimeout(timer);
+    }, [opacity, delay]);
+
+    return <Animated.View style={[styles.dot, { opacity }]} />;
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    page: {
-        width: width,
-        flex: 1,
-    },
-    safeArea: {
-        flex: 1,
+        backgroundColor: Colors.backgroundColors.primary,
     },
     content: {
         flex: 1,
-        paddingHorizontal: Spacing.md,
-    },
-    headerContainer: {
-        flex: 0.4,
         justifyContent: "center",
         alignItems: "center",
-        paddingTop: Spacing.xl,
+        paddingHorizontal: 32,
     },
     logoContainer: {
         alignItems: "center",
-        marginTop: Spacing.xl,
+        marginBottom: 60,
     },
-    imageContainer: {
-        width: "100%",
-        height: 320,
-        borderRadius: 12,
-        overflow: "hidden",
-        marginHorizontal: Spacing.md,
-    },
-    imagePlaceholder: {
-        flex: 1,
+    logoCircle: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: "#7ED957",
         justifyContent: "center",
         alignItems: "center",
+        marginBottom: 24,
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
     },
-    imagePlaceholderText: {
-        fontSize: 80,
-        opacity: 0.7,
+    logoInnerCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: Colors.backgroundColors.primary,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    textContainer: {
-        flex: 0.3,
-        justifyContent: "center",
-        paddingHorizontal: Spacing.sm,
-    },
-    title: {
-        ...TextStyles.h2,
-        color: Colors.textPrimary,
+    logoText: {
         textAlign: "center",
-        marginBottom: Spacing.sm,
-        fontWeight: "600",
+        lineHeight: 48,
     },
-    subtitle: {
-        ...TextStyles.h3,
-        color: "rgba(0, 0, 0, 0.8)",
-        textAlign: "center",
-        marginBottom: Spacing.md,
-        fontWeight: "500",
+    logoTextSponty: {
+        fontSize: 42,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "700",
+        color: "#4DA1A9",
     },
-    description: {
-        ...TextStyles.body1,
-        color: Colors.textPrimary,
-        textAlign: "center",
-        lineHeight: 24,
-        paddingHorizontal: Spacing.xs,
+    logoTextTrip: {
+        fontSize: 42,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "700",
+        color: "#7ED957",
     },
-    bottomContainer: {
-        flex: 0.3,
-        justifyContent: "flex-end",
+    sloganContainer: {
         alignItems: "center",
-        paddingBottom: Spacing.xl,
     },
-    paginationContainer: {
+    slogan: {
+        fontSize: 18,
+        fontFamily: Fonts.body.family,
+        fontWeight: "400",
+        color: Colors.text.secondary,
+        textAlign: "center",
+        lineHeight: 26,
+    },
+    footer: {
+        paddingBottom: 50,
+        alignItems: "center",
+    },
+    loadingDots: {
         flexDirection: "row",
-        justifyContent: "center",
         alignItems: "center",
-        marginBottom: Spacing.lg,
     },
-    paginationDot: {
+    dot: {
         width: 8,
         height: 8,
         borderRadius: 4,
-        marginHorizontal: 6,
-    },
-    paginationDotActive: {
-        backgroundColor: Colors.textPrimary,
-    },
-    paginationDotInactive: {
-        backgroundColor: "#DCE0E5",
-    },
-    button: {
-        borderRadius: 24,
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.xl,
-        minWidth: 200,
-        alignItems: "center",
-    },
-    startButton: {
-        backgroundColor: Colors.secondary,
-        opacity: 0.91,
-    },
-    nextButton: {
-        backgroundColor: "transparent",
-        borderWidth: 1,
-        borderColor: Colors.textSecondary,
-    },
-    buttonText: {
-        ...TextStyles.button,
-        fontWeight: "600",
-    },
-    startButtonText: {
-        color: Colors.white,
-    },
-    nextButtonText: {
-        color: Colors.textSecondary,
+        backgroundColor: "#4DA1A9",
+        marginHorizontal: 4,
     },
 });
 

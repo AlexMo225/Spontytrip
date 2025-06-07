@@ -30,22 +30,15 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
     const [tripName, setTripName] = useState("");
     const [dates, setDates] = useState("");
     const [destination, setDestination] = useState("");
+    const [tripType, setTripType] = useState("");
     const [emails, setEmails] = useState("");
 
-    // Récupérer la destination pré-remplie depuis DiscoverScreen
+    // Récupérer la destination pré-remplie depuis DiscoverScreen (optionnel)
     useEffect(() => {
         if (route.params?.selectedDestination) {
             setDestination(route.params.selectedDestination);
         }
     }, [route.params]);
-
-    const handleChooseDestination = () => {
-        // Navigation vers DiscoverScreen avec paramètre pour revenir ici
-        navigation.navigate("MainApp", {
-            screen: "Discover",
-            params: { fromCreateTrip: true },
-        });
-    };
 
     const handleCreateTrip = () => {
         // Validation basique
@@ -58,16 +51,48 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
             return;
         }
 
-        // Navigation vers TripDetailsScreen (à créer)
-        console.log("Création du séjour:", {
-            tripName,
-            dates,
-            destination,
-            emails,
-        });
+        // Créer un nouvel objet voyage avec des données mock
+        const newTrip = {
+            id: Date.now().toString(),
+            title: tripName.trim(),
+            destination: destination.trim(),
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 jours
+            description: `Voyage ${tripType} à ${destination}`,
+            creatorId: "user-mock-id",
+            members: [
+                {
+                    userId: "user-mock-id",
+                    user: {
+                        id: "user-mock-id",
+                        firstName: "Vous",
+                        lastName: "",
+                        email: "vous@example.com",
+                        createdAt: new Date(),
+                    },
+                    role: "creator" as const,
+                    joinedAt: new Date(),
+                },
+            ],
+            inviteCode: Math.random()
+                .toString(36)
+                .substring(2, 8)
+                .toUpperCase(),
+            coverImage: `https://images.unsplash.com/photo-${Math.floor(
+                Math.random() * 9999999999
+            )}?w=800&h=400&fit=crop`,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            tripType: tripType,
+            dates: dates.trim() || "À définir",
+        };
 
-        // Temporaire : afficher un alert
-        Alert.alert("Succès", "Séjour créé avec succès !");
+        console.log("Voyage créé:", newTrip);
+
+        // Navigation directe vers TripDetailsScreen
+        navigation.navigate("TripDetails", {
+            tripId: newTrip.id,
+        });
     };
 
     const handleShowQRCode = () => {
@@ -139,21 +164,44 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                 {/* Destination */}
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Destination</Text>
-                    <TouchableOpacity
-                        style={styles.destinationButton}
-                        onPress={handleChooseDestination}
-                    >
-                        <Text
-                            style={[
-                                styles.destinationText,
-                                destination
-                                    ? styles.destinationSelected
-                                    : styles.destinationPlaceholder,
-                            ]}
-                        >
-                            {destination || "Destination"}
-                        </Text>
-                    </TouchableOpacity>
+                    <TextInput
+                        style={styles.textInput}
+                        placeholder="Où voulez-vous aller ?"
+                        placeholderTextColor="#637887"
+                        value={destination}
+                        onChangeText={setDestination}
+                    />
+                </View>
+
+                {/* Type de voyage */}
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Type de voyage</Text>
+                    <View style={styles.tripTypeContainer}>
+                        {["plage", "montagne", "citytrip", "campagne"].map(
+                            (type) => (
+                                <TouchableOpacity
+                                    key={type}
+                                    style={[
+                                        styles.tripTypeButton,
+                                        tripType === type &&
+                                            styles.tripTypeButtonSelected,
+                                    ]}
+                                    onPress={() => setTripType(type)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.tripTypeText,
+                                            tripType === type &&
+                                                styles.tripTypeTextSelected,
+                                        ]}
+                                    >
+                                        {type.charAt(0).toUpperCase() +
+                                            type.slice(1)}
+                                    </Text>
+                                </TouchableOpacity>
+                            )
+                        )}
+                    </View>
                 </View>
 
                 {/* Inviter des amis */}
@@ -276,24 +324,34 @@ const styles = StyleSheet.create({
         borderLeftWidth: 1,
         borderLeftColor: "#DBE0E5",
     },
-    destinationButton: {
-        backgroundColor: Colors.background,
-        borderWidth: 1,
-        borderColor: "#DBE0E5",
+
+    tripTypeContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 12,
+    },
+    tripTypeButton: {
+        backgroundColor: "#F0F2F5",
         borderRadius: 12,
         paddingHorizontal: 16,
-        paddingVertical: 16,
-        height: 56,
-        justifyContent: "center",
+        paddingVertical: 12,
+        borderWidth: 2,
+        borderColor: "transparent",
+        minWidth: 80,
+        alignItems: "center",
     },
-    destinationText: {
+    tripTypeButtonSelected: {
+        backgroundColor: "#4DA1A9",
+        borderColor: "#4DA1A9",
+    },
+    tripTypeText: {
         ...TextStyles.body1,
-    },
-    destinationPlaceholder: {
-        color: "#637887",
-    },
-    destinationSelected: {
         color: Colors.textPrimary,
+        fontWeight: "500",
+    },
+    tripTypeTextSelected: {
+        color: "#FFFFFF",
+        fontWeight: "600",
     },
     inviteSection: {
         marginBottom: 32,
@@ -324,17 +382,17 @@ const styles = StyleSheet.create({
     },
     qrCodeButton: {
         backgroundColor: "#F0F2F4",
-        borderRadius: 20,
+        borderRadius: 12,
         paddingHorizontal: 16,
-        paddingVertical: 10,
         alignSelf: "flex-start",
-        height: 40,
+        height: 48,
         justifyContent: "center",
+        alignItems: "center",
     },
     qrCodeButtonText: {
-        ...TextStyles.body2,
+        ...TextStyles.button,
         color: Colors.textPrimary,
-        fontSize: 14,
+        fontWeight: "600",
     },
     bottomContainer: {
         padding: 16,
@@ -342,16 +400,16 @@ const styles = StyleSheet.create({
     },
     createButton: {
         backgroundColor: "#4DA1A9",
-        borderRadius: 24,
-        paddingVertical: 12,
+        borderRadius: 12,
         alignItems: "center",
         height: 48,
         justifyContent: "center",
+        paddingHorizontal: 16,
     },
     createButtonText: {
-        ...TextStyles.h3,
-        color: Colors.background,
-        fontSize: 16,
+        ...TextStyles.button,
+        color: "#FFFFFF",
+        fontWeight: "600",
     },
 });
 

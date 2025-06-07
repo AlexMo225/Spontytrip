@@ -10,13 +10,11 @@ import { MainTabParamList, RootStackParamList } from "../types";
 
 // Import all screens from index
 import {
+    ActivitiesScreen,
     ChatScreen,
-    // Trip Features Screens
     ChecklistScreen,
-    CitySuggestionsScreen,
     // Trip Management Screens
     CreateTripScreen,
-    DateSelectionScreen,
     DiscoverScreen,
     // Profile Screens
     EditProfileScreen,
@@ -26,7 +24,6 @@ import {
     GalleryScreen,
     // Main Tab Screens
     HomeScreen,
-    InviteMembersScreen,
     JoinTripScreen,
     // Auth Screens
     LoginScreen,
@@ -34,7 +31,6 @@ import {
     OnboardingScreen,
     ProfileScreen,
     RegisterScreen,
-    SettingsScreen,
     TripDetailsScreen,
 } from "../screens";
 
@@ -215,22 +211,15 @@ export default function StackNavigator() {
                         title: "Modifier le voyage",
                     }}
                 />
-                <Stack.Screen
-                    name="CitySuggestions"
-                    component={CitySuggestionsScreen}
-                    options={{
-                        title: "Choisir une destination",
-                    }}
-                />
-                <Stack.Screen
-                    name="DateSelection"
-                    component={DateSelectionScreen}
-                    options={{
-                        title: "Choisir les dates",
-                    }}
-                />
 
                 {/* Trip Features */}
+                <Stack.Screen
+                    name="Activities"
+                    component={ActivitiesScreen}
+                    options={{
+                        title: "Activités",
+                    }}
+                />
                 <Stack.Screen
                     name="Checklist"
                     component={ChecklistScreen}
@@ -252,14 +241,6 @@ export default function StackNavigator() {
                         title: "Galerie",
                     }}
                 />
-                <Stack.Screen
-                    name="InviteMembers"
-                    component={InviteMembersScreen}
-                    options={{
-                        title: "Inviter des amis",
-                        presentation: "modal",
-                    }}
-                />
 
                 {/* Profile */}
                 <Stack.Screen
@@ -267,13 +248,6 @@ export default function StackNavigator() {
                     component={EditProfileScreen}
                     options={{
                         title: "Modifier le profil",
-                    }}
-                />
-                <Stack.Screen
-                    name="Settings"
-                    component={SettingsScreen}
-                    options={{
-                        title: "Paramètres",
                     }}
                 />
             </Stack.Navigator>

@@ -238,11 +238,11 @@ const styles = StyleSheet.create({
     },
     joinButton: {
         backgroundColor: "#4DA1A9",
-        borderRadius: 20,
-        paddingVertical: 10,
+        borderRadius: 12,
         alignItems: "center",
-        height: 40,
+        height: 48,
         justifyContent: "center",
+        paddingHorizontal: 16,
         marginBottom: 16,
     },
     joinButtonDisabled: {
@@ -269,11 +269,11 @@ const styles = StyleSheet.create({
     },
     qrButton: {
         backgroundColor: "#4DA1A9",
-        borderRadius: 20,
-        paddingVertical: 15,
+        borderRadius: 12,
         alignItems: "center",
-        height: 50,
+        height: 48,
         justifyContent: "center",
+        paddingHorizontal: 16,
     },
     qrButtonText: {
         ...TextStyles.h3,

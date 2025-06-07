@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     },
     actionButton: {
         height: 48,
-        borderRadius: 24,
+        borderRadius: 12,
         justifyContent: "center",
         alignItems: "center",
         marginBottom: Spacing.small,

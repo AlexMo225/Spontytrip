@@ -8,7 +8,6 @@ import {
 } from "react-native";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
 
 interface ButtonProps {
     title: string;
@@ -35,26 +34,13 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
     const getButtonStyle = (): ViewStyle => {
         const baseStyle: ViewStyle = {
-            borderRadius: Spacing.borderRadius.lg,
+            borderRadius: 12,
             alignItems: "center",
             justifyContent: "center",
             flexDirection: "row",
+            height: 48,
+            paddingHorizontal: 16,
         };
-
-        // Size styles
-        switch (size) {
-            case "small":
-                baseStyle.height = Spacing.buttonSmallHeight;
-                baseStyle.paddingHorizontal = Spacing.lg;
-                break;
-            case "large":
-                baseStyle.height = Spacing.buttonHeight + 8;
-                baseStyle.paddingHorizontal = Spacing.xxl;
-                break;
-            default:
-                baseStyle.height = Spacing.buttonHeight;
-                baseStyle.paddingHorizontal = Spacing.xl;
-        }
 
         // Variant styles
         switch (variant) {
@@ -89,7 +75,8 @@ const Button: React.FC<ButtonProps> = ({
 
     const getTextStyle = (): TextStyle => {
         const baseTextStyle: TextStyle = {
-            ...(size === "small" ? TextStyles.buttonSmall : TextStyles.button),
+            ...TextStyles.button,
+            fontWeight: "600",
         };
 
         switch (variant) {
@@ -104,9 +91,7 @@ const Button: React.FC<ButtonProps> = ({
                     : Colors.primary;
                 break;
             default:
-                baseTextStyle.color = disabled
-                    ? Colors.textMuted
-                    : Colors.textWhite;
+                baseTextStyle.color = disabled ? Colors.textMuted : "#FFFFFF";
         }
 
         return baseTextStyle;
@@ -125,7 +110,7 @@ const Button: React.FC<ButtonProps> = ({
                     color={
                         variant === "outline" || variant === "ghost"
                             ? Colors.primary
-                            : Colors.white
+                            : "#FFFFFF"
                     }
                 />
             ) : (

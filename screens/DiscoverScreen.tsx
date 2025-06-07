@@ -153,9 +153,9 @@ const destinations: Destination[] = [
 ];
 
 const categories = [
-    { id: "plage", label: "Beach", key: "plage" },
+    { id: "plage", label: "Plage", key: "plage" },
     { id: "nature", label: "Nature", key: "nature" },
-    { id: "ville", label: "City", key: "ville" },
+    { id: "ville", label: "Ville", key: "ville" },
     { id: "culture", label: "Culture", key: "culture" },
 ];
 
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     categoryButtonActive: {
-        backgroundColor: Colors.primary,
+        backgroundColor: "#7ED957",
     },
     categoryText: {
         ...TextStyles.body2,

@@ -80,8 +80,20 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Header */}
+                    {/* Header avec logo */}
                     <View style={styles.header}>
+                        <View style={styles.logoContainer}>
+                            <View style={styles.logoCircle}>
+                                <View style={styles.logoInnerCircle} />
+                            </View>
+                            <Text style={styles.logoText}>
+                                <Text style={styles.logoTextSponty}>
+                                    Sponty
+                                </Text>
+                                {"\n"}
+                                <Text style={styles.logoTextTrip}>Trip</Text>
+                            </Text>
+                        </View>
                         <Text style={styles.title}>Créer votre compte</Text>
                     </View>
 
@@ -143,7 +155,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                             activeOpacity={0.8}
                         >
                             <Text style={styles.registerButtonText}>
-                                {isLoading ? "Création..." : "S&apos;inscrire"}
+                                {isLoading ? "Création..." : "S'inscrire"}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -184,13 +196,51 @@ const styles = StyleSheet.create({
     header: {
         paddingTop: Spacing.lg,
         paddingBottom: Spacing.xl,
-        alignItems: "flex-start",
+        alignItems: "center",
+    },
+    logoContainer: {
+        alignItems: "center",
+        marginBottom: Spacing.md,
+    },
+    logoCircle: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: "#7ED957",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 12,
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    logoInnerCircle: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: Colors.white,
+    },
+    logoText: {
+        textAlign: "center",
+        lineHeight: 24,
+    },
+    logoTextSponty: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#4DA1A9",
+    },
+    logoTextTrip: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#7ED957",
     },
     title: {
         ...TextStyles.h2,
         color: Colors.textPrimary,
         fontWeight: "600",
-        marginLeft: Spacing.xs,
+        textAlign: "center",
     },
     form: {
         flex: 1,
@@ -210,11 +260,10 @@ const styles = StyleSheet.create({
     },
     registerButton: {
         height: 48,
-        backgroundColor: Colors.secondary,
+        backgroundColor: "#7ED957",
         borderRadius: 12,
         justifyContent: "center",
         alignItems: "center",
-        opacity: 0.91,
         marginTop: Spacing.md,
     },
     registerButtonDisabled: {
@@ -222,7 +271,7 @@ const styles = StyleSheet.create({
     },
     registerButtonText: {
         ...TextStyles.button,
-        color: Colors.textPrimary,
+        color: "#FFFFFF",
         fontWeight: "600",
     },
     footer: {

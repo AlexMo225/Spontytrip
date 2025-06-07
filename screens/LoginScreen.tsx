@@ -68,7 +68,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 >
                     {/* Header avec logo */}
                     <View style={styles.header}>
-                        <Text style={styles.logo}>SpontyTrip</Text>
+                        <View style={styles.logoContainer}>
+                            <View style={styles.logoCircle}>
+                                <View style={styles.logoInnerCircle} />
+                            </View>
+                            <Text style={styles.logoText}>
+                                <Text style={styles.logoTextSponty}>
+                                    Sponty
+                                </Text>
+                                {"\n"}
+                                <Text style={styles.logoTextTrip}>Trip</Text>
+                            </Text>
+                        </View>
                     </View>
 
                     {/* Formulaire */}
@@ -169,14 +180,45 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingTop: Spacing.md,
-        paddingBottom: Spacing.xl,
-        alignItems: "flex-start",
+        paddingBottom: Spacing.lg,
+        alignItems: "center",
     },
-    logo: {
-        ...TextStyles.h3,
-        color: Colors.textPrimary,
-        fontWeight: "600",
-        marginLeft: Spacing.lg,
+    logoContainer: {
+        alignItems: "center",
+    },
+    logoCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "#7ED957",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 16,
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    logoInnerCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: Colors.white,
+    },
+    logoText: {
+        textAlign: "center",
+        lineHeight: 32,
+    },
+    logoTextSponty: {
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#4DA1A9",
+    },
+    logoTextTrip: {
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#7ED957",
     },
     form: {
         flex: 1,
@@ -212,18 +254,17 @@ const styles = StyleSheet.create({
     },
     loginButton: {
         height: 48,
-        backgroundColor: Colors.secondary,
+        backgroundColor: "#7ED957",
         borderRadius: 12,
         justifyContent: "center",
         alignItems: "center",
-        opacity: 0.91,
     },
     loginButtonDisabled: {
         opacity: 0.6,
     },
     loginButtonText: {
         ...TextStyles.button,
-        color: Colors.textPrimary,
+        color: "#FFFFFF",
         fontWeight: "600",
     },
     footer: {

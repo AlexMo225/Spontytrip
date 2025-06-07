@@ -43,6 +43,35 @@ export interface ChecklistItem {
     createdAt: Date;
 }
 
+// Types pour les activités
+export interface Activity {
+    id: string;
+    tripId: string;
+    title: string;
+    description?: string;
+    date: Date;
+    startTime?: string;
+    endTime?: string;
+    location?: string;
+    address?: string;
+    price?: number;
+    currency?: string;
+    category:
+        | "visite"
+        | "restaurant"
+        | "transport"
+        | "hébergement"
+        | "activité"
+        | "autre";
+    status: "planifiée" | "confirmée" | "annulée" | "terminée";
+    createdBy: string;
+    assignedTo?: string[];
+    notes?: string;
+    attachments?: string[];
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 export interface ChatMessage {
     id: string;
     tripId: string;
@@ -97,19 +126,24 @@ export type RootStackParamList = {
     JoinTrip: undefined;
     TripDetails: { tripId: string };
     EditTrip: { tripId: string };
-    CitySuggestions: undefined;
-    DateSelection: { destination: string };
 
     // Trip Features
     Checklist: { tripId: string };
     Chat: { tripId: string };
     Gallery: { tripId: string };
-    InviteMembers: { tripId: string };
+    Activities: { tripId: string };
+
+    // Activity Management - À implémenter avec les maquettes
+    AddActivity: { tripId: string };
+    EditActivity: { tripId: string; activityId: string };
+
+    // Checklist Item Management - À implémenter avec les maquettes
+    AddChecklistItem: { tripId: string };
+    EditChecklistItem: { tripId: string; itemId: string };
 
     // Profile
     Profile: undefined;
     EditProfile: undefined;
-    Settings: undefined;
 };
 
 export type MainTabParamList = {
