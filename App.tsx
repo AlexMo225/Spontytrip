@@ -15,11 +15,16 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 
 // Navigation
-import StackNavigator from "./navigation/StackNavigator";
+import AuthNavigator from "./navigation/AuthNavigator";
+
+// Auth Context
+import { AuthProvider } from "./contexts/AuthContext";
 
 // Constants
 import { Colors } from "./constants/Colors";
 import { Layout } from "./constants/Spacing";
+
+// Navigation et Contexte
 
 export default function App() {
     // Chargement des polices
@@ -49,12 +54,12 @@ export default function App() {
     }
 
     return (
-        <>
+        <AuthProvider>
             <StatusBar
                 style="auto"
                 backgroundColor={Colors.backgroundColors.primary}
             />
-            <StackNavigator />
-        </>
+            <AuthNavigator />
+        </AuthProvider>
     );
 }

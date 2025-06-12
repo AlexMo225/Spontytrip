@@ -16,6 +16,7 @@ import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
 import { RootStackParamList } from "../types";
+import { AuthService } from "../services/authService";
 
 type LoginScreenNavigationProp = StackNavigationProp<
     RootStackParamList,
@@ -39,12 +40,27 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         setIsLoading(true);
 
-        // Simulation d'une connexion (à remplacer par votre API)
-        setTimeout(() => {
+        try {
+            const result = await AuthService.signIn(email, password);
+            
+            if (result.success) {
+                Alert.alert("Succès", "Connexion réussie !", [
+                    {
+                        text: "OK",
+                        onPress: () => {
+                            // La navigation sera gérée automatiquement par AuthNavigator
+                            // grâce au changement d'état d'authentification
+                        }
+                    }
+                ]);
+            } else {
+                Alert.alert("Erreur de connexion", result.error || "Email ou mot de passe incorrect");
+            }
+        } catch (error) {
+            Alert.alert("Erreur", "Une erreur inattendue est survenue");
+        } finally {
             setIsLoading(false);
-            // Connexion réussie, aller vers l'app principale
-            navigation.replace("MainApp");
-        }, 1500);
+        }
     };
 
     const handleForgotPassword = () => {

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Alert,
     Image,
@@ -19,6 +19,7 @@ import Button from "../components/Button";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { useAuth } from "../contexts/AuthContext";
 import { RootStackParamList } from "../types";
 
 type EditProfileScreenNavigationProp = StackNavigationProp<
@@ -33,19 +34,39 @@ interface Props {
 }
 
 const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
+    const { user, updateProfile, updateEmail } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [formData, setFormData] = useState({
-        firstName: "Sophia",
-        lastName: "Carter",
-        email: "sophia.carter@example.com",
-        phone: "+33 6 12 34 56 78",
-        bio: "Passionnée de voyages et d'aventures entre amis ! 🌍✈️",
-        location: "Paris, France",
-        birthDate: "15/03/1995",
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        bio: "",
+        location: "",
+        birthDate: "",
     });
-    const [profileImage, setProfileImage] = useState(
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop&crop=face"
-    );
+    const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [newImageSelected, setNewImageSelected] = useState(false);
+
+    // Initialiser les données du formulaire avec les données utilisateur
+    useEffect(() => {
+        if (user) {
+            const [firstName = "", lastName = ""] = (
+                user.displayName || ""
+            ).split(" ");
+            setFormData({
+                firstName,
+                lastName,
+                email: user.email || "",
+                phone: "",
+                bio: "",
+                location: "",
+                birthDate: "",
+            });
+            setProfileImage(user.photoURL);
+        }
+    }, [user]);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData((prev) => ({
@@ -75,15 +96,78 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         if (!result.canceled && result.assets[0]) {
             setProfileImage(result.assets[0].uri);
+            setNewImageSelected(true);
         }
     };
 
     const handleSave = async () => {
+        if (!user) return;
+
         setIsLoading(true);
 
         try {
-            // Simulation d'une sauvegarde
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            // Mise à jour du displayName si modifié
+            const newDisplayName =
+                `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
+            const currentDisplayName = user.displayName || "";
+
+            let profileUpdateNeeded = false;
+            let emailUpdateNeeded = false;
+
+            // Vérifier si le nom a changé
+            if (newDisplayName !== currentDisplayName) {
+                profileUpdateNeeded = true;
+                console.log("📝 Nom à mettre à jour:", {
+                    ancien: currentDisplayName,
+                    nouveau: newDisplayName,
+                });
+            }
+
+            // Vérifier si la photo a changé
+            if (profileImage !== user.photoURL) {
+                profileUpdateNeeded = true;
+                console.log("📸 Photo à mettre à jour:", {
+                    ancienne: user.photoURL,
+                    nouvelle: profileImage,
+                });
+            }
+
+            // Vérifier si l'email a changé
+            if (formData.email !== user.email) {
+                emailUpdateNeeded = true;
+                console.log("📧 Email à mettre à jour:", {
+                    ancien: user.email,
+                    nouveau: formData.email,
+                });
+            }
+
+            // Mise à jour du profil (nom et photo)
+            if (profileUpdateNeeded) {
+                console.log("🔄 Mise à jour du profil...");
+                const profileSuccess = await updateProfile({
+                    displayName: newDisplayName || undefined,
+                    photoURL: profileImage || undefined,
+                });
+
+                if (!profileSuccess) {
+                    throw new Error("Erreur lors de la mise à jour du profil");
+                }
+                console.log("✅ Profil mis à jour avec succès");
+            }
+
+            // Mise à jour de l'email
+            if (emailUpdateNeeded) {
+                console.log("📧 Mise à jour de l'email...");
+                const emailSuccess = await updateEmail(formData.email);
+
+                if (!emailSuccess) {
+                    throw new Error("Erreur lors de la mise à jour de l'email");
+                }
+                console.log("✅ Email mis à jour avec succès");
+            }
+
+            // Attendre un peu pour s'assurer que la synchronisation est terminée
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
             Alert.alert(
                 "Profil mis à jour",
@@ -91,11 +175,17 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
                 [
                     {
                         text: "OK",
-                        onPress: () => navigation.goBack(),
+                        onPress: () => {
+                            console.log(
+                                "🔄 Retour à l'écran précédent - synchronisation terminée"
+                            );
+                            navigation.goBack();
+                        },
                     },
                 ]
             );
         } catch (error) {
+            console.error("❌ Erreur sauvegarde profil:", error);
             Alert.alert(
                 "Erreur",
                 "Une erreur s'est produite lors de la sauvegarde. Veuillez réessayer."
@@ -137,10 +227,25 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Photo de profil */}
                 <View style={styles.profileImageSection}>
                     <View style={styles.imageContainer}>
-                        <Image
-                            source={{ uri: profileImage }}
-                            style={styles.profileImage}
-                        />
+                        {profileImage ? (
+                            <Image
+                                source={{ uri: profileImage }}
+                                style={styles.profileImage}
+                            />
+                        ) : (
+                            <View
+                                style={[
+                                    styles.profileImage,
+                                    styles.profileImagePlaceholder,
+                                ]}
+                            >
+                                <Ionicons
+                                    name="person"
+                                    size={48}
+                                    color={Colors.textSecondary}
+                                />
+                            </View>
+                        )}
                         <TouchableOpacity
                             style={styles.editImageButton}
                             onPress={handleImagePicker}
@@ -326,6 +431,11 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
+        backgroundColor: Colors.lightGray,
+    },
+    profileImagePlaceholder: {
+        justifyContent: "center",
+        alignItems: "center",
         backgroundColor: Colors.lightGray,
     },
     editImageButton: {

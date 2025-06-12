@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import React from "react";
+import React, { useEffect } from "react";
 import {
     Alert,
     ScrollView,
@@ -14,7 +14,9 @@ import {
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { useAuth } from "../contexts/AuthContext";
 import { MainTabParamList, RootStackParamList } from "../types";
+import Avatar from "../components/Avatar";
 
 type ProfileScreenNavigationProp = CompositeNavigationProp<
     BottomTabNavigationProp<MainTabParamList, "Profile">,
@@ -26,6 +28,25 @@ interface Props {
 }
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
+    const { user, signOut } = useAuth();
+
+    // Debug : Afficher les données utilisateur
+    console.log("🔍 Données utilisateur dans ProfileScreen:", {
+        uid: user?.uid,
+        email: user?.email,
+        displayName: user?.displayName,
+        photoURL: user?.photoURL,
+    });
+
+    // Détecter les changements de données utilisateur
+    useEffect(() => {
+        console.log("🔄 ProfileScreen - Données utilisateur mises à jour:", {
+            displayName: user?.displayName,
+            email: user?.email,
+            photoURL: user?.photoURL,
+        });
+    }, [user?.displayName, user?.email, user?.photoURL]);
+
     const handleEditProfile = () => {
         navigation.navigate("EditProfile");
     };
@@ -58,7 +79,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const handleLogout = () => {
         Alert.alert(
             "Déconnexion",
-            "Êtes-vous sûr de vouloir vous déconnecter ? Vous devrez vous reconnecter pour accéder à votre compte.",
+            "Êtes-vous sûr de vouloir vous déconnecter ?",
             [
                 {
                     text: "Annuler",
@@ -67,16 +88,16 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {
                     text: "Se déconnecter",
                     style: "destructive",
-                    onPress: () => {
-                        // TODO: Effacer les données utilisateur/token stockés
-                        // await AsyncStorage.removeItem('userToken');
-                        // await AsyncStorage.removeItem('userData');
-
-                        // Navigation vers l'écran de connexion
-                        navigation.getParent()?.reset({
-                            index: 0,
-                            routes: [{ name: "Login" }],
-                        });
+                    onPress: async () => {
+                        try {
+                            await signOut();
+                            // La navigation sera gérée automatiquement par AuthNavigator
+                        } catch (error) {
+                            Alert.alert(
+                                "Erreur",
+                                "Impossible de se déconnecter"
+                            );
+                        }
                     },
                 },
             ]
@@ -99,23 +120,27 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.profileInfo}>
                         {/* Photo de profil */}
                         <View style={styles.avatarContainer}>
-                            <View style={styles.avatarPlaceholder}>
-                                <Ionicons
-                                    name="person"
-                                    size={48}
-                                    color={Colors.textSecondary}
-                                />
-                            </View>
+                            <Avatar
+                                imageUrl={user?.photoURL}
+                                size={96}
+                                showBorder={true}
+                            />
                         </View>
 
                         {/* Nom, email et date d'inscription */}
                         <View style={styles.userInfo}>
-                            <Text style={styles.userName}>Sophia Carter</Text>
+                            <Text style={styles.userName}>
+                                {user?.displayName || "Utilisateur"}
+                            </Text>
                             <Text style={styles.userEmail}>
-                                sophia.carter@email.com
+                                {user?.email || "email@example.com"}
                             </Text>
                             <Text style={styles.joinDate}>
-                                Membre depuis juin 2022
+                                Membre depuis{" "}
+                                {new Date().toLocaleDateString("fr-FR", {
+                                    month: "long",
+                                    year: "numeric",
+                                })}
                             </Text>
                         </View>
                     </View>
@@ -370,14 +395,6 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         marginBottom: Spacing.md,
-    },
-    avatarPlaceholder: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: Colors.lightGray,
-        justifyContent: "center",
-        alignItems: "center",
     },
     userInfo: {
         alignItems: "center",
