@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { AuthService } from "../services/authService";
 import { RootStackParamList } from "../types";
 
 type RegisterScreenNavigationProp = StackNavigationProp<
@@ -80,20 +81,40 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
         setIsLoading(true);
 
-        // Simulation d'une inscription (à remplacer par votre API)
-        setTimeout(() => {
-            setIsLoading(false);
-            Alert.alert(
-                "Succès",
-                `Bienvenue ${firstName} ! Votre compte a été créé avec succès.`,
-                [
-                    {
-                        text: "OK",
-                        onPress: () => navigation.replace("MainApp"),
-                    },
-                ]
+        try {
+            const displayName = `${firstName} ${lastName}`;
+            const result = await AuthService.signUp(
+                email,
+                password,
+                displayName
             );
-        }, 1500);
+
+            if (result.success) {
+                Alert.alert(
+                    "Succès",
+                    `Bienvenue ${firstName} ! Votre compte a été créé avec succès.`,
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                // La navigation sera gérée automatiquement par AuthNavigator
+                                // grâce au changement d'état d'authentification
+                            },
+                        },
+                    ]
+                );
+            } else {
+                Alert.alert(
+                    "Erreur d'inscription",
+                    result.error ||
+                        "Une erreur est survenue lors de la création du compte"
+                );
+            }
+        } catch (error) {
+            Alert.alert("Erreur", "Une erreur inattendue est survenue");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleGoToLogin = () => {

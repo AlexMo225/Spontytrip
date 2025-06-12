@@ -1,3 +1,6 @@
+// PATCH ASYNCSTORAGE - DOIT ÊTRE LE PREMIER IMPORT
+import "../patches/asyncstorage-patch";
+
 import firebase from "firebase/app";
 import "firebase/auth";
 import "firebase/storage";
@@ -12,32 +15,38 @@ const firebaseConfig = {
     appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Vérification que toutes les variables d'environnement sont définies
+// Validation des variables d'environnement
 const requiredEnvVars = [
-    'EXPO_PUBLIC_FIREBASE_API_KEY',
-    'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
-    'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
-    'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
-    'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-    'EXPO_PUBLIC_FIREBASE_APP_ID'
+    "EXPO_PUBLIC_FIREBASE_API_KEY",
+    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+    "EXPO_PUBLIC_FIREBASE_APP_ID",
 ];
 
-for (const envVar of requiredEnvVars) {
-    if (!process.env[envVar]) {
-        throw new Error(`❌ Variable d'environnement manquante: ${envVar}. Vérifiez votre fichier .env`);
-    }
+const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+if (missingVars.length > 0) {
+    throw new Error(
+        `Variables d'environnement Firebase manquantes: ${missingVars.join(
+            ", "
+        )}\nVeuillez créer un fichier .env avec ces variables.`
+    );
 }
 
 // Patch AsyncStorage pour React Native
 if (typeof global !== "undefined") {
-    global.AsyncStorage = require("@react-native-async-storage/async-storage").default;
+    (global as any).AsyncStorage =
+        require("@react-native-async-storage/async-storage").default;
     console.log("✅ AsyncStorage patch appliqué avec succès");
 }
 
 // Initialiser Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
-    console.log("🔥 Firebase v8 Auth et Storage initialisés avec variables d'environnement");
+    console.log(
+        "🔥 Firebase v8 Auth et Storage initialisés avec variables d'environnement sécurisées"
+    );
 } else {
     firebase.app();
 }
@@ -45,4 +54,4 @@ if (!firebase.apps.length) {
 // Exporter les services
 export const auth = firebase.auth();
 export const storage = firebase.storage();
-export default firebase; 
+export default firebase;

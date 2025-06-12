@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import React from "react";
+import React, { useEffect } from "react";
 import {
     Image,
     SafeAreaView,
@@ -11,7 +11,9 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import Avatar from "../components/Avatar";
 import { Colors, Fonts, Spacing } from "../constants/";
+import { useAuth } from "../contexts/AuthContext";
 import { RootStackParamList } from "../types";
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -21,6 +23,31 @@ type HomeScreenNavigationProp = StackNavigationProp<
 
 const HomeScreen = () => {
     const navigation = useNavigation<HomeScreenNavigationProp>();
+    const { user } = useAuth();
+
+    // Debug : Afficher les données utilisateur
+    console.log("🏠 Données utilisateur dans HomeScreen:", {
+        uid: user?.uid,
+        email: user?.email,
+        displayName: user?.displayName,
+        firstName: user?.displayName?.split(" ")[0],
+        photoURL: user?.photoURL,
+    });
+
+    // Détecter les changements de données utilisateur
+    useEffect(() => {
+        console.log("🔄 HomeScreen - Données utilisateur mises à jour:", {
+            displayName: user?.displayName,
+            email: user?.email,
+            photoURL: user?.photoURL,
+        });
+    }, [user?.displayName, user?.email, user?.photoURL]);
+
+    // Fonction pour extraire le prénom du displayName
+    const getFirstName = (displayName: string | null): string => {
+        if (!displayName) return "Utilisateur";
+        return displayName.split(" ")[0]; // Prend le premier mot (prénom)
+    };
 
     const recentTrips = [
         {
@@ -84,17 +111,19 @@ const HomeScreen = () => {
                         </View>
                     </View>
                     <TouchableOpacity style={styles.profileButton}>
-                        <Ionicons
-                            name="person-circle-outline"
-                            size={24}
-                            color={Colors.text.primary}
+                        <Avatar
+                            imageUrl={user?.photoURL}
+                            size={32}
+                            showBorder={true}
                         />
                     </TouchableOpacity>
                 </View>
 
                 {/* Welcome Section */}
                 <View style={styles.welcomeSection}>
-                    <Text style={styles.welcomeText}>Bienvenue Alex 👋</Text>
+                    <Text style={styles.welcomeText}>
+                        Bienvenue {getFirstName(user?.displayName)} 👋
+                    </Text>
                 </View>
 
                 {/* Action Buttons */}
