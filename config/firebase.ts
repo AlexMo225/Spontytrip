@@ -5,15 +5,34 @@ import firebase from "firebase/app";
 import "firebase/auth";
 import "firebase/storage";
 
-// Configuration Firebase
+// Configuration Firebase avec variables d'environnement
 const firebaseConfig = {
-    apiKey: "AIzaSyAIgT9Su6zArCX_0vGc4gxrLjNcfXtO3Bo",
-    authDomain: "spontytrip-dfcfe.firebaseapp.com",
-    projectId: "spontytrip-dfcfe",
-    storageBucket: "spontytrip-dfcfe.firebasestorage.app",
-    messagingSenderId: "324928313318",
-    appId: "1:324928313318:web:2dbf4e8d3b326fa4c66827",
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Validation des variables d'environnement
+const requiredEnvVars = [
+    "EXPO_PUBLIC_FIREBASE_API_KEY",
+    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+    "EXPO_PUBLIC_FIREBASE_APP_ID",
+];
+
+const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+if (missingVars.length > 0) {
+    throw new Error(
+        `Variables d'environnement Firebase manquantes: ${missingVars.join(
+            ", "
+        )}\nVeuillez créer un fichier .env avec ces variables.`
+    );
+}
 
 // Patch AsyncStorage pour React Native
 if (typeof global !== "undefined") {
