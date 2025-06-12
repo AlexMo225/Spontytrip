@@ -3,7 +3,6 @@ import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -41,17 +40,17 @@ interface ChecklistCategory {
 const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     const [checklistData, setChecklistData] = useState<ChecklistCategory[]>([
         {
-            title: "Essentials",
+            title: "Essentiels",
             items: [
                 {
                     id: "1",
-                    title: "Passport",
+                    title: "Passeport",
                     checked: true,
                     category: "essentials",
                 },
                 {
                     id: "2",
-                    title: "Travel insurance",
+                    title: "Assurance voyage",
                     checked: false,
                     category: "essentials",
                 },
@@ -64,7 +63,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
             ],
         },
         {
-            title: "Clothing",
+            title: "Vêtements",
             items: [
                 {
                     id: "4",
@@ -80,30 +79,30 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 },
                 {
                     id: "6",
-                    title: "Swimsuit",
+                    title: "Maillot de bain",
                     checked: false,
                     category: "clothing",
                 },
             ],
         },
         {
-            title: "Accessories",
+            title: "Accessoires",
             items: [
                 {
                     id: "7",
-                    title: "Sunglasses",
+                    title: "Lunettes de soleil",
                     checked: false,
                     category: "accessories",
                 },
                 {
                     id: "8",
-                    title: "Hat",
+                    title: "Chapeau",
                     checked: false,
                     category: "accessories",
                 },
                 {
                     id: "9",
-                    title: "Sunscreen",
+                    title: "Crème solaire",
                     checked: false,
                     category: "accessories",
                 },
@@ -123,9 +122,9 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleAddItem = () => {
-        Alert.alert("Ajouter un élément", "Fonctionnalité à venir", [
-            { text: "OK" },
-        ]);
+        navigation.navigate("AddChecklistItem", {
+            tripId: route.params.tripId,
+        });
     };
 
     const calculateProgress = () => {
@@ -166,7 +165,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Progress Bar */}
             <View style={styles.progressContainer}>
                 <Text style={styles.progressText}>
-                    {calculateProgress()}% prepared
+                    {calculateProgress()}% préparé
                 </Text>
                 <View style={styles.progressBarBackground}>
                     <View
@@ -218,14 +217,14 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.bottomSpacer} />
             </ScrollView>
 
-            {/* Bouton Add Item flottant */}
+            {/* Bouton Ajouter élément flottant */}
             <TouchableOpacity
                 style={styles.addButton}
                 onPress={handleAddItem}
                 activeOpacity={0.8}
             >
                 <Ionicons name="add" size={24} color="#FFFFFF" />
-                <Text style={styles.addButtonText}>Add item</Text>
+                <Text style={styles.addButtonText}>Ajouter élément</Text>
             </TouchableOpacity>
         </View>
     );

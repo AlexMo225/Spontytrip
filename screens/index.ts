@@ -20,6 +20,8 @@ export { default as TripDetailsScreen } from "./TripDetailsScreen";
 
 // Trip Features
 export { default as ActivitiesScreen } from "./ActivitiesScreen";
+export { default as AddActivityScreen } from "./AddActivityScreen";
+export { default as AddChecklistItemScreen } from "./AddChecklistItemScreen";
 export { default as ChatScreen } from "./ChatScreen";
 export { default as ChecklistScreen } from "./ChecklistScreen";
 export { default as GalleryScreen } from "./GalleryScreen";

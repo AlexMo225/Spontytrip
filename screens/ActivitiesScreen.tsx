@@ -37,12 +37,13 @@ interface Activity {
     isLiked: boolean;
 }
 
-// Mock activities data
+// Données d'exemple d'activités
 const mockActivities: Activity[] = [
     {
         id: "1",
-        title: "Hiking in the Mountains",
-        description: "Enjoy a scenic hike with breathtaking views.",
+        title: "Randonnée en montagne",
+        description:
+            "Profitez d'une randonnée pittoresque avec des vues époustouflantes.",
         suggestedBy: "Alex",
         imageUrl:
             "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
@@ -52,8 +53,8 @@ const mockActivities: Activity[] = [
     },
     {
         id: "2",
-        title: "Beach Volleyball",
-        description: "Join a fun game of beach volleyball.",
+        title: "Volley-ball de plage",
+        description: "Rejoignez une partie amusante de volley-ball de plage.",
         suggestedBy: "Sarah",
         imageUrl:
             "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=400&h=300&fit=crop",
@@ -63,8 +64,9 @@ const mockActivities: Activity[] = [
     },
     {
         id: "3",
-        title: "City Exploration",
-        description: "Explore the city's hidden gems and local spots.",
+        title: "Exploration urbaine",
+        description:
+            "Explorez les joyaux cachés et les lieux locaux de la ville.",
         suggestedBy: "Mark",
         imageUrl:
             "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=300&fit=crop",
@@ -98,7 +100,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.activityCard}>
             <View style={styles.activityContent}>
                 <Text style={styles.suggestedBy}>
-                    Suggested by {item.suggestedBy}
+                    Suggéré par {item.suggestedBy}
                 </Text>
                 <Text style={styles.activityTitle}>{item.title}</Text>
                 <Text style={styles.activityDescription}>
@@ -141,7 +143,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
     );
 
     const handleAddActivity = () => {
-        console.log("Add new activity");
+        navigation.navigate("AddActivity", { tripId: route.params.tripId });
     };
 
     return (
@@ -158,7 +160,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                         color={Colors.text.primary}
                     />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Activities</Text>
+                <Text style={styles.headerTitle}>Activités</Text>
                 <View style={styles.headerSpacer} />
             </View>
 
@@ -178,7 +180,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress={handleAddActivity}
             >
                 <Ionicons name="add" size={20} color="#FFFFFF" />
-                <Text style={styles.addButtonText}>Add Activity</Text>
+                <Text style={styles.addButtonText}>Ajouter activité</Text>
             </TouchableOpacity>
         </SafeAreaView>
     );

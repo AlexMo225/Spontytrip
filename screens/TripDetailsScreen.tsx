@@ -39,7 +39,7 @@ interface TripSection {
     icon: string;
 }
 
-// Mock data for trip members
+// Données d'exemple pour les membres du voyage
 const mockMembers: TripMember[] = [
     {
         id: "1",
@@ -68,35 +68,35 @@ const mockMembers: TripMember[] = [
     },
 ];
 
-// Mock data for trip sections
+// Données d'exemple pour les sections du voyage
 const mockSections: TripSection[] = [
     {
         id: "1",
-        title: "Packing",
+        title: "Bagages",
         itemCount: 12,
         icon: "list-outline",
     },
     {
         id: "2",
-        title: "Flights",
+        title: "Vols",
         itemCount: 3,
         icon: "airplane-outline",
     },
     {
         id: "3",
-        title: "Accommodation",
+        title: "Hébergement",
         itemCount: 2,
         icon: "home-outline",
     },
     {
         id: "4",
-        title: "Transportation",
+        title: "Transport",
         itemCount: 1,
         icon: "car-outline",
     },
     {
         id: "5",
-        title: "Activities",
+        title: "Activités",
         itemCount: 1,
         icon: "calendar-outline",
     },
@@ -146,7 +146,8 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.sectionContent}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
                 <Text style={styles.sectionCount}>
-                    {section.itemCount} items
+                    {section.itemCount} élément
+                    {section.itemCount > 1 ? "s" : ""}
                 </Text>
             </View>
         </TouchableOpacity>
@@ -154,7 +155,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
+            {/* En-tête */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -174,23 +175,23 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Destination Image */}
+                {/* Image de destination */}
                 <View style={styles.imageContainer}>
                     <Image
                         source={{
-                            uri: "https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800&h=400&fit=crop",
+                            uri: "https://images.unsplash.com/photo-1549144511-f099e773c147?w=800&h=400&fit=crop&auto=format&q=80",
                         }}
                         style={styles.destinationImage}
                     />
                 </View>
 
-                {/* Trip Info */}
+                {/* Informations du voyage */}
                 <View style={styles.tripInfo}>
                     <Text style={styles.tripTitle}>
-                        Paris, France • Oct 12 - 15
+                        Paris, France • 12 - 15 Oct
                     </Text>
 
-                    {/* Members */}
+                    {/* Membres */}
                     <View style={styles.membersContainer}>
                         {mockMembers.map((member, index) =>
                             renderMember(member, index)
@@ -198,34 +199,34 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                     </View>
                 </View>
 
-                {/* Feature Buttons */}
+                {/* Boutons de fonctionnalités */}
                 <View style={styles.featuresContainer}>
                     <TouchableOpacity
                         style={styles.featureButton}
                         onPress={() => handleNavigateToFeature("Checklist")}
                     >
-                        <Text style={styles.featureButtonText}>Checklist</Text>
+                        <Text style={styles.featureButtonText}>Liste</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.featureButton}
                         onPress={() => handleNavigateToFeature("Activities")}
                     >
-                        <Text style={styles.featureButtonText}>Activities</Text>
+                        <Text style={styles.featureButtonText}>Activités</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.featureButton}
                         onPress={() => handleNavigateToFeature("Chat")}
                     >
-                        <Text style={styles.featureButtonText}>Chat</Text>
+                        <Text style={styles.featureButtonText}>Discussion</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.featureButton}
                         onPress={() => handleNavigateToFeature("Memories")}
                     >
-                        <Text style={styles.featureButtonText}>Memories</Text>
+                        <Text style={styles.featureButtonText}>Souvenirs</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -234,7 +235,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                     {mockSections.map(renderSection)}
                 </View>
 
-                {/* Bottom spacing */}
+                {/* Espacement du bas */}
                 <View style={styles.bottomSpacing} />
             </ScrollView>
         </SafeAreaView>

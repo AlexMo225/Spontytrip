@@ -27,14 +27,41 @@ interface Props {
 }
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     const handleRegister = async () => {
-        if (!email || !password || !confirmPassword) {
+        if (
+            !firstName ||
+            !lastName ||
+            !email ||
+            !password ||
+            !confirmPassword
+        ) {
             Alert.alert("Erreur", "Veuillez remplir tous les champs");
+            return;
+        }
+
+        if (firstName.length < 2) {
+            Alert.alert(
+                "Erreur",
+                "Le prénom doit contenir au moins 2 caractères"
+            );
+            return;
+        }
+
+        if (lastName.length < 2) {
+            Alert.alert("Erreur", "Le nom doit contenir au moins 2 caractères");
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert("Erreur", "Veuillez entrer une adresse email valide");
             return;
         }
 
@@ -56,12 +83,16 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         // Simulation d'une inscription (à remplacer par votre API)
         setTimeout(() => {
             setIsLoading(false);
-            Alert.alert("Succès", "Compte créé avec succès !", [
-                {
-                    text: "OK",
-                    onPress: () => navigation.replace("MainApp"),
-                },
-            ]);
+            Alert.alert(
+                "Succès",
+                `Bienvenue ${firstName} ! Votre compte a été créé avec succès.`,
+                [
+                    {
+                        text: "OK",
+                        onPress: () => navigation.replace("MainApp"),
+                    },
+                ]
+            );
         }, 1500);
     };
 
@@ -95,15 +126,47 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                             </Text>
                         </View>
                         <Text style={styles.title}>Créer votre compte</Text>
+                        <Text style={styles.subtitle}>
+                            Rejoignez la communauté SpontyTrip et planifiez vos
+                            aventures !
+                        </Text>
                     </View>
 
                     {/* Formulaire */}
                     <View style={styles.form}>
+                        {/* Champs Prénom et Nom */}
+                        <View style={styles.nameRow}>
+                            <View style={[styles.inputGroup, styles.halfWidth]}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Prénom"
+                                    placeholderTextColor={Colors.textSecondary}
+                                    value={firstName}
+                                    onChangeText={setFirstName}
+                                    autoCapitalize="words"
+                                    autoCorrect={false}
+                                    editable={!isLoading}
+                                />
+                            </View>
+                            <View style={[styles.inputGroup, styles.halfWidth]}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Nom"
+                                    placeholderTextColor={Colors.textSecondary}
+                                    value={lastName}
+                                    onChangeText={setLastName}
+                                    autoCapitalize="words"
+                                    autoCorrect={false}
+                                    editable={!isLoading}
+                                />
+                            </View>
+                        </View>
+
                         {/* Champ Email */}
                         <View style={styles.inputGroup}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Email"
+                                placeholder="Adresse email"
                                 placeholderTextColor={Colors.textSecondary}
                                 value={email}
                                 onChangeText={setEmail}
@@ -118,7 +181,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                         <View style={styles.inputGroup}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Mot de passe"
+                                placeholder="Mot de passe (min. 6 caractères)"
                                 placeholderTextColor={Colors.textSecondary}
                                 value={password}
                                 onChangeText={setPassword}
@@ -127,6 +190,44 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                                 autoCorrect={false}
                                 editable={!isLoading}
                             />
+                            {password.length > 0 && (
+                                <View style={styles.passwordStrength}>
+                                    <View
+                                        style={[
+                                            styles.strengthDot,
+                                            password.length >= 6 &&
+                                                styles.strengthActive,
+                                        ]}
+                                    />
+                                    <View
+                                        style={[
+                                            styles.strengthDot,
+                                            password.length >= 8 &&
+                                                styles.strengthActive,
+                                        ]}
+                                    />
+                                    <View
+                                        style={[
+                                            styles.strengthDot,
+                                            password.length >= 10 &&
+                                                /[A-Z]/.test(password) &&
+                                                /[0-9]/.test(password) &&
+                                                styles.strengthActive,
+                                        ]}
+                                    />
+                                    <Text style={styles.strengthText}>
+                                        {password.length < 6
+                                            ? "Faible"
+                                            : password.length < 8
+                                            ? "Correct"
+                                            : password.length >= 10 &&
+                                              /[A-Z]/.test(password) &&
+                                              /[0-9]/.test(password)
+                                            ? "Fort"
+                                            : "Correct"}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
                         {/* Champ Confirmer le mot de passe */}
@@ -242,9 +343,23 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         textAlign: "center",
     },
+    subtitle: {
+        ...TextStyles.body2,
+        color: Colors.textSecondary,
+        textAlign: "center",
+        marginTop: Spacing.xs,
+        lineHeight: 20,
+    },
     form: {
         flex: 1,
         paddingTop: Spacing.md,
+    },
+    nameRow: {
+        flexDirection: "row",
+        gap: Spacing.sm,
+    },
+    halfWidth: {
+        flex: 1,
     },
     inputGroup: {
         marginBottom: Spacing.md,
@@ -257,6 +372,28 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: Spacing.md,
         color: Colors.textPrimary,
+    },
+    passwordStrength: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: Spacing.xs,
+        paddingHorizontal: 4,
+    },
+    strengthDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#E0E0E0",
+        marginRight: 6,
+    },
+    strengthActive: {
+        backgroundColor: "#7ED957",
+    },
+    strengthText: {
+        ...TextStyles.caption,
+        color: Colors.textSecondary,
+        marginLeft: Spacing.xs,
+        fontSize: 12,
     },
     registerButton: {
         height: 48,

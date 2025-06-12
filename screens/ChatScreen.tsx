@@ -209,7 +209,7 @@ const ChatScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.inputWrapper}>
                     <TextInput
                         style={styles.textInput}
-                        placeholder="Message"
+                        placeholder="Écrire un message..."
                         placeholderTextColor="#637887"
                         value={message}
                         onChangeText={setMessage}

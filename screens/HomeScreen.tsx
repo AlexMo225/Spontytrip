@@ -28,7 +28,7 @@ const HomeScreen = () => {
             title: "Voyage à Paris",
             destination: "Paris",
             dates: "12 - 15 Oct",
-            image: "https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop",
+            image: "https://images.unsplash.com/photo-1549144511-f099e773c147?w=300&h=200&fit=crop&auto=format&q=80",
         },
         {
             id: 2,

@@ -11,6 +11,8 @@ import { MainTabParamList, RootStackParamList } from "../types";
 // Import all screens from index
 import {
     ActivitiesScreen,
+    AddActivityScreen,
+    AddChecklistItemScreen,
     ChatScreen,
     ChecklistScreen,
     // Trip Management Screens
@@ -201,14 +203,14 @@ export default function StackNavigator() {
                     name="TripDetails"
                     component={TripDetailsScreen}
                     options={{
-                        title: "Détails du voyage",
+                        headerShown: false,
                     }}
                 />
                 <Stack.Screen
                     name="EditTrip"
                     component={EditTripScreen}
                     options={{
-                        title: "Modifier le voyage",
+                        headerShown: false,
                     }}
                 />
 
@@ -217,28 +219,44 @@ export default function StackNavigator() {
                     name="Activities"
                     component={ActivitiesScreen}
                     options={{
-                        title: "Activités",
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name="AddActivity"
+                    component={AddActivityScreen}
+                    options={{
+                        headerShown: false,
+                        presentation: "modal",
                     }}
                 />
                 <Stack.Screen
                     name="Checklist"
                     component={ChecklistScreen}
                     options={{
-                        title: "Liste de tâches",
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name="AddChecklistItem"
+                    component={AddChecklistItemScreen}
+                    options={{
+                        headerShown: false,
+                        presentation: "modal",
                     }}
                 />
                 <Stack.Screen
                     name="Chat"
                     component={ChatScreen}
                     options={{
-                        title: "Discussion",
+                        headerShown: false,
                     }}
                 />
                 <Stack.Screen
                     name="Gallery"
                     component={GalleryScreen}
                     options={{
-                        title: "Galerie",
+                        headerShown: false,
                     }}
                 />
 
@@ -247,7 +265,7 @@ export default function StackNavigator() {
                     name="EditProfile"
                     component={EditProfileScreen}
                     options={{
-                        title: "Modifier le profil",
+                        headerShown: false,
                     }}
                 />
             </Stack.Navigator>
