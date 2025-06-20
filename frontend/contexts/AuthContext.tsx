@@ -5,7 +5,7 @@ import React, {
     useEffect,
     useState,
 } from "react";
-import { AuthService, AuthUser } from "../../backend/services/authService";
+import { AuthService, AuthUser } from "../../services/authService";
 
 interface AuthContextType {
     user: AuthUser | null;
@@ -52,28 +52,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     useEffect(() => {
         // Écouter les changements d'état d'authentification
-        const unsubscribe = AuthService.onAuthStateChanged((user) => {
-            console.log(
-                "👤 État auth changé:",
-                user
-                    ? `Connecté: ${user.email} (${user.displayName})`
-                    : "Déconnecté"
-            );
-
-            // Si un utilisateur est connecté mais n'a pas de displayName,
-            // essayer de recharger ses données
-            if (user && !user.displayName) {
+        const unsubscribe = AuthService.onAuthStateChanged(
+            (user: AuthUser | null) => {
                 console.log(
-                    "⚠️ Utilisateur sans displayName détecté, rechargement..."
+                    "👤 État auth changé:",
+                    user
+                        ? `Connecté: ${user.email} (${user.displayName})`
+                        : "Déconnecté"
                 );
-                setTimeout(async () => {
-                    await refreshUser();
-                }, 1000);
-            }
 
-            setUser(user);
-            setLoading(false);
-        });
+                // Si un utilisateur est connecté mais n'a pas de displayName,
+                // essayer de recharger ses données
+                if (user && !user.displayName) {
+                    console.log(
+                        "⚠️ Utilisateur sans displayName détecté, rechargement..."
+                    );
+                    setTimeout(async () => {
+                        await refreshUser();
+                    }, 1000);
+                }
+
+                setUser(user);
+                setLoading(false);
+            }
+        );
 
         return unsubscribe;
     }, []);
