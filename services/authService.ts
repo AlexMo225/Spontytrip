@@ -209,25 +209,14 @@ export class AuthService {
                 };
             }
 
-            console.log("🔄 Mise à jour du profil:", updates);
-
             await user.updateProfile(updates);
-
-            // Forcer le rechargement des données utilisateur
             await user.reload();
-
-            // Attendre un peu pour s'assurer que les données sont synchronisées
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const updatedUser = convertFirebaseUser(user);
-            console.log("✅ Profil mis à jour:", updatedUser);
 
             return {
                 success: true,
-                user: updatedUser,
+                user: convertFirebaseUser(user),
             };
         } catch (error) {
-            console.error("❌ Erreur mise à jour profil:", error);
             return {
                 success: false,
                 error: getErrorMessage(error),
@@ -246,25 +235,14 @@ export class AuthService {
                 };
             }
 
-            console.log("📧 Mise à jour de l'email:", newEmail);
-
             await user.updateEmail(newEmail);
-
-            // Forcer le rechargement des données utilisateur
             await user.reload();
-
-            // Attendre un peu pour s'assurer que les données sont synchronisées
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const updatedUser = convertFirebaseUser(user);
-            console.log("✅ Email mis à jour:", updatedUser);
 
             return {
                 success: true,
-                user: updatedUser,
+                user: convertFirebaseUser(user),
             };
         } catch (error) {
-            console.error("❌ Erreur mise à jour email:", error);
             return {
                 success: false,
                 error: getErrorMessage(error),
@@ -283,15 +261,13 @@ export class AuthService {
                 };
             }
 
-            console.log("🔐 Mise à jour du mot de passe");
-
             await user.updatePassword(newPassword);
 
             return {
                 success: true,
+                user: convertFirebaseUser(user),
             };
         } catch (error) {
-            console.error("❌ Erreur mise à jour mot de passe:", error);
             return {
                 success: false,
                 error: getErrorMessage(error),

@@ -3,8 +3,8 @@ import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
+    ActivityIndicator,
     FlatList,
-    Image,
     SafeAreaView,
     StyleSheet,
     Text,
@@ -13,6 +13,9 @@ import {
 } from "react-native";
 import { Colors } from "../constants/Colors";
 import { Fonts } from "../constants/Fonts";
+import { useAuth } from "../contexts/AuthContext";
+import { useTripSync } from "../hooks/useTripSync";
+import { TripActivity } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
 type ActivitiesScreenNavigationProp = StackNavigationProp<
@@ -26,125 +29,151 @@ interface Props {
     route: ActivitiesScreenRouteProp;
 }
 
-interface Activity {
-    id: string;
-    title: string;
-    description: string;
-    suggestedBy: string;
-    imageUrl: string;
-    likes: number;
-    comments: number;
-    isLiked: boolean;
-}
-
-// Données d'exemple d'activités
-const mockActivities: Activity[] = [
-    {
-        id: "1",
-        title: "Randonnée en montagne",
-        description:
-            "Profitez d'une randonnée pittoresque avec des vues époustouflantes.",
-        suggestedBy: "Alex",
-        imageUrl:
-            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
-        likes: 12,
-        comments: 3,
-        isLiked: false,
-    },
-    {
-        id: "2",
-        title: "Volley-ball de plage",
-        description: "Rejoignez une partie amusante de volley-ball de plage.",
-        suggestedBy: "Sarah",
-        imageUrl:
-            "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=400&h=300&fit=crop",
-        likes: 8,
-        comments: 2,
-        isLiked: true,
-    },
-    {
-        id: "3",
-        title: "Exploration urbaine",
-        description:
-            "Explorez les joyaux cachés et les lieux locaux de la ville.",
-        suggestedBy: "Mark",
-        imageUrl:
-            "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=300&fit=crop",
-        likes: 15,
-        comments: 5,
-        isLiked: false,
-    },
-];
-
 const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
-    const tripId = route.params?.tripId;
-    const [activities, setActivities] = useState<Activity[]>(mockActivities);
+    const { user } = useAuth();
+    const { tripId } = route.params;
+    const { trip, activities, loading, error } = useTripSync(tripId);
 
-    const handleLike = (activityId: string) => {
-        setActivities((prevActivities) =>
-            prevActivities.map((activity) =>
-                activity.id === activityId
-                    ? {
-                          ...activity,
-                          isLiked: !activity.isLiked,
-                          likes: activity.isLiked
-                              ? activity.likes - 1
-                              : activity.likes + 1,
-                      }
-                    : activity
-            )
-        );
+    const [localActivities, setLocalActivities] = useState<TripActivity[]>([]);
+
+    // Synchroniser les activités locales avec Firebase
+    React.useEffect(() => {
+        if (activities?.activities) {
+            setLocalActivities(activities.activities);
+        }
+    }, [activities]);
+
+    const handleDeleteActivity = async (activityId: string) => {
+        try {
+            // Optimistic update
+            setLocalActivities((prev) =>
+                prev.filter((a) => a.id !== activityId)
+            );
+
+            // Supprimer dans Firebase
+            const firebaseService = (
+                await import("../services/firebaseService")
+            ).default;
+            const updatedActivities = localActivities.filter(
+                (a) => a.id !== activityId
+            );
+            await firebaseService.updateActivities(
+                tripId,
+                updatedActivities,
+                user?.uid || ""
+            );
+        } catch (error) {
+            console.error("Erreur suppression activité:", error);
+            // Rollback en cas d'erreur
+            if (activities?.activities) {
+                setLocalActivities(activities.activities);
+            }
+        }
     };
 
-    const renderActivity = ({ item }: { item: Activity }) => (
+    const renderActivity = ({ item }: { item: TripActivity }) => (
         <View style={styles.activityCard}>
             <View style={styles.activityContent}>
                 <Text style={styles.suggestedBy}>
-                    Suggéré par {item.suggestedBy}
+                    Suggéré par {item.createdByName}
                 </Text>
                 <Text style={styles.activityTitle}>{item.title}</Text>
                 <Text style={styles.activityDescription}>
-                    {item.description}
+                    {item.description || "Aucune description"}
                 </Text>
 
+                {item.location && (
+                    <View style={styles.locationContainer}>
+                        <Ionicons
+                            name="location-outline"
+                            size={16}
+                            color="#637887"
+                        />
+                        <Text style={styles.locationText}>{item.location}</Text>
+                    </View>
+                )}
+
                 <View style={styles.activityFooter}>
-                    <View style={styles.stats}>
+                    <View style={styles.dateContainer}>
+                        <Ionicons
+                            name="calendar-outline"
+                            size={16}
+                            color="#637887"
+                        />
+                        <Text style={styles.dateText}>
+                            {item.date.toLocaleDateString("fr-FR")}
+                        </Text>
+                        {item.startTime && (
+                            <Text style={styles.timeText}>
+                                à {item.startTime}
+                            </Text>
+                        )}
+                    </View>
+
+                    {(trip?.creatorId === user?.uid ||
+                        item.createdBy === user?.uid) && (
                         <TouchableOpacity
-                            style={styles.statButton}
-                            onPress={() => handleLike(item.id)}
+                            style={styles.deleteButton}
+                            onPress={() => handleDeleteActivity(item.id)}
                         >
                             <Ionicons
-                                name={item.isLiked ? "heart" : "heart-outline"}
-                                size={20}
-                                color={item.isLiked ? "#FF6B6B" : "#637887"}
+                                name="trash-outline"
+                                size={16}
+                                color="#FF6B6B"
                             />
-                            <Text style={styles.statText}>{item.likes}</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.statButton}>
-                            <Ionicons
-                                name="chatbubble-outline"
-                                size={20}
-                                color="#637887"
-                            />
-                            <Text style={styles.statText}>{item.comments}</Text>
-                        </TouchableOpacity>
-                    </View>
+                    )}
                 </View>
             </View>
 
             <View style={styles.activityImageContainer}>
-                <Image
-                    source={{ uri: item.imageUrl }}
-                    style={styles.activityImage}
-                />
+                <View style={styles.activityImagePlaceholder}>
+                    <Ionicons name="image-outline" size={24} color="#E5E5E5" />
+                </View>
             </View>
         </View>
     );
 
     const handleAddActivity = () => {
-        navigation.navigate("AddActivity", { tripId: route.params.tripId });
+        navigation.navigate("AddActivity", { tripId });
     };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#7ED957" />
+                    <Text style={styles.loadingText}>
+                        Chargement des activités...
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (error || !trip) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.errorContainer}>
+                    <Ionicons
+                        name="alert-circle-outline"
+                        size={64}
+                        color="#FF6B6B"
+                    />
+                    <Text style={styles.errorTitle}>Erreur</Text>
+                    <Text style={styles.errorText}>
+                        {error || "Impossible de charger les activités"}
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Text style={styles.retryButtonText}>Retour</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -165,14 +194,28 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
 
             {/* Activities List */}
-            <FlatList
-                data={activities}
-                renderItem={renderActivity}
-                keyExtractor={(item) => item.id}
-                style={styles.activitiesList}
-                contentContainerStyle={styles.activitiesContainer}
-                showsVerticalScrollIndicator={false}
-            />
+            {localActivities.length > 0 ? (
+                <FlatList
+                    data={localActivities}
+                    renderItem={renderActivity}
+                    keyExtractor={(item) => item.id}
+                    style={styles.activitiesList}
+                    contentContainerStyle={styles.activitiesContainer}
+                    showsVerticalScrollIndicator={false}
+                />
+            ) : (
+                <View style={styles.emptyContainer}>
+                    <Ionicons
+                        name="calendar-outline"
+                        size={64}
+                        color="#E5E5E5"
+                    />
+                    <Text style={styles.emptyTitle}>Aucune activité</Text>
+                    <Text style={styles.emptyText}>
+                        Commencez par ajouter des activités à votre voyage
+                    </Text>
+                </View>
+            )}
 
             {/* Add Activity Button */}
             <TouchableOpacity
@@ -190,6 +233,46 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.backgroundColors.primary,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        color: "#637887",
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 32,
+    },
+    errorTitle: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: "#FF6B6B",
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    errorText: {
+        fontSize: 16,
+        color: "#637887",
+        textAlign: "center",
+        marginBottom: 24,
+    },
+    retryButton: {
+        backgroundColor: "#7ED957",
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: "#FFFFFF",
+        fontSize: 16,
+        fontWeight: "600",
     },
     header: {
         flexDirection: "row",
@@ -257,36 +340,74 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.body.family,
         color: "#637887",
         lineHeight: 22,
-        marginBottom: 16,
+        marginBottom: 12,
+    },
+    locationContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    locationText: {
+        fontSize: 14,
+        fontFamily: Fonts.body.family,
+        color: "#637887",
+        marginLeft: 4,
     },
     activityFooter: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
     },
-    stats: {
+    dateContainer: {
         flexDirection: "row",
         alignItems: "center",
     },
-    statButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginRight: 20,
-    },
-    statText: {
-        fontSize: 16,
+    dateText: {
+        fontSize: 14,
         fontFamily: Fonts.body.family,
         color: "#637887",
         marginLeft: 4,
+    },
+    timeText: {
+        fontSize: 14,
+        fontFamily: Fonts.body.family,
+        color: "#637887",
+        marginLeft: 8,
+    },
+    deleteButton: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: "#FFE5E5",
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 32,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: "#637887",
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: "#637887",
+        textAlign: "center",
     },
     activityImageContainer: {
         width: 120,
         height: 80,
     },
-    activityImage: {
+    activityImagePlaceholder: {
         width: "100%",
         height: "100%",
         borderRadius: 12,
+        backgroundColor: "#F8F9FA",
+        justifyContent: "center",
+        alignItems: "center",
     },
     addButton: {
         position: "absolute",

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Image, StyleSheet, View, ViewStyle } from "react-native";
+import { Image, ImageStyle, StyleSheet, View, ViewStyle } from "react-native";
 import { Colors } from "../constants/Colors";
 
 interface AvatarProps {
@@ -16,30 +16,38 @@ const Avatar: React.FC<AvatarProps> = ({
     style,
     showBorder = false,
 }) => {
-    const avatarStyle = [
-        styles.avatar,
-        {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: showBorder ? 2 : 0,
-        },
-        style,
-    ];
+    const baseStyle = {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: showBorder ? 2 : 0,
+    };
 
     if (imageUrl) {
+        const imageStyle: ImageStyle = {
+            ...styles.avatar,
+            ...baseStyle,
+            ...(style as ImageStyle),
+        };
+
         return (
             <Image
                 source={{ uri: imageUrl }}
-                style={avatarStyle}
+                style={imageStyle}
                 resizeMode="cover"
             />
         );
     }
 
     // Placeholder si pas d'image
+    const viewStyle: ViewStyle = {
+        ...styles.placeholder,
+        ...baseStyle,
+        ...style,
+    };
+
     return (
-        <View style={[avatarStyle, styles.placeholder]}>
+        <View style={viewStyle}>
             <Ionicons
                 name="person"
                 size={size * 0.4}

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
@@ -15,6 +16,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { useAuth } from "../contexts/AuthContext";
+import { TripActivity } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
 type AddActivityScreenNavigationProp = StackNavigationProp<
@@ -22,8 +25,11 @@ type AddActivityScreenNavigationProp = StackNavigationProp<
     "AddActivity"
 >;
 
+type AddActivityScreenRouteProp = RouteProp<RootStackParamList, "AddActivity">;
+
 interface Props {
     navigation: AddActivityScreenNavigationProp;
+    route: AddActivityScreenRouteProp;
 }
 
 interface ActivityType {
@@ -65,7 +71,10 @@ const priorities = [
     { id: "high", name: "Élevée", color: "#E74C3C" },
 ];
 
-const AddActivityScreen: React.FC<Props> = ({ navigation }) => {
+const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
+    const { user } = useAuth();
+    const { tripId } = route.params;
+
     const [activityName, setActivityName] = useState("");
     const [selectedType, setSelectedType] = useState<string>("sightseeing");
     const [location, setLocation] = useState("");
@@ -73,6 +82,9 @@ const AddActivityScreen: React.FC<Props> = ({ navigation }) => {
     const [selectedPriority, setSelectedPriority] = useState<string>("medium");
     const [estimatedDuration, setEstimatedDuration] = useState("");
     const [estimatedCost, setEstimatedCost] = useState("");
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [startTime, setStartTime] = useState("");
+    const [endTime, setEndTime] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [showTypeModal, setShowTypeModal] = useState(false);
 
@@ -85,24 +97,45 @@ const AddActivityScreen: React.FC<Props> = ({ navigation }) => {
         setIsLoading(true);
 
         try {
-            // TODO: Implement save logic
-            console.log("Saving activity:", {
-                name: activityName,
-                type: selectedType,
-                location: location,
-                description: description,
-                priority: selectedPriority,
-                duration: estimatedDuration,
-                cost: estimatedCost,
-            });
+            // Créer l'activité
+            const newActivity: TripActivity = {
+                id: `activity_${Date.now()}`,
+                title: activityName.trim(),
+                description: description.trim() || undefined,
+                date: selectedDate,
+                startTime: startTime || undefined,
+                endTime: endTime || undefined,
+                location: location.trim() || undefined,
+                createdBy: user?.uid || "",
+                createdByName:
+                    user?.displayName || user?.email || "Utilisateur",
+                createdAt: new Date(),
+            };
 
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            // Sauvegarder dans Firebase
+            const firebaseService = (
+                await import("../services/firebaseService")
+            ).default;
+
+            // Récupérer les activités existantes
+            const currentActivities = await firebaseService.getActivities(
+                tripId
+            );
+
+            // Ajouter la nouvelle activité
+            const updatedActivities = [...currentActivities, newActivity];
+
+            await firebaseService.updateActivities(
+                tripId,
+                updatedActivities,
+                user?.uid || ""
+            );
 
             Alert.alert("Succès", "Activité ajoutée au voyage", [
                 { text: "OK", onPress: () => navigation.goBack() },
             ]);
         } catch (error) {
+            console.error("Erreur création activité:", error);
             Alert.alert("Erreur", "Impossible d'ajouter l'activité");
         } finally {
             setIsLoading(false);

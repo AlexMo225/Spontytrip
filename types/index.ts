@@ -39,6 +39,8 @@ export interface ChecklistItem {
     category: string;
     assignedTo?: string;
     isCompleted: boolean;
+    completedBy?: string;
+    completedAt?: Date;
     createdBy: string;
     createdAt: Date;
 }
@@ -132,6 +134,8 @@ export type RootStackParamList = {
     Chat: { tripId: string };
     Gallery: { tripId: string };
     Activities: { tripId: string };
+    Expenses: { tripId: string };
+    Notes: { tripId: string };
 
     // Activity Management - À implémenter avec les maquettes
     AddActivity: { tripId: string };
@@ -147,7 +151,7 @@ export type RootStackParamList = {
 };
 
 export type MainTabParamList = {
-    Home: undefined;
+    Home: { refreshTrips?: boolean } | undefined;
     MyTrips: undefined;
     Discover: { fromCreateTrip?: boolean } | undefined;
     Explore: undefined;

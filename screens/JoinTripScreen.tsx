@@ -1,116 +1,99 @@
 import { Ionicons } from "@expo/vector-icons";
-import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
-    KeyboardAvoidingView,
-    Platform,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
+import { Spacing } from "../constants/Spacing";
+import { useAuth } from "../contexts/AuthContext";
+import { useJoinTrip } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
+
+// Import de l'emitter pour déclencher le refresh
+import { tripRefreshEmitter } from "../hooks/useTripSync";
 
 type JoinTripScreenNavigationProp = StackNavigationProp<
     RootStackParamList,
     "JoinTrip"
 >;
-type JoinTripScreenRouteProp = RouteProp<RootStackParamList, "JoinTrip">;
 
 interface Props {
     navigation: JoinTripScreenNavigationProp;
-    route: JoinTripScreenRouteProp;
 }
 
 const JoinTripScreen: React.FC<Props> = ({ navigation }) => {
-    const [invitationLink, setInvitationLink] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const { user } = useAuth();
+    const { joinTrip, loading, error } = useJoinTrip();
+    const [inviteCode, setInviteCode] = useState("");
 
-    const handleJoinByLink = async () => {
-        if (!invitationLink.trim()) {
-            Alert.alert("Erreur", "Veuillez coller le lien d'invitation");
+    const handleJoinTrip = async () => {
+        if (!inviteCode.trim()) {
+            Alert.alert("Erreur", "Veuillez saisir un code d'invitation");
             return;
         }
 
-        // Validation basique du format du lien
-        if (
-            !invitationLink.includes("spontytrip.com/invite/") &&
-            !invitationLink.includes("sponty.app/")
-        ) {
-            Alert.alert("Erreur", "Le lien d'invitation n'est pas valide");
-            return;
-        }
+        try {
+            const trip = await joinTrip(inviteCode.trim().toUpperCase(), () => {
+                // Déclencher le refresh global des voyages
+                console.log(
+                    "🎉 Voyage rejoint avec succès, refresh global déclenché"
+                );
+                tripRefreshEmitter.emitRefresh();
+            });
 
-        setIsLoading(true);
-
-        // Simulation de la validation du lien
-        setTimeout(() => {
-            setIsLoading(false);
-            // Ici on analyserait le lien et naviguerait vers TripPreview ou directement rejoindre
-            Alert.alert(
-                "Voyage trouvé !",
-                'Voulez-vous rejoindre le voyage "Barcelone 2024" ?',
-                [
-                    { text: "Annuler", style: "cancel" },
-                    {
-                        text: "Rejoindre",
-                        onPress: () => {
-                            // Navigation vers TripDetails ou MainApp
-                            Alert.alert(
-                                "Succès",
-                                "Vous avez rejoint le voyage !"
-                            );
-                            navigation.navigate("MainApp");
+            if (trip) {
+                Alert.alert(
+                    "Succès !",
+                    `Vous avez rejoint le voyage "${trip.title}"`,
+                    [
+                        {
+                            text: "Voir le voyage",
+                            onPress: () => {
+                                navigation.navigate("TripDetails", {
+                                    tripId: trip.id,
+                                });
+                            },
                         },
-                    },
-                ]
+                        {
+                            text: "Retour à l'accueil",
+                            style: "cancel",
+                            onPress: () => {
+                                navigation.goBack();
+                            },
+                        },
+                    ]
+                );
+            }
+        } catch (err) {
+            console.error("Erreur rejoindre voyage:", err);
+            Alert.alert(
+                "Erreur",
+                error ||
+                    "Impossible de rejoindre le voyage. Vérifiez le code d'invitation."
             );
-        }, 1500);
+        }
     };
 
-    const handleScanQRCode = () => {
-        // Ici on demanderait les permissions caméra et ouvrirait le scanner
-        Alert.alert(
-            "Scanner QR Code",
-            "Cette fonctionnalité ouvrira votre caméra pour scanner un QR code d'invitation.",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Ouvrir caméra",
-                    onPress: () => {
-                        // Simulation du scan
-                        setTimeout(() => {
-                            Alert.alert(
-                                "QR Code scanné !",
-                                'Voyage "Rome 2024" trouvé. Voulez-vous rejoindre ?'
-                            );
-                        }, 2000);
-                    },
-                },
-            ]
-        );
+    const handleGoBack = () => {
+        navigation.goBack();
     };
-
-    const isValidLink =
-        invitationLink.trim().length > 0 &&
-        (invitationLink.includes("spontytrip.com/invite/") ||
-            invitationLink.includes("sponty.app/"));
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
+        <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => navigation.goBack()}
+                    onPress={handleGoBack}
                 >
                     <Ionicons
                         name="arrow-back"
@@ -122,59 +105,91 @@ const JoinTripScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.headerSpacer} />
             </View>
 
+            {/* Content */}
             <View style={styles.content}>
-                {/* Sous-titre */}
-                <View style={styles.subtitleContainer}>
-                    <Text style={styles.subtitle}>
-                        Choisissez la méthode pour rejoindre le voyage
+                <View style={styles.instructionSection}>
+                    <View style={styles.iconContainer}>
+                        <Ionicons
+                            name="enter-outline"
+                            size={48}
+                            color="#7ED957"
+                        />
+                    </View>
+                    <Text style={styles.instructionTitle}>
+                        Rejoignez un voyage existant
+                    </Text>
+                    <Text style={styles.instructionText}>
+                        Saisissez le code d'invitation que vous avez reçu de
+                        votre ami pour rejoindre son voyage.
                     </Text>
                 </View>
 
-                {/* Champ lien d'invitation */}
-                <View style={styles.linkSection}>
+                <View style={styles.inputSection}>
+                    <Text style={styles.inputLabel}>Code d'invitation</Text>
                     <TextInput
-                        style={styles.linkInput}
-                        placeholder="Collez le lien d'invitation"
-                        placeholderTextColor="#6178899"
-                        value={invitationLink}
-                        onChangeText={setInvitationLink}
-                        multiline={false}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!isLoading}
+                        style={styles.codeInput}
+                        placeholder="Ex: ABC123"
+                        placeholderTextColor="#999"
+                        value={inviteCode}
+                        onChangeText={setInviteCode}
+                        autoCapitalize="characters"
+                        maxLength={6}
+                        autoFocus={true}
                     />
+                    <Text style={styles.inputHint}>
+                        Le code fait généralement 6 caractères
+                    </Text>
                 </View>
 
-                {/* Bouton Join */}
+                {error && (
+                    <View style={styles.errorContainer}>
+                        <Ionicons
+                            name="alert-circle"
+                            size={20}
+                            color="#FF6B6B"
+                        />
+                        <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                )}
+
                 <TouchableOpacity
                     style={[
                         styles.joinButton,
-                        (!isValidLink || isLoading) &&
+                        (!inviteCode.trim() || loading) &&
                             styles.joinButtonDisabled,
                     ]}
-                    onPress={handleJoinByLink}
-                    disabled={!isValidLink || isLoading}
+                    onPress={handleJoinTrip}
+                    disabled={!inviteCode.trim() || loading}
                 >
-                    <Text style={styles.joinButtonText}>
-                        {isLoading ? "Rejoindre..." : "Rejoindre"}
+                    {loading ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <Text style={styles.joinButtonText}>
+                                Connexion...
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.joinButtonText}>
+                            Rejoindre le voyage
+                        </Text>
+                    )}
+                </TouchableOpacity>
+
+                <View style={styles.alternativeSection}>
+                    <Text style={styles.alternativeText}>
+                        Vous n'avez pas de code d'invitation ?
                     </Text>
-                </TouchableOpacity>
-
-                {/* Séparateur Ou */}
-                <View style={styles.separatorContainer}>
-                    <Text style={styles.separatorText}>Ou</Text>
+                    <TouchableOpacity
+                        style={styles.createTripButton}
+                        onPress={() => navigation.navigate("CreateTrip")}
+                    >
+                        <Text style={styles.createTripButtonText}>
+                            Créer votre propre voyage
+                        </Text>
+                    </TouchableOpacity>
                 </View>
-
-                {/* Bouton QR Scanner */}
-                <TouchableOpacity
-                    style={styles.qrButton}
-                    onPress={handleScanQRCode}
-                    disabled={isLoading}
-                >
-                    <Text style={styles.qrButtonText}>Scanner le code QR</Text>
-                </TouchableOpacity>
             </View>
-        </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
@@ -186,99 +201,147 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        paddingTop: 60, // Safe area
-        backgroundColor: Colors.background,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
     },
     backButton: {
-        width: 48,
-        height: 48,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: Colors.lightGray,
         justifyContent: "center",
         alignItems: "center",
     },
     headerTitle: {
-        ...TextStyles.h2,
+        ...TextStyles.h3,
         color: Colors.textPrimary,
         flex: 1,
         textAlign: "center",
-        marginRight: 48, // Pour compenser le bouton retour
+        fontWeight: "600",
     },
     headerSpacer: {
-        width: 48,
+        width: 40,
     },
     content: {
         flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 20,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.xl,
     },
-    subtitleContainer: {
-        marginBottom: 32,
-        paddingHorizontal: 0,
-    },
-    subtitle: {
-        ...TextStyles.h3,
-        color: Colors.textPrimary,
-        fontSize: 18,
-        lineHeight: 28,
-    },
-    linkSection: {
-        marginBottom: 20,
-    },
-    linkInput: {
-        backgroundColor: Colors.background,
-        borderWidth: 1,
-        borderColor: "#DBE0E5",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        ...TextStyles.body1,
-        color: Colors.textPrimary,
-        height: 56,
-    },
-    joinButton: {
-        backgroundColor: "#4DA1A9",
-        borderRadius: 12,
+    instructionSection: {
         alignItems: "center",
-        height: 48,
+        marginBottom: Spacing.xl,
+    },
+    iconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "#F0F8F0",
         justifyContent: "center",
-        paddingHorizontal: 16,
-        marginBottom: 16,
-    },
-    joinButtonDisabled: {
-        backgroundColor: "#A0A0A0",
-        opacity: 0.6,
-    },
-    joinButtonText: {
-        ...TextStyles.h3,
-        color: Colors.background,
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    separatorContainer: {
         alignItems: "center",
-        marginVertical: 32,
-        width: "100%",
+        marginBottom: Spacing.lg,
     },
-    separatorText: {
+    instructionTitle: {
         ...TextStyles.h2,
         color: Colors.textPrimary,
-        fontSize: 16,
-        fontWeight: "500",
         textAlign: "center",
+        marginBottom: Spacing.sm,
+        fontWeight: "600",
     },
-    qrButton: {
-        backgroundColor: "#4DA1A9",
+    instructionText: {
+        ...TextStyles.body1,
+        color: Colors.textSecondary,
+        textAlign: "center",
+        lineHeight: 22,
+    },
+    inputSection: {
+        marginBottom: Spacing.xl,
+    },
+    inputLabel: {
+        ...TextStyles.h4,
+        color: Colors.textPrimary,
+        marginBottom: Spacing.sm,
+        fontWeight: "600",
+    },
+    codeInput: {
+        borderWidth: 2,
+        borderColor: "#E2E8F0",
         borderRadius: 12,
-        alignItems: "center",
-        height: 48,
-        justifyContent: "center",
-        paddingHorizontal: 16,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.md,
+        fontSize: 18,
+        fontWeight: "600",
+        textAlign: "center",
+        letterSpacing: 2,
+        backgroundColor: Colors.white,
+        color: Colors.textPrimary,
     },
-    qrButtonText: {
-        ...TextStyles.h3,
-        color: Colors.background,
-        fontSize: 14,
+    inputHint: {
+        ...TextStyles.body2,
+        color: Colors.textSecondary,
+        textAlign: "center",
+        marginTop: Spacing.sm,
+    },
+    errorContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#FFF5F5",
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderRadius: 8,
+        marginBottom: Spacing.lg,
+    },
+    errorText: {
+        ...TextStyles.body2,
+        color: "#FF6B6B",
+        marginLeft: Spacing.sm,
+        flex: 1,
+    },
+    joinButton: {
+        backgroundColor: "#7ED957",
+        borderRadius: 12,
+        paddingVertical: Spacing.md,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: Spacing.xl,
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    joinButtonDisabled: {
+        backgroundColor: "#E5E5E5",
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    loadingContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    joinButtonText: {
+        ...TextStyles.button,
+        color: Colors.white,
+        fontWeight: "600",
+        marginLeft: Spacing.sm,
+    },
+    alternativeSection: {
+        alignItems: "center",
+    },
+    alternativeText: {
+        ...TextStyles.body2,
+        color: Colors.textSecondary,
+        marginBottom: Spacing.sm,
+    },
+    createTripButton: {
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+    },
+    createTripButtonText: {
+        ...TextStyles.body1,
+        color: "#7ED957",
         fontWeight: "600",
     },
 });

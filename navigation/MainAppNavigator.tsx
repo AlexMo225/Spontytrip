@@ -12,17 +12,18 @@ import {
     ActivitiesScreen,
     AddActivityScreen,
     AddChecklistItemScreen,
-    ChatScreen,
     ChecklistScreen,
     CreateTripScreen,
     DiscoverScreen,
     EditProfileScreen,
     EditTripScreen,
+    ExpensesScreen,
     ExploreScreen,
     GalleryScreen,
     HomeScreen,
     JoinTripScreen,
     MyTripsScreen,
+    NotesScreen,
     ProfileScreen,
     TripDetailsScreen,
 } from "../screens";
@@ -40,7 +41,7 @@ function MainTabNavigator() {
         <Tab.Navigator
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
-                    let iconName: keyof typeof Ionicons.glyphMap;
+                    let iconName: string = "home-outline";
 
                     switch (route.name) {
                         case "Home":
@@ -65,7 +66,11 @@ function MainTabNavigator() {
                     }
 
                     return (
-                        <Ionicons name={iconName} size={size} color={color} />
+                        <Ionicons
+                            name={iconName as any}
+                            size={size}
+                            color={color}
+                        />
                     );
                 },
                 tabBarActiveTintColor: "#7ED957",
@@ -207,8 +212,15 @@ export default function MainAppNavigator() {
                     }}
                 />
                 <Stack.Screen
-                    name="Chat"
-                    component={ChatScreen}
+                    name="Notes"
+                    component={NotesScreen}
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name="Expenses"
+                    component={ExpensesScreen}
                     options={{
                         headerShown: false,
                     }}

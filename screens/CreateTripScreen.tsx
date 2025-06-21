@@ -1,10 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
+    Clipboard,
     Dimensions,
+    Image,
     Modal,
     ScrollView,
     StatusBar,
@@ -17,6 +21,8 @@ import {
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
+import { useAuth } from "../contexts/AuthContext";
+import { useCreateTrip } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -82,19 +88,29 @@ LocaleConfig.locales["fr"] = {
 LocaleConfig.defaultLocale = "fr";
 
 const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
+    const { user } = useAuth();
+    const { createTrip, loading, error } = useCreateTrip();
+
     const [tripName, setTripName] = useState("");
     const [selectedDates, setSelectedDates] = useState<SelectedDates>({
         startDate: null,
         endDate: null,
     });
     const [destination, setDestination] = useState("");
-    const [tripType, setTripType] = useState("");
-    const [emails, setEmails] = useState("");
+    const [tripType, setTripType] = useState<
+        "plage" | "montagne" | "citytrip" | "campagne"
+    >("citytrip");
+    const [coverImage, setCoverImage] = useState<string | null>(null);
     const [showCalendar, setShowCalendar] = useState(false);
     const [selectionStep, setSelectionStep] = useState<"start" | "end">(
         "start"
     );
     const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
+
+    // États pour la popup d'invitation
+    const [showInvitationModal, setShowInvitationModal] = useState(false);
+    const [invitationCode, setInvitationCode] = useState("");
+    const [createdTripId, setCreatedTripId] = useState<string | null>(null);
 
     // Récupérer la destination pré-remplie depuis DiscoverScreen (optionnel)
     useEffect(() => {
@@ -198,17 +214,17 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                 textColor: "#FFFFFF",
             };
 
-            // Jours entre les deux dates
-            const current = new Date(start);
-            current.setDate(current.getDate() + 1);
+            // Dates intermédiaires
+            const currentDate = new Date(start);
+            currentDate.setDate(currentDate.getDate() + 1);
 
-            while (current < end) {
-                const dateString = current.toISOString().split("T")[0];
+            while (currentDate < end) {
+                const dateString = currentDate.toISOString().split("T")[0];
                 marked[dateString] = {
-                    color: "#E8F5E8",
-                    textColor: "#333",
+                    color: "#4CAF50",
+                    textColor: "#FFFFFF",
                 };
-                current.setDate(current.getDate() + 1);
+                currentDate.setDate(currentDate.getDate() + 1);
             }
         }
 
@@ -218,48 +234,47 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
     const getDaysDifference = (start: string, end: string): number => {
         const startDate = new Date(start);
         const endDate = new Date(end);
-        const timeDiff = endDate.getTime() - startDate.getTime();
-        return Math.ceil(timeDiff / (1000 * 3600 * 24));
+        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
     const handleDateSelect = (day: any) => {
         const selectedDate = day.dateString;
 
         if (selectionStep === "start" || !selectedDates.startDate) {
-            // Sélection de la date de début
+            // Première sélection ou reset
             setSelectedDates({
                 startDate: selectedDate,
                 endDate: null,
             });
             setSelectionStep("end");
         } else if (selectionStep === "end") {
-            // Sélection de la date de fin
             const startDate = new Date(selectedDates.startDate!);
             const endDate = new Date(selectedDate);
 
-            if (endDate < startDate) {
-                // Si la date de fin est avant la date de début, on inverse
+            if (endDate >= startDate) {
+                // Date de fin valide
                 setSelectedDates({
-                    startDate: selectedDate,
-                    endDate: selectedDates.startDate,
-                });
-            } else if (endDate.getTime() === startDate.getTime()) {
-                // Même date = voyage d'une journée
-                setSelectedDates({
-                    startDate: selectedDate,
+                    startDate: selectedDates.startDate,
                     endDate: selectedDate,
                 });
             } else {
+                // Nouvelle sélection si date antérieure
                 setSelectedDates({
-                    ...selectedDates,
-                    endDate: selectedDate,
+                    startDate: selectedDate,
+                    endDate: null,
                 });
+                setSelectionStep("end");
             }
-            setSelectionStep("start");
         }
     };
 
-    const handleCreateTrip = () => {
+    // Génère un code d'invitation unique
+    const generateInvitationCode = (): string => {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    };
+
+    const handleCreateTrip = async () => {
         // Validation basique
         if (!tripName.trim()) {
             Alert.alert("Erreur", "Veuillez saisir un nom de séjour");
@@ -276,58 +291,100 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
             );
             return;
         }
+        if (!tripType) {
+            Alert.alert("Erreur", "Veuillez choisir un type de voyage");
+            return;
+        }
 
-        // Créer un nouvel objet voyage avec des données mock
-        const newTrip = {
-            id: Date.now().toString(),
-            title: tripName.trim(),
-            destination: destination.trim(),
-            startDate: new Date(selectedDates.startDate),
-            endDate: selectedDates.endDate
-                ? new Date(selectedDates.endDate)
-                : new Date(selectedDates.startDate),
-            description: `Voyage ${tripType} à ${destination}`,
-            creatorId: "user-mock-id",
-            members: [
-                {
-                    userId: "user-mock-id",
-                    user: {
-                        id: "user-mock-id",
-                        firstName: "Vous",
-                        lastName: "",
-                        email: "vous@example.com",
-                        createdAt: new Date(),
-                    },
-                    role: "creator" as const,
-                    joinedAt: new Date(),
-                },
-            ],
-            inviteCode: Math.random()
-                .toString(36)
-                .substring(2, 8)
-                .toUpperCase(),
-            coverImage: `https://images.unsplash.com/photo-${Math.floor(
-                Math.random() * 9999999999
-            )}?w=800&h=400&fit=crop`,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            tripType: tripType,
-            dates: formatDateDisplay(
-                selectedDates.startDate,
-                selectedDates.endDate
-            ),
-        };
+        try {
+            // Créer le voyage avec Firebase
+            const tripData = {
+                title: tripName.trim(),
+                destination: destination.trim(),
+                startDate: new Date(selectedDates.startDate),
+                endDate: selectedDates.endDate
+                    ? new Date(selectedDates.endDate)
+                    : new Date(selectedDates.startDate),
+                type: tripType,
+                coverImage: coverImage || undefined,
+            };
 
-        console.log("Voyage créé:", newTrip);
+            const tripId = await createTrip(tripData);
 
-        // Navigation directe vers TripDetailsScreen
-        navigation.navigate("TripDetails", {
-            tripId: newTrip.id,
-        });
+            if (tripId) {
+                setCreatedTripId(tripId);
+
+                // Récupérer le voyage créé pour obtenir le vrai code d'invitation
+                const firebaseService = (
+                    await import("../services/firebaseService")
+                ).default;
+                const createdTrip = await firebaseService.getTripById(tripId);
+
+                if (createdTrip) {
+                    setInvitationCode(createdTrip.inviteCode);
+                    // Afficher la popup d'invitation
+                    setShowInvitationModal(true);
+                } else {
+                    // Fallback si on ne peut pas récupérer le voyage
+                    Alert.alert("Succès", "Voyage créé avec succès !", [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                navigation.reset({
+                                    index: 0,
+                                    routes: [{ name: "MainApp" }],
+                                });
+                            },
+                        },
+                    ]);
+                }
+            }
+        } catch (err) {
+            console.error("Erreur création voyage:", err);
+            Alert.alert(
+                "Erreur",
+                error || "Impossible de créer le voyage. Veuillez réessayer."
+            );
+        }
     };
 
-    const handleShowQRCode = () => {
-        Alert.alert("QR Code", "Fonctionnalité QR Code à implémenter");
+    const handleCopyCode = async () => {
+        try {
+            await Clipboard.setString(invitationCode);
+            Alert.alert(
+                "Copié !",
+                "Le code d'invitation a été copié dans le presse-papier"
+            );
+        } catch (error) {
+            Alert.alert("Erreur", "Impossible de copier le code");
+        }
+    };
+
+    const handleCloseInvitationModal = () => {
+        setShowInvitationModal(false);
+
+        // Navigation vers TripDetails avec reset de la pile de navigation
+        if (createdTripId) {
+            setTimeout(() => {
+                // Reset de la pile de navigation pour empêcher le retour vers CreateTrip
+                navigation.reset({
+                    index: 1,
+                    routes: [
+                        { name: "MainApp" },
+                        {
+                            name: "TripDetails",
+                            params: { tripId: createdTripId },
+                        },
+                    ],
+                });
+            }, 300);
+        } else {
+            // Fallback vers Home avec reset
+            navigation.reset({
+                index: 0,
+                routes: [{ name: "MainApp" }],
+            });
+        }
     };
 
     const handleDatePicker = () => {
@@ -357,18 +414,60 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
         setSelectionStep("start");
     };
 
+    // Fonction pour sélectionner une photo de couverture
+    const handleSelectCoverImage = async () => {
+        try {
+            // Demander les permissions
+            const { status } =
+                await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+            if (status !== "granted") {
+                Alert.alert(
+                    "Permission requise",
+                    "Nous avons besoin d'accéder à vos photos pour sélectionner une image de couverture."
+                );
+                return;
+            }
+
+            // Ouvrir la galerie photo
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [16, 9],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                setCoverImage(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error("Erreur lors de la sélection d'image:", error);
+            Alert.alert("Erreur", "Impossible de sélectionner l'image");
+        }
+    };
+
+    const handleRemoveCoverImage = () => {
+        setCoverImage(null);
+    };
+
     return (
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={[
+                        styles.backButton,
+                        showInvitationModal && styles.backButtonDisabled,
+                    ]}
                     onPress={() => navigation.goBack()}
+                    disabled={showInvitationModal}
                 >
                     <Ionicons
                         name="arrow-back"
                         size={24}
-                        color={Colors.textPrimary}
+                        color={
+                            showInvitationModal ? "#CCCCCC" : Colors.textPrimary
+                        }
                     />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Nouveau séjour</Text>
@@ -473,7 +572,7 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.fieldLabel}>Destination</Text>
                     <TextInput
                         style={styles.textInput}
-                        placeholder="Où voulez-vous aller ?"
+                        placeholder="Où allez-vous ?"
                         placeholderTextColor="#637887"
                         value={destination}
                         onChangeText={setDestination}
@@ -483,77 +582,197 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                 {/* Type de voyage */}
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Type de voyage</Text>
-                    <View style={styles.tripTypeContainer}>
-                        {["plage", "montagne", "citytrip", "campagne"].map(
-                            (type) => (
-                                <TouchableOpacity
-                                    key={type}
+                    <View style={styles.tripTypesContainer}>
+                        {(
+                            [
+                                "plage",
+                                "montagne",
+                                "citytrip",
+                                "campagne",
+                            ] as const
+                        ).map((type) => (
+                            <TouchableOpacity
+                                key={type}
+                                style={[
+                                    styles.tripTypeButton,
+                                    tripType === type &&
+                                        styles.tripTypeButtonSelected,
+                                ]}
+                                onPress={() => setTripType(type)}
+                            >
+                                <Text
                                     style={[
-                                        styles.tripTypeButton,
+                                        styles.tripTypeText,
                                         tripType === type &&
-                                            styles.tripTypeButtonSelected,
+                                            styles.tripTypeTextSelected,
                                     ]}
-                                    onPress={() => setTripType(type)}
                                 >
-                                    <Text
-                                        style={[
-                                            styles.tripTypeText,
-                                            tripType === type &&
-                                                styles.tripTypeTextSelected,
-                                        ]}
-                                    >
-                                        {type.charAt(0).toUpperCase() +
-                                            type.slice(1)}
+                                    {type.charAt(0).toUpperCase() +
+                                        type.slice(1)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Photo de couverture */}
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Photo de couverture</Text>
+
+                    {coverImage ? (
+                        <View style={styles.coverImageContainer}>
+                            <Image
+                                source={{ uri: coverImage }}
+                                style={styles.coverImagePreview}
+                            />
+                            <View style={styles.coverImageOverlay}>
+                                <TouchableOpacity
+                                    style={styles.changeCoverButton}
+                                    onPress={handleSelectCoverImage}
+                                >
+                                    <Ionicons
+                                        name="camera"
+                                        size={20}
+                                        color="#FFFFFF"
+                                    />
+                                    <Text style={styles.changeCoverButtonText}>
+                                        Changer
                                     </Text>
                                 </TouchableOpacity>
-                            )
-                        )}
-                    </View>
-                </View>
-
-                {/* Inviter des amis */}
-                <View style={styles.inviteSection}>
-                    <Text style={styles.inviteTitle}>Inviter des amis</Text>
-
-                    {/* Emails */}
-                    <View style={styles.emailsContainer}>
-                        <Text style={styles.fieldLabel}>Emails</Text>
-                        <TextInput
-                            style={styles.emailsInput}
-                            placeholder="Entrez les emails séparés par une virgule"
-                            placeholderTextColor="#637887"
-                            value={emails}
-                            onChangeText={setEmails}
-                            multiline
-                            textAlignVertical="top"
-                        />
-                    </View>
-                </View>
-
-                {/* Bouton QR Code */}
-                <View style={styles.qrCodeContainer}>
-                    <TouchableOpacity
-                        style={styles.qrCodeButton}
-                        onPress={handleShowQRCode}
-                    >
-                        <Text style={styles.qrCodeButtonText}>
-                            Afficher le QR code
-                        </Text>
-                    </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.removeCoverButton}
+                                    onPress={handleRemoveCoverImage}
+                                >
+                                    <Ionicons
+                                        name="trash"
+                                        size={20}
+                                        color="#FFFFFF"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.coverImageSelector}
+                            onPress={handleSelectCoverImage}
+                        >
+                            <Ionicons name="camera" size={32} color="#7ED957" />
+                            <View
+                                style={styles.coverImageSelectorTextContainer}
+                            >
+                                <Text style={styles.coverImageSelectorText}>
+                                    Ajouter une photo de couverture
+                                </Text>
+                                <Text style={styles.coverImageSelectorSubtext}>
+                                    Optionnel - Rendra votre voyage plus
+                                    attrayant
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </ScrollView>
 
             {/* Bouton Créer le séjour */}
             <View style={styles.bottomContainer}>
                 <TouchableOpacity
-                    style={styles.createButton}
+                    style={[
+                        styles.createButton,
+                        loading && styles.createButtonDisabled,
+                    ]}
                     onPress={handleCreateTrip}
+                    disabled={loading}
                 >
-                    <Text style={styles.createButtonText}>Créer le séjour</Text>
+                    {loading ? (
+                        <View style={styles.createButtonLoading}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <Text style={styles.createButtonText}>
+                                Création...
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.createButtonText}>
+                            Créer le séjour
+                        </Text>
+                    )}
                 </TouchableOpacity>
             </View>
 
-            {/* Modal Calendrier Simplifié */}
+            {/* Modal d'invitation */}
+            <Modal
+                visible={showInvitationModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={handleCloseInvitationModal}
+            >
+                <View style={styles.invitationModalOverlay}>
+                    <View style={styles.invitationModalContainer}>
+                        <View style={styles.invitationModalHeader}>
+                            <Text style={styles.invitationModalTitle}>
+                                🎉 Voyage créé !
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.invitationModalCloseButton}
+                                onPress={handleCloseInvitationModal}
+                            >
+                                <Ionicons name="close" size={24} color="#666" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.invitationModalSubtitle}>
+                            Partagez ce code pour inviter vos amis
+                        </Text>
+
+                        {/* Code d'invitation */}
+                        <View style={styles.invitationCodeContainer}>
+                            <Text style={styles.invitationCodeLabel}>
+                                Code d'invitation
+                            </Text>
+                            <View style={styles.invitationCodeBox}>
+                                <Text style={styles.invitationCodeText}>
+                                    {invitationCode}
+                                </Text>
+                                <TouchableOpacity
+                                    style={styles.copyButton}
+                                    onPress={handleCopyCode}
+                                >
+                                    <Ionicons
+                                        name="copy"
+                                        size={20}
+                                        color="#7ED957"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* QR Code placeholder */}
+                        <View style={styles.qrCodeContainer}>
+                            <Text style={styles.qrCodeLabel}>QR Code</Text>
+                            <View style={styles.qrCodePlaceholder}>
+                                <Ionicons
+                                    name="qr-code-outline"
+                                    size={80}
+                                    color="#999"
+                                />
+                                <Text style={styles.qrCodePlaceholderText}>
+                                    QR Code généré
+                                </Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.continueButton}
+                            onPress={handleCloseInvitationModal}
+                        >
+                            <Text style={styles.continueButtonText}>
+                                Continuer
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Modal Calendrier */}
             <Modal
                 visible={showCalendar}
                 animationType="slide"
@@ -711,6 +930,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
+    backButtonDisabled: {
+        opacity: 0.5,
+    },
     headerTitle: {
         ...TextStyles.h2,
         color: Colors.textPrimary,
@@ -776,7 +998,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    tripTypeContainer: {
+    tripTypesContainer: {
         flexDirection: "row",
         flexWrap: "wrap",
         gap: 12,
@@ -804,47 +1026,6 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
         fontWeight: "600",
     },
-    inviteSection: {
-        marginBottom: 32,
-    },
-    inviteTitle: {
-        ...TextStyles.h3,
-        color: Colors.textPrimary,
-        marginBottom: 20,
-        fontSize: 18,
-    },
-    emailsContainer: {
-        marginBottom: 0,
-    },
-    emailsInput: {
-        backgroundColor: Colors.background,
-        borderWidth: 1,
-        borderColor: "#DBE0E5",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        ...TextStyles.body1,
-        color: Colors.textPrimary,
-        height: 144,
-        textAlignVertical: "top",
-    },
-    qrCodeContainer: {
-        marginBottom: 32,
-    },
-    qrCodeButton: {
-        backgroundColor: "#F0F2F4",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        alignSelf: "flex-start",
-        height: 48,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    qrCodeButtonText: {
-        ...TextStyles.button,
-        color: Colors.textPrimary,
-        fontWeight: "600",
-    },
     bottomContainer: {
         padding: 16,
         backgroundColor: Colors.background,
@@ -857,8 +1038,121 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         paddingHorizontal: 16,
     },
+    createButtonDisabled: {
+        backgroundColor: "#E5E5E5",
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    createButtonLoading: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
     createButtonText: {
         ...TextStyles.button,
+        color: "#FFFFFF",
+        fontWeight: "600",
+    },
+    invitationModalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    invitationModalContainer: {
+        backgroundColor: "#FFFFFF",
+        padding: 24,
+        borderRadius: 12,
+        width: "80%",
+        maxWidth: 400,
+    },
+    invitationModalHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    invitationModalTitle: {
+        flex: 1,
+        fontSize: 24,
+        fontWeight: "700",
+        color: "#1A1A1A",
+        textAlign: "center",
+        letterSpacing: -0.5,
+    },
+    invitationModalCloseButton: {
+        width: 44,
+        height: 44,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#F8F9FA",
+        borderRadius: 22,
+    },
+    invitationModalSubtitle: {
+        fontSize: 16,
+        color: "#1A1A1A",
+        textAlign: "center",
+        marginBottom: 20,
+    },
+    invitationCodeContainer: {
+        marginBottom: 20,
+    },
+    invitationCodeLabel: {
+        fontSize: 16,
+        color: "#1A1A1A",
+        marginBottom: 8,
+    },
+    invitationCodeBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#DBE0E5",
+        borderRadius: 12,
+        padding: 12,
+    },
+    invitationCodeText: {
+        flex: 1,
+        fontSize: 16,
+        color: "#1A1A1A",
+    },
+    copyButton: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    qrCodeContainer: {
+        marginBottom: 20,
+    },
+    qrCodeLabel: {
+        fontSize: 16,
+        color: "#1A1A1A",
+        marginBottom: 8,
+    },
+    qrCodePlaceholder: {
+        backgroundColor: "#F8F9FA",
+        borderRadius: 12,
+        padding: 40,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 2,
+        borderColor: "#E2E8F0",
+        borderStyle: "dashed",
+    },
+    qrCodePlaceholderText: {
+        fontSize: 14,
+        color: "#999",
+        marginTop: 8,
+        textAlign: "center",
+    },
+    continueButton: {
+        backgroundColor: "#4DA1A9",
+        borderRadius: 12,
+        padding: 16,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    continueButtonText: {
+        fontSize: 16,
         color: "#FFFFFF",
         fontWeight: "600",
     },
@@ -967,19 +1261,68 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         marginTop: 2,
     },
-    // Styles pour cercles parfaits
-    dateCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: "#4CAF50",
+    coverImageContainer: {
+        position: "relative",
+        borderRadius: 12,
+        overflow: "hidden",
+    },
+    coverImagePreview: {
+        width: "100%",
+        height: 200,
+        borderRadius: 12,
+    },
+    coverImageOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
         justifyContent: "center",
         alignItems: "center",
     },
-    dateText: {
+    changeCoverButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 12,
+    },
+    changeCoverButtonText: {
         fontSize: 16,
-        fontWeight: "700",
         color: "#FFFFFF",
+        marginLeft: 8,
+    },
+    removeCoverButton: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    coverImageSelector: {
+        backgroundColor: "#F8F9FA",
+        borderWidth: 2,
+        borderColor: "#DBE0E5",
+        borderStyle: "dashed",
+        borderRadius: 12,
+        padding: 20,
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 120,
+    },
+    coverImageSelectorTextContainer: {
+        alignItems: "center",
+        marginTop: 12,
+    },
+    coverImageSelectorText: {
+        fontSize: 16,
+        color: "#1A1A1A",
+        fontWeight: "600",
+        textAlign: "center",
+    },
+    coverImageSelectorSubtext: {
+        fontSize: 14,
+        color: "#637887",
+        marginTop: 4,
+        textAlign: "center",
     },
 });
 

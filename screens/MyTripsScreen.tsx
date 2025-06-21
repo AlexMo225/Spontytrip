@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import React, { useState } from "react";
 import {
+    ActivityIndicator,
     Image,
     SafeAreaView,
     ScrollView,
@@ -13,6 +14,9 @@ import {
 import { Colors } from "../constants/Colors";
 import { Fonts } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { useAuth } from "../contexts/AuthContext";
+import { useUserTrips } from "../hooks/useTripSync";
+import { FirestoreTrip } from "../services/firebaseService";
 import { MainTabParamList } from "../types";
 
 type MyTripsScreenNavigationProp = BottomTabNavigationProp<
@@ -24,91 +28,104 @@ interface Props {
     navigation: MyTripsScreenNavigationProp;
 }
 
-// Mock data pour les voyages
-const mockTrips = [
-    {
-        id: "1",
-        title: "Week-end à Barcelone",
-        destination: "Barcelone",
-        dates: "20 - 23 Sep",
-        status: "ongoing",
-        image: "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80",
-        members: 4,
-    },
-    {
-        id: "2",
-        title: "Escapade à Prague",
-        destination: "Prague",
-        dates: "15 - 18 Juil",
-        status: "ongoing",
-        image: "https://images.unsplash.com/photo-1541849546-216549ae216d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80",
-        members: 2,
-    },
-    {
-        id: "3",
-        title: "Voyage à Paris",
-        destination: "Paris",
-        dates: "12 - 15 Oct",
-        status: "completed",
-        image: "https://images.unsplash.com/photo-1549144511-f099e773c147?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80",
-        members: 3,
-    },
-    {
-        id: "4",
-        title: "Week-end à Rome",
-        destination: "Rome",
-        dates: "8 - 11 Sep",
-        status: "completed",
-        image: "https://images.unsplash.com/photo-1515542622106-78bda8ba0e5b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80",
-        members: 5,
-    },
-];
-
 const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
+    const { user } = useAuth();
+    const { trips, loading, error, refreshTrips } = useUserTrips();
     const [selectedTab, setSelectedTab] = useState<"ongoing" | "completed">(
         "ongoing"
     );
 
-    const filteredTrips = mockTrips.filter(
-        (trip) => trip.status === selectedTab
+    // Fonction pour déterminer le statut d'un voyage
+    const getTripStatus = (trip: FirestoreTrip): "ongoing" | "completed" => {
+        const today = new Date();
+        const endDate = new Date(trip.endDate);
+        return endDate >= today ? "ongoing" : "completed";
+    };
+
+    // Fonction pour formater les dates
+    const formatDateRange = (startDate: Date, endDate: Date): string => {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        const startDay = start.getDate();
+        const endDay = end.getDate();
+        const month = start.toLocaleDateString("fr-FR", { month: "short" });
+
+        return `${startDay} - ${endDay} ${month}`;
+    };
+
+    const filteredTrips = trips.filter(
+        (trip) => getTripStatus(trip) === selectedTab
     );
 
-    const renderTripCard = (trip: any) => (
-        <TouchableOpacity key={trip.id} style={styles.tripCard}>
-            <View style={styles.tripInfo}>
-                <Text style={styles.tripTitle}>{trip.title}</Text>
-                <Text style={styles.tripDestination}>{trip.destination}</Text>
-                <Text style={styles.tripDates}>{trip.dates}</Text>
-                <View style={styles.tripMetaContainer}>
-                    <View style={styles.membersContainer}>
-                        <Ionicons
-                            name="people-outline"
-                            size={14}
-                            color="#637887"
-                        />
-                        <Text style={styles.membersText}>
-                            {trip.members} membres
-                        </Text>
+    const renderTripCard = (trip: FirestoreTrip) => {
+        const status = getTripStatus(trip);
+        const dates = formatDateRange(trip.startDate, trip.endDate);
+
+        return (
+            <TouchableOpacity
+                key={trip.id}
+                style={styles.tripCard}
+                onPress={() =>
+                    navigation.navigate("TripDetails" as any, {
+                        tripId: trip.id,
+                    })
+                }
+            >
+                <View style={styles.tripInfo}>
+                    <Text style={styles.tripTitle}>{trip.title}</Text>
+                    <Text style={styles.tripDestination}>
+                        {trip.destination}
+                    </Text>
+                    <Text style={styles.tripDates}>{dates}</Text>
+                    <View style={styles.tripMetaContainer}>
+                        <View style={styles.membersContainer}>
+                            <Ionicons
+                                name="people-outline"
+                                size={14}
+                                color="#637887"
+                            />
+                            <Text style={styles.membersText}>
+                                {trip.members.length} membre
+                                {trip.members.length > 1 ? "s" : ""}
+                            </Text>
+                        </View>
+                        {status === "ongoing" && (
+                            <View style={styles.statusBadge}>
+                                <Text style={styles.statusText}>En cours</Text>
+                            </View>
+                        )}
                     </View>
-                    {trip.status === "ongoing" && (
-                        <View style={styles.statusBadge}>
-                            <Text style={styles.statusText}>En cours</Text>
+                </View>
+                <View style={styles.tripImageContainer}>
+                    {trip.coverImage ? (
+                        <Image
+                            source={{ uri: trip.coverImage }}
+                            style={styles.tripImage}
+                        />
+                    ) : (
+                        <View style={[styles.tripImage, styles.defaultImage]}>
+                            <Ionicons
+                                name="image-outline"
+                                size={32}
+                                color="#999"
+                            />
                         </View>
                     )}
                 </View>
-            </View>
-            <View style={styles.tripImageContainer}>
-                <Image source={{ uri: trip.image }} style={styles.tripImage} />
-            </View>
-        </TouchableOpacity>
-    );
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Mes voyages</Text>
-                <TouchableOpacity style={styles.addButton}>
+                <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => navigation.navigate("CreateTrip" as any)}
+                >
                     <Ionicons name="add" size={24} color="#4DA1A9" />
                 </TouchableOpacity>
             </View>
@@ -151,42 +168,72 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {/* Trips List */}
-            <ScrollView
-                style={styles.tripsContainer}
-                showsVerticalScrollIndicator={false}
-            >
-                {filteredTrips.length > 0 ? (
-                    filteredTrips.map(renderTripCard)
-                ) : (
-                    <View style={styles.emptyState}>
-                        <Ionicons
-                            name="airplane-outline"
-                            size={64}
-                            color="#E2E8F0"
-                        />
-                        <Text style={styles.emptyTitle}>
-                            {selectedTab === "ongoing"
-                                ? "Aucun voyage en cours"
-                                : "Aucun voyage terminé"}
-                        </Text>
-                        <Text style={styles.emptySubtitle}>
-                            {selectedTab === "ongoing"
-                                ? "Créez votre premier voyage pour commencer l'aventure !"
-                                : "Vos voyages passés apparaîtront ici"}
-                        </Text>
-                        {selectedTab === "ongoing" && (
-                            <TouchableOpacity style={styles.createButton}>
-                                <Text style={styles.createButtonText}>
-                                    Créer un voyage
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                )}
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#4DA1A9" />
+                    <Text style={styles.loadingText}>
+                        Chargement de vos voyages...
+                    </Text>
+                </View>
+            ) : error ? (
+                <View style={styles.errorContainer}>
+                    <Ionicons
+                        name="alert-circle-outline"
+                        size={64}
+                        color="#FF6B6B"
+                    />
+                    <Text style={styles.errorTitle}>Erreur de chargement</Text>
+                    <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={refreshTrips}
+                    >
+                        <Text style={styles.retryButtonText}>Réessayer</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <ScrollView
+                    style={styles.tripsContainer}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {filteredTrips.length > 0 ? (
+                        filteredTrips.map(renderTripCard)
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Ionicons
+                                name="airplane-outline"
+                                size={64}
+                                color="#E2E8F0"
+                            />
+                            <Text style={styles.emptyTitle}>
+                                {selectedTab === "ongoing"
+                                    ? "Aucun voyage en cours"
+                                    : "Aucun voyage terminé"}
+                            </Text>
+                            <Text style={styles.emptySubtitle}>
+                                {selectedTab === "ongoing"
+                                    ? "Créez votre premier voyage pour commencer l'aventure !"
+                                    : "Vos voyages passés apparaîtront ici"}
+                            </Text>
+                            {selectedTab === "ongoing" && (
+                                <TouchableOpacity
+                                    style={styles.createButton}
+                                    onPress={() =>
+                                        navigation.navigate("CreateTrip" as any)
+                                    }
+                                >
+                                    <Text style={styles.createButtonText}>
+                                        Créer un voyage
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
 
-                {/* Bottom spacing */}
-                <View style={styles.bottomSpacing} />
-            </ScrollView>
+                    {/* Bottom spacing */}
+                    <View style={styles.bottomSpacing} />
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 };
@@ -322,6 +369,53 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
         borderRadius: 8,
+    },
+    defaultImage: {
+        backgroundColor: "#F8FAFC",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingTop: 100,
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        color: "#666",
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingTop: 100,
+        paddingHorizontal: 32,
+    },
+    errorTitle: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#FF6B6B",
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    errorText: {
+        fontSize: 14,
+        color: "#666",
+        textAlign: "center",
+        marginBottom: 24,
+    },
+    retryButton: {
+        backgroundColor: "#4DA1A9",
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: "#FFFFFF",
+        fontSize: 16,
+        fontWeight: "600",
     },
     emptyState: {
         flex: 1,

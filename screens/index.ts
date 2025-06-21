@@ -30,4 +30,6 @@ export { default as GalleryScreen } from "./GalleryScreen";
 export { default as EditProfileScreen } from "./EditProfileScreen";
 
 // Other
+export { default as ExpensesScreen } from "./ExpensesScreen";
 export { default as ExploreScreen } from "./ExploreScreen";
+export { default as NotesScreen } from "./NotesScreen";

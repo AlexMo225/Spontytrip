@@ -1,55 +1,23 @@
 // Configuration des polices pour SpontyTrip
 
 export const FontFamily = {
-    // Police pour les titres (Poppins remplace Clash Display)
-    heading: "Poppins_600SemiBold",
-    headingBold: "Poppins_700Bold",
-    headingLight: "Poppins_500Medium",
-
-    // Police pour le texte (Inter remplace Satoshi)
-    body: "Inter_400Regular",
-    bodyMedium: "Inter_500Medium",
-    bodySemiBold: "Inter_600SemiBold",
-    bodyBold: "Inter_700Bold",
-
-    // Police système par défaut
-    system: "System",
+    heading: "System",
+    body: "System",
 } as const;
 
 export const FontSize = {
-    // Titres
     title1: 32,
     title2: 28,
     title3: 24,
     title4: 20,
-
-    // Sous-titres
     subtitle1: 18,
     subtitle2: 16,
-
-    // Corps de texte
     body1: 16,
     body2: 14,
     body3: 12,
-
-    // Texte petit
     caption: 11,
-    overline: 10,
-
-    // Boutons
     button: 16,
     buttonSmall: 14,
-
-    // Labels
-    label: 14,
-    labelSmall: 12,
-} as const;
-
-export const LineHeight = {
-    tight: 1.2,
-    normal: 1.4,
-    relaxed: 1.6,
-    loose: 1.8,
 } as const;
 
 export const FontWeight = {
@@ -62,103 +30,97 @@ export const FontWeight = {
 
 // Styles de texte prédéfinis
 export const TextStyles = {
-    // Titres
     h1: {
-        fontFamily: FontFamily.headingBold,
+        fontFamily: FontFamily.heading,
         fontSize: FontSize.title1,
-        lineHeight: FontSize.title1 * LineHeight.tight,
+        fontWeight: FontWeight.bold,
+        family: FontFamily.heading,
     },
     h2: {
-        fontFamily: FontFamily.headingBold,
+        fontFamily: FontFamily.heading,
         fontSize: FontSize.title2,
-        lineHeight: FontSize.title2 * LineHeight.tight,
+        fontWeight: FontWeight.bold,
+        family: FontFamily.heading,
     },
     h3: {
         fontFamily: FontFamily.heading,
         fontSize: FontSize.title3,
-        lineHeight: FontSize.title3 * LineHeight.tight,
+        fontWeight: FontWeight.semibold,
+        family: FontFamily.heading,
     },
     h4: {
         fontFamily: FontFamily.heading,
         fontSize: FontSize.title4,
-        lineHeight: FontSize.title4 * LineHeight.normal,
+        fontWeight: FontWeight.semibold,
+        family: FontFamily.heading,
     },
-
-    // Sous-titres
+    heading: {
+        fontFamily: FontFamily.heading,
+        fontSize: FontSize.title3,
+        fontWeight: FontWeight.semibold,
+        family: FontFamily.heading,
+    },
     subtitle1: {
-        fontFamily: FontFamily.bodySemiBold,
+        fontFamily: FontFamily.body,
         fontSize: FontSize.subtitle1,
-        lineHeight: FontSize.subtitle1 * LineHeight.normal,
+        fontWeight: FontWeight.semibold,
+        family: FontFamily.body,
     },
     subtitle2: {
-        fontFamily: FontFamily.bodyMedium,
+        fontFamily: FontFamily.body,
         fontSize: FontSize.subtitle2,
-        lineHeight: FontSize.subtitle2 * LineHeight.normal,
+        fontWeight: FontWeight.medium,
+        family: FontFamily.body,
     },
-
-    // Corps de texte
     body1: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.body1,
-        lineHeight: FontSize.body1 * LineHeight.relaxed,
+        fontWeight: FontWeight.normal,
+        family: FontFamily.body,
     },
     body2: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.body2,
-        lineHeight: FontSize.body2 * LineHeight.relaxed,
+        fontWeight: FontWeight.normal,
+        family: FontFamily.body,
     },
-
-    // Boutons
+    body: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.body1,
+        fontWeight: FontWeight.normal,
+        family: FontFamily.body,
+    },
     button: {
-        fontFamily: FontFamily.bodySemiBold,
+        fontFamily: FontFamily.body,
         fontSize: FontSize.button,
-        lineHeight: FontSize.button * LineHeight.normal,
+        fontWeight: FontWeight.semibold,
+        family: FontFamily.body,
     },
     buttonSmall: {
-        fontFamily: FontFamily.bodyMedium,
+        fontFamily: FontFamily.body,
         fontSize: FontSize.buttonSmall,
-        lineHeight: FontSize.buttonSmall * LineHeight.normal,
+        fontWeight: FontWeight.medium,
+        family: FontFamily.body,
     },
-
-    // Labels et captions
     caption: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        lineHeight: FontSize.caption * LineHeight.normal,
-    },
-    overline: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.overline,
-        lineHeight: FontSize.overline * LineHeight.normal,
-        textTransform: "uppercase" as const,
-        letterSpacing: 1,
+        fontWeight: FontWeight.normal,
+        family: FontFamily.body,
     },
 } as const;
 
-// Export principal regroupé pour faciliter l'import
+// Export pour compatibilité avec le code existant
 export const Fonts = {
     heading: {
         family: FontFamily.heading,
         weight: FontWeight.semibold,
     },
-    headingBold: {
-        family: FontFamily.headingBold,
-        weight: FontWeight.bold,
-    },
     body: {
         family: FontFamily.body,
         weight: FontWeight.normal,
     },
-    bodyMedium: {
-        family: FontFamily.bodyMedium,
-        weight: FontWeight.medium,
-    },
-    bodySemiBold: {
-        family: FontFamily.bodySemiBold,
-        weight: FontWeight.semibold,
-    },
     size: FontSize,
-    lineHeight: LineHeight,
     weight: FontWeight,
     styles: TextStyles,
 };

@@ -3,36 +3,28 @@ import "../patches/asyncstorage-patch";
 
 import firebase from "firebase/app";
 import "firebase/auth";
+import "firebase/firestore";
 import "firebase/storage";
 
-// Configuration Firebase avec variables d'environnement
+// Configuration Firebase avec variables d'environnement + fallback
 const firebaseConfig = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    apiKey:
+        process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
+        "AIzaSyAIgT9Su6zArCX_0vGc4gxrLjNcfXtO3Bo",
+    authDomain:
+        process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+        "spontytrip-dfcfe.firebaseapp.com",
+    projectId:
+        process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "spontytrip-dfcfe",
+    storageBucket:
+        process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+        "spontytrip-dfcfe.firebasestorage.app",
+    messagingSenderId:
+        process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "324928313318",
+    appId:
+        process.env.EXPO_PUBLIC_FIREBASE_APP_ID ||
+        "1:324928313318:web:2dbf4e8d3b326fa4c66827",
 };
-
-// Validation des variables d'environnement
-const requiredEnvVars = [
-    "EXPO_PUBLIC_FIREBASE_API_KEY",
-    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-    "EXPO_PUBLIC_FIREBASE_APP_ID",
-];
-
-const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
-if (missingVars.length > 0) {
-    throw new Error(
-        `Variables d'environnement Firebase manquantes: ${missingVars.join(
-            ", "
-        )}\nVeuillez créer un fichier .env avec ces variables.`
-    );
-}
 
 // Patch AsyncStorage pour React Native
 if (typeof global !== "undefined") {
@@ -44,14 +36,13 @@ if (typeof global !== "undefined") {
 // Initialiser Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
-    console.log(
-        "🔥 Firebase v8 Auth et Storage initialisés avec variables d'environnement sécurisées"
-    );
+    console.log("🔥 Firebase v8 initialisé avec succès");
 } else {
     firebase.app();
 }
 
 // Exporter les services
 export const auth = firebase.auth();
+export const db = firebase.firestore();
 export const storage = firebase.storage();
 export default firebase;
