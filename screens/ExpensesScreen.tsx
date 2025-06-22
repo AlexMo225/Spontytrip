@@ -7,21 +7,23 @@ import {
     Alert,
     FlatList,
     Modal,
+    SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import ExpenseItem from "../components/ExpenseItem";
-import TripBalanceSummary from "../components/TripBalanceSummary";
 import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
 import { useTripSync } from "../hooks/useTripSync";
-import { ExpenseItem as ExpenseType } from "../services/firebaseService";
+import firebaseService, {
+    DebtCalculation,
+    ExpenseItem,
+    ExpensesSummary,
+    TripMember,
+} from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
 type ExpensesScreenNavigationProp = StackNavigationProp<
@@ -36,128 +38,128 @@ interface Props {
 }
 
 const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
-    const { user } = useAuth();
     const { tripId } = route.params;
+    const { user } = useAuth();
     const { trip, expenses, loading, error } = useTripSync(tripId);
 
-    const [localExpenses, setLocalExpenses] = useState<ExpenseType[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [editingExpense, setEditingExpense] = useState<ExpenseType | null>(
-        null
-    );
+    const [showBalanceModal, setShowBalanceModal] = useState(false);
+    const [summary, setSummary] = useState<ExpensesSummary | null>(null);
 
-    // Form state
-    const [formData, setFormData] = useState({
+    // États pour le formulaire d'ajout
+    const [newExpense, setNewExpense] = useState({
         label: "",
         amount: "",
         paidBy: user?.uid || "",
+        participants: [user?.uid || ""],
     });
 
-    // Synchroniser les dépenses locales avec Firebase
     useEffect(() => {
-        if (expenses?.expenses) {
-            setLocalExpenses(expenses.expenses);
+        if (expenses && trip && user) {
+            console.log("📊 === ÉCRAN DÉPENSES - CALCUL ===");
+            console.log("Utilisateur connecté:", user.uid, user.displayName);
+            console.log("Voyage:", trip.title);
+            console.log(
+                "Membres du voyage:",
+                trip.members.map((m: TripMember) => `${m.name} (${m.userId})`)
+            );
+            console.log("Nombre de dépenses:", expenses.expenses?.length || 0);
+
+            const tripMembers = trip.members.map((member) => ({
+                userId: member.userId,
+                name: member.name,
+            }));
+
+            const calculatedSummary = firebaseService.calculateExpensesSummary(
+                expenses.expenses || [],
+                tripMembers,
+                user.uid
+            );
+
+            console.log("Résumé calculé pour", user.displayName, ":");
+            console.log(
+                "- Total dépenses:",
+                calculatedSummary.totalExpenses.toFixed(2),
+                "€"
+            );
+            console.log(
+                "- Mon solde:",
+                calculatedSummary.myBalance?.balance.toFixed(2),
+                "€"
+            );
+            console.log(
+                "- Nombre de remboursements:",
+                calculatedSummary.debtsToSettle.length
+            );
+            console.log("📊 === FIN CALCUL ÉCRAN ===\n");
+
+            setSummary(calculatedSummary);
         }
-    }, [expenses]);
+    }, [expenses, trip, user]);
 
-    const isCreator = trip?.creatorId === user?.uid;
-
-    const resetForm = () => {
-        setFormData({
-            label: "",
-            amount: "",
-            paidBy: user?.uid || "",
-        });
-        setEditingExpense(null);
-    };
-
-    const handleOpenAddModal = () => {
-        resetForm();
-        setShowAddModal(true);
-    };
-
-    const handleEditExpense = (expense: ExpenseType) => {
-        setFormData({
-            label: expense.label,
-            amount: expense.amount.toString(),
-            paidBy: expense.paidBy,
-        });
-        setEditingExpense(expense);
-        setShowAddModal(true);
-    };
-
-    const handleSaveExpense = async () => {
-        if (!formData.label.trim() || !formData.amount.trim()) {
+    const handleAddExpense = async () => {
+        if (
+            !newExpense.label.trim() ||
+            !newExpense.amount ||
+            newExpense.participants.length === 0
+        ) {
             Alert.alert("Erreur", "Veuillez remplir tous les champs");
             return;
         }
 
-        const amount = parseFloat(formData.amount);
-        if (isNaN(amount) || amount <= 0) {
-            Alert.alert("Erreur", "Le montant doit être un nombre positif");
-            return;
-        }
-
-        const expenseData: ExpenseType = {
-            id: editingExpense?.id || `exp_${Date.now()}`,
-            label: formData.label.trim(),
-            amount: amount,
-            paidBy: formData.paidBy,
-            paidByName:
-                trip?.members.find((m) => m.userId === formData.paidBy)?.name ||
-                "Inconnu",
-            splitBetween: trip?.members.map((m) => m.userId) || [],
-            date: editingExpense?.date || new Date(),
-            createdAt: editingExpense?.createdAt || new Date(),
-        };
+        if (!trip || !user) return;
 
         try {
-            if (editingExpense) {
-                // Optimistic update pour modification
-                setLocalExpenses((prev) =>
-                    prev.map((exp) =>
-                        exp.id === editingExpense.id ? expenseData : exp
-                    )
-                );
-            } else {
-                // Optimistic update pour ajout
-                setLocalExpenses((prev) => [...prev, expenseData]);
-            }
-
-            // Sauvegarder dans Firebase
-            const firebaseService = (
-                await import("../services/firebaseService")
-            ).default;
-            await firebaseService.updateExpenses(
-                tripId,
-                editingExpense
-                    ? localExpenses.map((exp) =>
-                          exp.id === editingExpense.id ? expenseData : exp
-                      )
-                    : [...localExpenses, expenseData],
-                user?.uid || ""
+            const paidByMember = trip.members.find(
+                (m: TripMember) => m.userId === newExpense.paidBy
+            );
+            const participantMembers = trip.members.filter((m: TripMember) =>
+                newExpense.participants.includes(m.userId)
             );
 
+            const expense: Omit<ExpenseItem, "id" | "createdAt" | "updatedAt"> =
+                {
+                    tripId,
+                    label: newExpense.label.trim(),
+                    amount: parseFloat(newExpense.amount),
+                    paidBy: newExpense.paidBy,
+                    paidByName: paidByMember?.name || "Inconnu",
+                    participants: newExpense.participants,
+                    participantNames: participantMembers.map(
+                        (m: TripMember) => m.name
+                    ),
+                    date: new Date(),
+                    createdBy: user.uid,
+                };
+
+            await firebaseService.addExpense(tripId, expense, user.uid);
+
+            // Réinitialiser le formulaire
+            setNewExpense({
+                label: "",
+                amount: "",
+                paidBy: user.uid,
+                participants: [user.uid],
+            });
             setShowAddModal(false);
-            resetForm();
+
+            Alert.alert("Succès", "Dépense ajoutée avec succès");
         } catch (error) {
-            console.error("Erreur sauvegarde dépense:", error);
-            // Rollback en cas d'erreur
-            if (expenses?.expenses) {
-                setLocalExpenses(expenses.expenses);
-            }
+            console.error("Erreur ajout dépense:", error);
+            Alert.alert("Erreur", "Impossible d'ajouter la dépense");
         }
     };
 
-    const handleDeleteExpense = async (expenseId: string) => {
-        const expense = localExpenses.find((e) => e.id === expenseId);
-        if (!expense) return;
+    const handleDeleteExpense = (expense: ExpenseItem) => {
+        if (!user || !trip) return;
 
-        // Vérifier permissions
-        if (!isCreator && expense.paidBy !== user?.uid) {
+        const canDelete =
+            expense.createdBy === user.uid || trip.creatorId === user.uid;
+
+        if (!canDelete) {
             Alert.alert(
-                "Permission refusée",
-                "Vous ne pouvez supprimer que vos propres dépenses."
+                "Erreur",
+                "Vous ne pouvez supprimer que vos propres dépenses"
             );
             return;
         }
@@ -171,30 +173,18 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                     text: "Supprimer",
                     style: "destructive",
                     onPress: async () => {
-                        // Optimistic update
-                        setLocalExpenses((prev) =>
-                            prev.filter((e) => e.id !== expenseId)
-                        );
-
                         try {
-                            // Supprimer dans Firebase
-                            const firebaseService = (
-                                await import("../services/firebaseService")
-                            ).default;
-                            const updatedExpenses = localExpenses.filter(
-                                (e) => e.id !== expenseId
-                            );
-                            await firebaseService.updateExpenses(
+                            await firebaseService.deleteExpense(
                                 tripId,
-                                updatedExpenses,
-                                user?.uid || ""
+                                expense.id,
+                                user.uid
                             );
+                            Alert.alert("Succès", "Dépense supprimée");
                         } catch (error) {
-                            console.error("Erreur suppression dépense:", error);
-                            // Rollback en cas d'erreur
-                            if (expenses?.expenses) {
-                                setLocalExpenses(expenses.expenses);
-                            }
+                            Alert.alert(
+                                "Erreur",
+                                "Impossible de supprimer la dépense"
+                            );
                         }
                     },
                 },
@@ -202,87 +192,97 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
         );
     };
 
-    const calculateStats = () => {
-        const total = localExpenses.reduce(
-            (sum, expense) => sum + expense.amount,
-            0
-        );
-        const myExpenses = localExpenses
-            .filter((expense) => expense.paidBy === user?.uid)
-            .reduce((sum, expense) => sum + expense.amount, 0);
-
-        return {
-            total,
-            myExpenses,
-            count: localExpenses.length,
-        };
+    const toggleParticipant = (userId: string) => {
+        setNewExpense((prev) => ({
+            ...prev,
+            participants: prev.participants.includes(userId)
+                ? prev.participants.filter((id) => id !== userId)
+                : [...prev.participants, userId],
+        }));
     };
 
-    const renderExpenseItem = ({ item }: { item: ExpenseType }) => {
-        const payer = trip?.members.find((m) => m.userId === item.paidBy);
-        const canEdit = isCreator || item.paidBy === user?.uid;
+    const renderExpenseItem = ({ item }: { item: ExpenseItem }) => {
+        const canDelete =
+            item.createdBy === user?.uid || trip?.creatorId === user?.uid;
+        const amountPerPerson = item.amount / item.participants.length;
 
         return (
-            <ExpenseItem
-                expense={item}
-                payerName={
-                    payer?.userId === user?.uid
-                        ? "Vous"
-                        : payer?.name || "Inconnu"
-                }
-                onEdit={canEdit ? () => handleEditExpense(item) : () => {}}
-                onDelete={
-                    canEdit ? () => handleDeleteExpense(item.id) : () => {}
-                }
-            />
+            <View style={styles.expenseCard}>
+                <View style={styles.expenseHeader}>
+                    <View style={styles.expenseInfo}>
+                        <Text style={styles.expenseLabel}>{item.label}</Text>
+                        <Text style={styles.expenseAmount}>
+                            {item.amount.toFixed(2)}€
+                        </Text>
+                    </View>
+                    {canDelete && (
+                        <TouchableOpacity
+                            style={styles.deleteButton}
+                            onPress={() => handleDeleteExpense(item)}
+                        >
+                            <Ionicons
+                                name="trash-outline"
+                                size={20}
+                                color="#FF6B6B"
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <View style={styles.expenseDetails}>
+                    <Text style={styles.expenseDetailText}>
+                        Payé par:{" "}
+                        <Text style={styles.boldText}>{item.paidByName}</Text>
+                    </Text>
+                    <Text style={styles.expenseDetailText}>
+                        {amountPerPerson.toFixed(2)}€ par personne
+                    </Text>
+                    <Text style={styles.expenseDetailText}>
+                        Participants: {item.participantNames.join(", ")}
+                    </Text>
+                    <Text style={styles.expenseDate}>
+                        {item.date.toLocaleDateString("fr-FR")}
+                    </Text>
+                </View>
+            </View>
         );
     };
+
+    const renderDebtItem = ({ item }: { item: DebtCalculation }) => (
+        <View style={styles.debtCard}>
+            <Ionicons name="arrow-forward" size={20} color="#4DA1A9" />
+            <Text style={styles.debtText}>
+                <Text style={styles.boldText}>{item.fromName}</Text> doit{" "}
+                <Text style={styles.amountText}>{item.amount.toFixed(2)}€</Text>{" "}
+                à <Text style={styles.boldText}>{item.toName}</Text>
+            </Text>
+        </View>
+    );
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#7ED957" />
-                    <Text style={styles.loadingText}>
-                        Chargement des dépenses...
-                    </Text>
-                </View>
-            </SafeAreaView>
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4DA1A9" />
+                <Text style={styles.loadingText}>
+                    Chargement des dépenses...
+                </Text>
+            </View>
         );
     }
 
-    if (error || !trip) {
+    if (error) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.errorContainer}>
-                    <Ionicons
-                        name="alert-circle-outline"
-                        size={64}
-                        color="#FF6B6B"
-                    />
-                    <Text style={styles.errorTitle}>Erreur</Text>
-                    <Text style={styles.errorText}>
-                        {error || "Impossible de charger les dépenses"}
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Text style={styles.retryButtonText}>Retour</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={styles.retryButtonText}>Retour</Text>
+                </TouchableOpacity>
+            </View>
         );
     }
-
-    const stats = calculateStats();
-
-    // Adapter les membres pour TripBalanceSummary
-    const adaptedMembers = trip.members.map((member) => ({
-        userId: member.userId,
-        name: member.name,
-        isCreator: member.userId === trip.creatorId,
-    }));
 
     return (
         <SafeAreaView style={styles.container}>
@@ -295,176 +295,267 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Ionicons
                         name="arrow-back"
                         size={24}
-                        color={Colors.textPrimary}
+                        color={Colors.text.primary}
                     />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Dépenses</Text>
                 <TouchableOpacity
                     style={styles.addButton}
-                    onPress={handleOpenAddModal}
+                    onPress={() => setShowAddModal(true)}
                 >
-                    <Ionicons name="add" size={24} color="#7ED957" />
+                    <Ionicons name="add" size={24} color="#4DA1A9" />
                 </TouchableOpacity>
             </View>
 
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statCard}>
-                    <Text style={styles.statNumber}>{stats.total}€</Text>
-                    <Text style={styles.statLabel}>Total</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Text style={styles.statNumber}>{stats.myExpenses}€</Text>
-                    <Text style={styles.statLabel}>Mes dépenses</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Text style={styles.statNumber}>{stats.count}</Text>
-                    <Text style={styles.statLabel}>Transactions</Text>
-                </View>
-            </View>
+            {/* Summary Cards */}
+            {summary && (
+                <View style={styles.summaryContainer}>
+                    <View style={styles.summaryCard}>
+                        <Text style={styles.summaryTitle}>
+                            Total des dépenses
+                        </Text>
+                        <Text style={styles.summaryAmount}>
+                            {summary.totalExpenses.toFixed(2)}€
+                        </Text>
+                    </View>
 
-            {/* Balance Summary */}
-            <TripBalanceSummary
-                expenses={localExpenses}
-                members={adaptedMembers}
-                currentUserId={user?.uid || ""}
-            />
+                    {summary.myBalance && (
+                        <View
+                            style={[
+                                styles.summaryCard,
+                                summary.myBalance.balance >= 0
+                                    ? styles.positiveBalance
+                                    : styles.negativeBalance,
+                            ]}
+                        >
+                            <Text style={styles.summaryTitle}>Mon solde</Text>
+                            <Text
+                                style={[
+                                    styles.summaryAmount,
+                                    summary.myBalance.balance >= 0
+                                        ? { color: "#4CAF50" }
+                                        : { color: "#FF6B6B" },
+                                ]}
+                            >
+                                {summary.myBalance.balance >= 0 ? "+" : ""}
+                                {summary.myBalance.balance.toFixed(2)}€
+                            </Text>
+                        </View>
+                    )}
 
-            {/* Expenses List */}
-            {localExpenses.length > 0 ? (
-                <FlatList
-                    data={localExpenses}
-                    renderItem={renderExpenseItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContainer}
-                    showsVerticalScrollIndicator={false}
-                />
-            ) : (
-                <View style={styles.emptyContainer}>
-                    <Ionicons name="wallet-outline" size={64} color="#E5E5E5" />
-                    <Text style={styles.emptyTitle}>Aucune dépense</Text>
-                    <Text style={styles.emptyText}>
-                        Commencez par ajouter vos premières dépenses
-                    </Text>
                     <TouchableOpacity
-                        style={styles.emptyButton}
-                        onPress={handleOpenAddModal}
+                        style={styles.balanceButton}
+                        onPress={() => setShowBalanceModal(true)}
                     >
-                        <Text style={styles.emptyButtonText}>
-                            Ajouter une dépense
+                        <Text style={styles.balanceButtonText}>
+                            Voir les remboursements
                         </Text>
                     </TouchableOpacity>
                 </View>
             )}
 
-            {/* Add/Edit Modal */}
+            {/* Expenses List */}
+            <FlatList
+                data={expenses?.expenses || []}
+                renderItem={renderExpenseItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContainer}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <Ionicons
+                            name="wallet-outline"
+                            size={64}
+                            color="#CCC"
+                        />
+                        <Text style={styles.emptyText}>
+                            Aucune dépense pour le moment
+                        </Text>
+                        <Text style={styles.emptySubtext}>
+                            Ajoutez votre première dépense !
+                        </Text>
+                    </View>
+                }
+            />
+
+            {/* Add Expense Modal */}
             <Modal
                 visible={showAddModal}
                 animationType="slide"
-                transparent={true}
-                onRequestClose={() => setShowAddModal(false)}
+                presentationStyle="pageSheet"
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>
-                            {editingExpense
-                                ? "Modifier la dépense"
-                                : "Nouvelle dépense"}
-                        </Text>
-
-                        <View style={styles.formContainer}>
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.inputLabel}>
-                                    Description
-                                </Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="Ex: Restaurant, Hôtel..."
-                                    value={formData.label}
-                                    onChangeText={(text) =>
-                                        setFormData((prev) => ({
-                                            ...prev,
-                                            label: text,
-                                        }))
-                                    }
-                                />
-                            </View>
-
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.inputLabel}>
-                                    Montant (€)
-                                </Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="0.00"
-                                    value={formData.amount}
-                                    onChangeText={(text) =>
-                                        setFormData((prev) => ({
-                                            ...prev,
-                                            amount: text,
-                                        }))
-                                    }
-                                    keyboardType="numeric"
-                                />
-                            </View>
-
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.inputLabel}>Payé par</Text>
-                                <View style={styles.memberSelector}>
-                                    {trip.members.map((member) => (
-                                        <TouchableOpacity
-                                            key={member.userId}
-                                            style={[
-                                                styles.memberOption,
-                                                formData.paidBy ===
-                                                    member.userId &&
-                                                    styles.memberOptionSelected,
-                                            ]}
-                                            onPress={() =>
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    paidBy: member.userId,
-                                                }))
-                                            }
-                                        >
-                                            <Text
-                                                style={[
-                                                    styles.memberOptionText,
-                                                    formData.paidBy ===
-                                                        member.userId &&
-                                                        styles.memberOptionTextSelected,
-                                                ]}
-                                            >
-                                                {member.userId === user?.uid
-                                                    ? "Vous"
-                                                    : member.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={styles.cancelButton}
-                                onPress={() => setShowAddModal(false)}
-                            >
-                                <Text style={styles.cancelButtonText}>
-                                    Annuler
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.saveButton}
-                                onPress={handleSaveExpense}
-                            >
-                                <Text style={styles.saveButtonText}>
-                                    {editingExpense ? "Modifier" : "Ajouter"}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                <SafeAreaView style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity
+                            onPress={() => setShowAddModal(false)}
+                        >
+                            <Text style={styles.cancelText}>Annuler</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Nouvelle dépense</Text>
+                        <TouchableOpacity onPress={handleAddExpense}>
+                            <Text style={styles.saveText}>Ajouter</Text>
+                        </TouchableOpacity>
                     </View>
-                </View>
+
+                    <ScrollView style={styles.modalContent}>
+                        {/* Label */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Libellé</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={newExpense.label}
+                                onChangeText={(text) =>
+                                    setNewExpense((prev) => ({
+                                        ...prev,
+                                        label: text,
+                                    }))
+                                }
+                                placeholder="Ex: Courses, Essence, Restaurant..."
+                            />
+                        </View>
+
+                        {/* Amount */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Montant (€)</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={newExpense.amount}
+                                onChangeText={(text) =>
+                                    setNewExpense((prev) => ({
+                                        ...prev,
+                                        amount: text,
+                                    }))
+                                }
+                                placeholder="0.00"
+                                keyboardType="numeric"
+                            />
+                        </View>
+
+                        {/* Paid By */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Payé par</Text>
+                            {trip?.members.map((member) => (
+                                <TouchableOpacity
+                                    key={member.userId}
+                                    style={[
+                                        styles.memberOption,
+                                        newExpense.paidBy === member.userId &&
+                                            styles.selectedMember,
+                                    ]}
+                                    onPress={() =>
+                                        setNewExpense((prev) => ({
+                                            ...prev,
+                                            paidBy: member.userId,
+                                        }))
+                                    }
+                                >
+                                    <Text
+                                        style={[
+                                            styles.memberText,
+                                            newExpense.paidBy ===
+                                                member.userId &&
+                                                styles.selectedMemberText,
+                                        ]}
+                                    >
+                                        {member.name}
+                                    </Text>
+                                    {newExpense.paidBy === member.userId && (
+                                        <Ionicons
+                                            name="checkmark"
+                                            size={20}
+                                            color="#4DA1A9"
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Participants */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Participants</Text>
+                            {trip?.members.map((member) => (
+                                <TouchableOpacity
+                                    key={member.userId}
+                                    style={[
+                                        styles.memberOption,
+                                        newExpense.participants.includes(
+                                            member.userId
+                                        ) && styles.selectedMember,
+                                    ]}
+                                    onPress={() =>
+                                        toggleParticipant(member.userId)
+                                    }
+                                >
+                                    <Text
+                                        style={[
+                                            styles.memberText,
+                                            newExpense.participants.includes(
+                                                member.userId
+                                            ) && styles.selectedMemberText,
+                                        ]}
+                                    >
+                                        {member.name}
+                                    </Text>
+                                    {newExpense.participants.includes(
+                                        member.userId
+                                    ) && (
+                                        <Ionicons
+                                            name="checkmark"
+                                            size={20}
+                                            color="#4DA1A9"
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
+
+            {/* Balance Modal */}
+            <Modal
+                visible={showBalanceModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+            >
+                <SafeAreaView style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity
+                            onPress={() => setShowBalanceModal(false)}
+                        >
+                            <Text style={styles.cancelText}>Fermer</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Remboursements</Text>
+                        <View style={{ width: 60 }} />
+                    </View>
+
+                    <ScrollView style={styles.modalContent}>
+                        {summary?.debtsToSettle &&
+                        summary.debtsToSettle.length > 0 ? (
+                            <FlatList
+                                data={summary.debtsToSettle}
+                                renderItem={renderDebtItem}
+                                keyExtractor={(item, index) =>
+                                    `${item.from}-${item.to}-${index}`
+                                }
+                                scrollEnabled={false}
+                            />
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Ionicons
+                                    name="checkmark-circle"
+                                    size={64}
+                                    color="#4CAF50"
+                                />
+                                <Text style={styles.emptyText}>
+                                    Tout est réglé !
+                                </Text>
+                                <Text style={styles.emptySubtext}>
+                                    Aucun remboursement nécessaire
+                                </Text>
+                            </View>
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
             </Modal>
         </SafeAreaView>
     );
@@ -475,189 +566,85 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#F8F9FA",
     },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#F8F9FA",
-    },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-        color: "#637887",
-        fontFamily: "Inter_400Regular",
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 32,
-        backgroundColor: "#F8F9FA",
-    },
-    errorTitle: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "#FF6B6B",
-        marginTop: 16,
-        marginBottom: 8,
-        fontFamily: "Inter_600SemiBold",
-    },
-    errorText: {
-        fontSize: 16,
-        color: "#637887",
-        textAlign: "center",
-        marginBottom: 24,
-        fontFamily: "Inter_400Regular",
-    },
-    retryButton: {
-        backgroundColor: "#7ED957",
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    retryButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-        fontFamily: "Inter_600SemiBold",
-    },
     header: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        backgroundColor: "#F8F9FA",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "#FFFFFF",
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: "#E2E8F0",
     },
     backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "#FFFFFF",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: "600",
-        color: "#1F2937",
-        flex: 1,
-        textAlign: "center",
-        marginHorizontal: 16,
-        fontFamily: "Inter_600SemiBold",
-    },
-    addButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "#7ED957",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    statsContainer: {
-        flexDirection: "row",
-        paddingHorizontal: 20,
-        paddingVertical: 20,
-        gap: 12,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        paddingVertical: 20,
-        paddingHorizontal: 16,
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    statNumber: {
-        fontSize: 24,
-        fontWeight: "700",
-        color: "#1F2937",
-        marginBottom: 4,
-        fontFamily: "Inter_700Bold",
-    },
-    statLabel: {
-        fontSize: 14,
-        color: "#6B7280",
-        textAlign: "center",
-        fontFamily: "Inter_400Regular",
-    },
-    balanceSection: {
-        paddingHorizontal: 20,
-        paddingBottom: 24,
-    },
-    balanceCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        padding: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    balanceHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    balanceIcon: {
         width: 40,
         height: 40,
-        borderRadius: 12,
-        backgroundColor: "#7ED957",
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 12,
     },
-    balanceTitle: {
+    headerTitle: {
         fontSize: 18,
         fontWeight: "600",
-        color: "#1F2937",
-        fontFamily: "Inter_600SemiBold",
+        color: Colors.text.primary,
     },
-    balanceText: {
-        fontSize: 16,
-        color: "#6B7280",
-        textAlign: "center",
-        fontFamily: "Inter_500Medium",
+    addButton: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
     },
-    balanceAmount: {
-        fontSize: 20,
+    summaryContainer: {
+        padding: 16,
+        gap: 12,
+    },
+    summaryCard: {
+        backgroundColor: "#FFFFFF",
+        padding: 16,
+        borderRadius: 12,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+    },
+    positiveBalance: {
+        borderColor: "#4CAF50",
+        backgroundColor: "#F8FFF8",
+    },
+    negativeBalance: {
+        borderColor: "#FF6B6B",
+        backgroundColor: "#FFF8F8",
+    },
+    summaryTitle: {
+        fontSize: 14,
+        color: "#666",
+        fontWeight: "500",
+    },
+    summaryAmount: {
+        fontSize: 18,
+        fontWeight: "700",
+        color: "#333",
+    },
+    balanceButton: {
+        backgroundColor: "#4DA1A9",
+        padding: 12,
+        borderRadius: 8,
+        alignItems: "center",
+    },
+    balanceButtonText: {
+        color: "#FFFFFF",
         fontWeight: "600",
-        color: "#7ED957",
-        textAlign: "center",
-        fontFamily: "Inter_600SemiBold",
     },
     listContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 100,
+        padding: 16,
+        gap: 12,
     },
     expenseCard: {
         backgroundColor: "#FFFFFF",
-        borderRadius: 16,
         padding: 16,
-        marginBottom: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 1,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
     },
     expenseHeader: {
         flexDirection: "row",
@@ -665,205 +652,178 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
         marginBottom: 8,
     },
-    expenseTitle: {
+    expenseInfo: {
+        flex: 1,
+    },
+    expenseLabel: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#1F2937",
-        flex: 1,
-        marginRight: 12,
-        fontFamily: "Inter_600SemiBold",
+        color: "#333",
+        marginBottom: 4,
     },
     expenseAmount: {
         fontSize: 18,
         fontWeight: "700",
-        color: "#7ED957",
-        fontFamily: "Inter_700Bold",
+        color: "#4DA1A9",
+    },
+    deleteButton: {
+        padding: 4,
     },
     expenseDetails: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
+        gap: 4,
     },
-    expenseInfo: {
-        flex: 1,
-    },
-    expensePaidBy: {
+    expenseDetailText: {
         fontSize: 14,
-        color: "#6B7280",
-        marginBottom: 2,
-        fontFamily: "Inter_400Regular",
+        color: "#666",
+    },
+    boldText: {
+        fontWeight: "600",
+        color: "#333",
     },
     expenseDate: {
         fontSize: 12,
-        color: "#9CA3AF",
-        fontFamily: "Inter_400Regular",
+        color: "#999",
+        marginTop: 4,
     },
-    expenseActions: {
+    debtCard: {
+        backgroundColor: "#FFFFFF",
+        padding: 16,
+        borderRadius: 12,
         flexDirection: "row",
-        gap: 8,
-    },
-    actionButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        justifyContent: "center",
         alignItems: "center",
+        gap: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
     },
-    editButton: {
-        backgroundColor: "#F3F4F6",
+    debtText: {
+        flex: 1,
+        fontSize: 14,
+        color: "#333",
     },
-    deleteButton: {
-        backgroundColor: "#FEF2F2",
+    amountText: {
+        fontWeight: "700",
+        color: "#4DA1A9",
     },
     emptyContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 60,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#666",
+        marginTop: 16,
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: "#999",
+        marginTop: 4,
+    },
+    loadingContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        paddingHorizontal: 40,
-        paddingBottom: 100,
     },
-    emptyTitle: {
-        fontSize: 24,
-        fontWeight: "600",
-        color: "#6B7280",
-        marginTop: 24,
-        marginBottom: 12,
-        textAlign: "center",
-        fontFamily: "Inter_600SemiBold",
-    },
-    emptyText: {
+    loadingText: {
+        marginTop: 16,
         fontSize: 16,
-        color: "#9CA3AF",
-        textAlign: "center",
-        lineHeight: 24,
-        marginBottom: 32,
-        fontFamily: "Inter_400Regular",
+        color: "#666",
     },
-    emptyButton: {
-        backgroundColor: "#7ED957",
-        paddingHorizontal: 32,
-        paddingVertical: 16,
-        borderRadius: 16,
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    emptyButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-        fontFamily: "Inter_600SemiBold",
-    },
-    // Modal styles
-    modalOverlay: {
+    errorContainer: {
         flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        justifyContent: "flex-end",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 32,
+    },
+    errorText: {
+        fontSize: 16,
+        color: "#FF6B6B",
+        textAlign: "center",
+        marginBottom: 16,
+    },
+    retryButton: {
+        backgroundColor: "#4DA1A9",
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: "#FFFFFF",
+        fontWeight: "600",
     },
     modalContainer: {
-        backgroundColor: "#FFFFFF",
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingTop: 20,
-        paddingHorizontal: 20,
-        paddingBottom: 40,
-        maxHeight: "80%",
+        flex: 1,
+        backgroundColor: "#F8F9FA",
     },
     modalHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 24,
-        paddingBottom: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "#FFFFFF",
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: "#E2E8F0",
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: "600",
-        color: "#1F2937",
-        fontFamily: "Inter_600SemiBold",
+        color: "#333",
     },
-    modalCloseButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: "#F3F4F6",
-        justifyContent: "center",
-        alignItems: "center",
+    cancelText: {
+        fontSize: 16,
+        color: "#666",
     },
-    formContainer: {
-        marginBottom: 20,
+    saveText: {
+        fontSize: 16,
+        color: "#4DA1A9",
+        fontWeight: "600",
     },
-    inputContainer: {
-        marginBottom: 20,
+    modalContent: {
+        flex: 1,
+        padding: 16,
+    },
+    inputGroup: {
+        marginBottom: 24,
     },
     inputLabel: {
         fontSize: 16,
-        fontWeight: "500",
-        color: "#374151",
+        fontWeight: "600",
+        color: "#333",
         marginBottom: 8,
-        fontFamily: "Inter_500Medium",
     },
     textInput: {
-        borderWidth: 1,
-        borderColor: "#D1D5DB",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        fontSize: 16,
-        color: "#1F2937",
         backgroundColor: "#FFFFFF",
-        fontFamily: "Inter_400Regular",
-    },
-    memberSelector: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: Spacing.sm,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
     },
     memberOption: {
-        paddingVertical: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: "#DBE0E5",
         backgroundColor: "#FFFFFF",
-    },
-    memberOptionSelected: {
-        backgroundColor: "#7ED957",
-        borderColor: "#7ED957",
-    },
-    memberOptionText: {
-        ...TextStyles.body2,
-        color: Colors.textPrimary,
-    },
-    memberOptionTextSelected: {
-        color: "#FFFFFF",
-        fontWeight: "600",
-    },
-    modalActions: {
+        padding: 12,
+        borderRadius: 8,
         flexDirection: "row",
-        gap: 12,
-        marginTop: 24,
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
     },
-    cancelButton: {
-        backgroundColor: "#F3F4F6",
+    selectedMember: {
+        borderColor: "#4DA1A9",
+        backgroundColor: "#F0F8FF",
     },
-    saveButton: {
-        backgroundColor: "#7ED957",
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
+    memberText: {
+        fontSize: 16,
+        color: "#333",
     },
-    cancelButtonText: {
-        color: "#6B7280",
-    },
-    saveButtonText: {
-        color: "#FFFFFF",
+    selectedMemberText: {
+        color: "#4DA1A9",
+        fontWeight: "600",
     },
 });
 

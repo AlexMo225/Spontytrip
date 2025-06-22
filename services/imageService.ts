@@ -105,4 +105,76 @@ export class ImageService {
             };
         }
     }
+
+    // Upload d'une image de couverture de voyage
+    static async uploadTripCoverImage(
+        tripId: string,
+        imageUri: string
+    ): Promise<ImageUploadResult> {
+        try {
+            console.log(
+                "📸 Upload de l'image de couverture pour le voyage:",
+                tripId
+            );
+
+            // Créer un nom de fichier unique
+            const timestamp = Date.now();
+            const fileName = `trip_cover_${tripId}_${timestamp}.jpg`;
+            const storageRef = storage.ref(`trip-covers/${fileName}`);
+
+            // Convertir l'URI en blob
+            const response = await fetch(imageUri);
+            const blob = await response.blob();
+
+            console.log("🔄 Upload en cours...");
+
+            // Upload du fichier
+            const uploadTask = await storageRef.put(blob);
+
+            // Obtenir l'URL de téléchargement
+            const downloadURL = await uploadTask.ref.getDownloadURL();
+
+            console.log(
+                "✅ Image de couverture uploadée avec succès:",
+                downloadURL
+            );
+
+            return {
+                success: true,
+                url: downloadURL,
+            };
+        } catch (error) {
+            console.error(
+                "❌ Erreur lors de l'upload de l'image de couverture:",
+                error
+            );
+            return {
+                success: false,
+                error: "Erreur lors de l'upload de l'image de couverture",
+            };
+        }
+    }
+
+    // Supprimer une image de couverture de voyage
+    static async deleteTripCoverImage(imageUrl: string): Promise<boolean> {
+        try {
+            if (!imageUrl || !imageUrl.includes("firebase")) {
+                return true; // Pas une image Firebase, rien à supprimer
+            }
+
+            console.log("🗑️ Suppression de l'image de couverture:", imageUrl);
+
+            const imageRef = storage.refFromURL(imageUrl);
+            await imageRef.delete();
+
+            console.log("✅ Image de couverture supprimée");
+            return true;
+        } catch (error) {
+            console.error(
+                "❌ Erreur lors de la suppression de l'image de couverture:",
+                error
+            );
+            return false;
+        }
+    }
 }

@@ -199,6 +199,113 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         );
     };
 
+    const updateCoverImage = async (newImageUri: string | null) => {
+        try {
+            console.log("📸 Début updateCoverImage:", { newImageUri, tripId });
+            let imageUrl = null;
+
+            if (newImageUri) {
+                console.log("🔄 Upload de l'image vers Firebase Storage...");
+                // Upload de l'image vers Firebase Storage
+                const { ImageService } = await import(
+                    "../services/imageService"
+                );
+                const uploadResult = await ImageService.uploadTripCoverImage(
+                    tripId,
+                    newImageUri
+                );
+
+                console.log("📤 Résultat upload:", uploadResult);
+
+                if (!uploadResult.success) {
+                    throw new Error(uploadResult.error || "Erreur d'upload");
+                }
+
+                imageUrl = uploadResult.url;
+                console.log("✅ URL de l'image uploadée:", imageUrl);
+
+                // Supprimer l'ancienne image si elle existe
+                if (trip?.coverImage) {
+                    console.log(
+                        "🗑️ Suppression ancienne image:",
+                        trip.coverImage
+                    );
+                    ImageService.deleteTripCoverImage(trip.coverImage).catch(
+                        (error: any) => {
+                            console.warn(
+                                "⚠️ Impossible de supprimer l'ancienne image:",
+                                error
+                            );
+                        }
+                    );
+                }
+            } else if (trip?.coverImage) {
+                console.log(
+                    "🗑️ Suppression de la photo existante:",
+                    trip.coverImage
+                );
+                // Suppression de la photo existante
+                const { ImageService } = await import(
+                    "../services/imageService"
+                );
+                ImageService.deleteTripCoverImage(trip.coverImage).catch(
+                    (error: any) => {
+                        console.warn(
+                            "⚠️ Impossible de supprimer l'image:",
+                            error
+                        );
+                    }
+                );
+            }
+
+            // Mettre à jour le document du voyage avec la nouvelle URL
+            console.log(
+                "💾 Mise à jour du document Firestore avec URL:",
+                imageUrl
+            );
+            const firebaseService = (
+                await import("../services/firebaseService")
+            ).default;
+            await firebaseService.updateTripCoverImage(
+                tripId,
+                imageUrl || null,
+                user?.uid || ""
+            );
+
+            console.log("✅ Document Firestore mis à jour avec succès");
+
+            Alert.alert(
+                "Photo mise à jour",
+                imageUrl
+                    ? "La photo de couverture a été mise à jour avec succès"
+                    : "La photo de couverture a été supprimée"
+            );
+        } catch (error) {
+            console.error("❌ Erreur mise à jour photo:", error);
+            Alert.alert(
+                "Erreur",
+                "Impossible de mettre à jour la photo de couverture"
+            );
+        }
+    };
+
+    // Hook pour la redirection automatique en cas d'erreur - TOUJOURS appelé
+    React.useEffect(() => {
+        if (
+            (error === "Voyage introuvable" ||
+                error === "Accès non autorisé à ce voyage") &&
+            !loading
+        ) {
+            const timer = setTimeout(() => {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainApp" }],
+                });
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [error, navigation, loading]);
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -209,22 +316,6 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     if (error || !trip) {
-        // Si le voyage est introuvable, rediriger automatiquement après 2 secondes
-        React.useEffect(() => {
-            if (
-                error === "Voyage introuvable" ||
-                error === "Accès non autorisé à ce voyage"
-            ) {
-                const timer = setTimeout(() => {
-                    navigation.reset({
-                        index: 0,
-                        routes: [{ name: "MainApp" }],
-                    });
-                }, 2000);
-                return () => clearTimeout(timer);
-            }
-        }, [error, navigation]);
-
         return (
             <View style={styles.errorContainer}>
                 <Ionicons
@@ -314,9 +405,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         id: tripId,
         title: trip.destination,
         dates: formatDates(trip.startDate, trip.endDate),
-        coverImage:
-            trip.coverImage ||
-            "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=800&h=600&fit=crop",
+        coverImage: trip.coverImage,
         location: trip.destination,
         duration: calculateDuration(trip.startDate, trip.endDate),
     };
@@ -873,6 +962,14 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         outputRange: [0, 1],
         extrapolate: "clamp",
     });
+
+    // DEBUG: Logs pour vérifier la synchronisation
+    // console.log("🖼️ DEBUG TripDetailsScreen:");
+    // console.log("- Trip ID:", tripId);
+    // console.log("- User ID:", user?.uid);
+    // console.log("- Is Creator:", isCreator);
+    // console.log("- Cover Image:", trip.coverImage);
+    // console.log("- Trip Data Cover Image:", tripData.coverImage);
 
     return (
         <SafeAreaView style={styles.container}>

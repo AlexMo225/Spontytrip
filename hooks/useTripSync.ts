@@ -38,6 +38,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
         let unsubscribeExpenses: (() => void) | null = null;
         let unsubscribeNotes: (() => void) | null = null;
         let unsubscribeActivities: (() => void) | null = null;
+        let unsubscribeTrip: (() => void) | null = null;
 
         const initializeSync = async () => {
             try {
@@ -93,6 +94,20 @@ export const useTripSync = (tripId: string): TripSyncData => {
                     }
                 );
 
+                unsubscribeTrip = firebaseService.subscribeToTrip(
+                    tripId,
+                    (updatedTrip: FirestoreTrip | null) => {
+                        if (updatedTrip) {
+                            // console.log("🔄 Mise à jour voyage reçue:", {
+                            //     tripId: updatedTrip.id,
+                            //     coverImage: updatedTrip.coverImage,
+                            //     updatedAt: updatedTrip.updatedAt
+                            // });
+                            setTrip(updatedTrip);
+                        }
+                    }
+                );
+
                 setLoading(false);
             } catch (err) {
                 console.error("Erreur initialisation sync:", err);
@@ -109,6 +124,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
             unsubscribeExpenses?.();
             unsubscribeNotes?.();
             unsubscribeActivities?.();
+            unsubscribeTrip?.();
         };
     }, [tripId, user]);
 
@@ -175,15 +191,15 @@ export const useUserTrips = () => {
             }
         });
 
-        // Refresh automatique toutes les 30 secondes (moins agressif)
-        const interval = setInterval(() => {
-            console.log("🔄 Refresh automatique des voyages");
-            fetchTrips();
-        }, 30000);
+        // DÉSACTIVÉ TEMPORAIREMENT - Refresh automatique qui cause la boucle
+        // const interval = setInterval(() => {
+        //     console.log("🔄 Refresh automatique des voyages");
+        //     fetchTrips();
+        // }, 30000);
 
         return () => {
             unsubscribe();
-            clearInterval(interval);
+            // clearInterval(interval);
         };
     }, [user]);
 

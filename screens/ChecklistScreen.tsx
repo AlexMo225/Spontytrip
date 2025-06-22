@@ -17,6 +17,7 @@ import Avatar from "../components/Avatar";
 import { Colors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
 import { useTripSync } from "../hooks/useTripSync";
+import { TripMember } from "../services/firebaseService";
 import { ChecklistItem, RootStackParamList } from "../types";
 
 type ChecklistScreenNavigationProp = StackNavigationProp<
@@ -377,7 +378,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
         const canToggle =
             isCreator || !item.assignedTo || item.assignedTo === user?.uid;
         const assignedMember = trip?.members.find(
-            (m) => m.userId === item.assignedTo
+            (m: TripMember) => m.userId === item.assignedTo
         );
         const canAssign = isCreator || !item.assignedTo;
         const canUnassign = isCreator || item.assignedTo === user?.uid;
@@ -421,10 +422,12 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                                 {item.completedBy === user?.uid
                                     ? "vous"
                                     : trip?.members.find(
-                                          (m) => m.userId === item.completedBy
+                                          (m: TripMember) =>
+                                              m.userId === item.completedBy
                                       )?.name ||
                                       trip?.members.find(
-                                          (m) => m.userId === item.completedBy
+                                          (m: TripMember) =>
+                                              m.userId === item.completedBy
                                       )?.email ||
                                       "un membre"}
                                 {item.completedAt &&
@@ -794,7 +797,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                             </TouchableOpacity>
 
                             {/* Liste des membres */}
-                            {trip?.members.map((member) => {
+                            {trip?.members.map((member: TripMember) => {
                                 const isCurrentlyAssigned =
                                     localItems.find(
                                         (item) => item.id === selectedItemId

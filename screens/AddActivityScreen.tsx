@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
     Alert,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -87,6 +89,9 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     const [endTime, setEndTime] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [showTypeModal, setShowTypeModal] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+    const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
     const handleSave = async () => {
         if (!activityName.trim()) {
@@ -97,20 +102,34 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsLoading(true);
 
         try {
-            // Créer l'activité
-            const newActivity: TripActivity = {
+            // Créer l'activité avec nettoyage des valeurs undefined
+            const activityData: any = {
                 id: `activity_${Date.now()}`,
                 title: activityName.trim(),
-                description: description.trim() || undefined,
                 date: selectedDate,
-                startTime: startTime || undefined,
-                endTime: endTime || undefined,
-                location: location.trim() || undefined,
                 createdBy: user?.uid || "",
                 createdByName:
                     user?.displayName || user?.email || "Utilisateur",
                 createdAt: new Date(),
+                votes: [], // Initialiser avec un tableau vide
+                validated: false, // Par défaut non validée
             };
+
+            // Ajouter seulement les champs non vides (éviter undefined)
+            if (description.trim()) {
+                activityData.description = description.trim();
+            }
+            if (startTime.trim()) {
+                activityData.startTime = startTime.trim();
+            }
+            if (endTime.trim()) {
+                activityData.endTime = endTime.trim();
+            }
+            if (location.trim()) {
+                activityData.location = location.trim();
+            }
+
+            const newActivity = activityData as TripActivity;
 
             // Sauvegarder dans Firebase
             const firebaseService = (
@@ -140,6 +159,44 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setSelectedDate(selectedDate);
+        }
+    };
+
+    const handleStartTimeChange = (event: any, selectedTime?: Date) => {
+        setShowStartTimePicker(false);
+        if (selectedTime) {
+            const timeString = selectedTime.toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+            setStartTime(timeString);
+        }
+    };
+
+    const handleEndTimeChange = (event: any, selectedTime?: Date) => {
+        setShowEndTimePicker(false);
+        if (selectedTime) {
+            const timeString = selectedTime.toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+            setEndTime(timeString);
+        }
+    };
+
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString("fr-FR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
     };
 
     const selectedTypeInfo = activityTypes.find(
@@ -217,33 +274,40 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.text.primary}
-                    />
+                    <Ionicons name="arrow-back" size={24} color="#4DA1A9" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Nouvelle activité</Text>
-                <View style={styles.placeholder} />
+                <TouchableOpacity
+                    style={[
+                        styles.saveButton,
+                        isLoading && styles.saveButtonDisabled,
+                    ]}
+                    onPress={handleSave}
+                    disabled={isLoading}
+                >
+                    <Text style={styles.saveButtonText}>
+                        {isLoading ? "..." : "Sauver"}
+                    </Text>
+                </TouchableOpacity>
             </View>
 
             <ScrollView
                 style={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Activity Name Section */}
+                {/* Nom de l'activité */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Nom de l'activité</Text>
+                    <Text style={styles.sectionTitle}>Nom de l'activité *</Text>
                     <TextInput
-                        style={styles.textInput}
+                        style={styles.input}
                         placeholder="Ex: Visite de la Tour Eiffel..."
                         value={activityName}
                         onChangeText={setActivityName}
-                        maxLength={100}
+                        placeholderTextColor="#9CA3AF"
                     />
                 </View>
 
-                {/* Type Section */}
+                {/* Type d'activité */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Type d'activité</Text>
                     <TouchableOpacity
@@ -262,7 +326,7 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                             >
                                 <Ionicons
                                     name={selectedTypeInfo?.icon as any}
-                                    size={24}
+                                    size={20}
                                     color={selectedTypeInfo?.color}
                                 />
                             </View>
@@ -273,92 +337,107 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                         <Ionicons
                             name="chevron-down"
                             size={20}
-                            color={Colors.text.secondary}
+                            color="#9CA3AF"
                         />
                     </TouchableOpacity>
                 </View>
 
-                {/* Location Section */}
+                {/* Date et Heure */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Date et heure *</Text>
+
+                    {/* Sélecteur de date */}
+                    <TouchableOpacity
+                        style={styles.dateTimeButton}
+                        onPress={() => setShowDatePicker(true)}
+                    >
+                        <Ionicons
+                            name="calendar-outline"
+                            size={20}
+                            color="#4DA1A9"
+                        />
+                        <Text style={styles.dateTimeText}>
+                            {formatDate(selectedDate)}
+                        </Text>
+                        <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color="#9CA3AF"
+                        />
+                    </TouchableOpacity>
+
+                    {/* Sélecteurs d'heure */}
+                    <View style={styles.timeRow}>
+                        <View style={styles.timeColumn}>
+                            <Text style={styles.timeLabel}>Heure de début</Text>
+                            <TouchableOpacity
+                                style={styles.timeButton}
+                                onPress={() => setShowStartTimePicker(true)}
+                            >
+                                <Ionicons
+                                    name="time-outline"
+                                    size={18}
+                                    color="#4DA1A9"
+                                />
+                                <Text style={styles.timeText}>
+                                    {startTime || "Non définie"}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.timeColumn}>
+                            <Text style={styles.timeLabel}>Heure de fin</Text>
+                            <TouchableOpacity
+                                style={styles.timeButton}
+                                onPress={() => setShowEndTimePicker(true)}
+                            >
+                                <Ionicons
+                                    name="time-outline"
+                                    size={18}
+                                    color="#4DA1A9"
+                                />
+                                <Text style={styles.timeText}>
+                                    {endTime || "Non définie"}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Lieu */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Lieu</Text>
                     <TextInput
-                        style={styles.textInput}
+                        style={styles.input}
                         placeholder="Ex: 5 Avenue Anatole France, Paris..."
                         value={location}
                         onChangeText={setLocation}
-                        maxLength={200}
+                        placeholderTextColor="#9CA3AF"
                     />
                 </View>
 
-                {/* Priority Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Priorité</Text>
-                    <View style={styles.prioritiesContainer}>
-                        {priorities.map(renderPriorityOption)}
-                    </View>
-                </View>
-
-                {/* Duration and Cost Section */}
-                <View style={styles.row}>
-                    <View style={[styles.section, styles.halfWidth]}>
-                        <Text style={styles.sectionTitle}>Durée estimée</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="Ex: 2h"
-                            value={estimatedDuration}
-                            onChangeText={setEstimatedDuration}
-                            maxLength={20}
-                        />
-                    </View>
-                    <View style={[styles.section, styles.halfWidth]}>
-                        <Text style={styles.sectionTitle}>Coût estimé</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="Ex: 25€"
-                            value={estimatedCost}
-                            onChangeText={setEstimatedCost}
-                            keyboardType="numeric"
-                            maxLength={20}
-                        />
-                    </View>
-                </View>
-
-                {/* Description Section */}
+                {/* Description */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>
-                        Description (optionnel)
+                        Description (optionnelle)
                     </Text>
                     <TextInput
-                        style={[styles.textInput, styles.descriptionInput]}
+                        style={[styles.input, styles.textArea]}
                         placeholder="Décrivez l'activité, ajoutez des notes..."
                         value={description}
                         onChangeText={setDescription}
                         multiline
                         numberOfLines={4}
-                        maxLength={500}
                         textAlignVertical="top"
+                        placeholderTextColor="#9CA3AF"
                     />
                 </View>
+
+                {/* Espacement en bas */}
+                <View style={styles.bottomSpacing} />
             </ScrollView>
 
-            {/* Save Button */}
-            <View style={styles.bottomSection}>
-                <TouchableOpacity
-                    style={[
-                        styles.saveButton,
-                        (!activityName.trim() || isLoading) &&
-                            styles.saveButtonDisabled,
-                    ]}
-                    onPress={handleSave}
-                    disabled={!activityName.trim() || isLoading}
-                >
-                    <Text style={styles.saveButtonText}>
-                        {isLoading ? "Ajout en cours..." : "Ajouter l'activité"}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Type Selection Modal */}
+            {/* Modal de sélection de type */}
             <Modal
                 visible={showTypeModal}
                 animationType="slide"
@@ -367,23 +446,51 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
             >
                 <SafeAreaView style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Type d'activité</Text>
                         <TouchableOpacity
-                            style={styles.modalCloseButton}
                             onPress={() => setShowTypeModal(false)}
                         >
-                            <Ionicons
-                                name="close"
-                                size={24}
-                                color={Colors.text.primary}
-                            />
+                            <Text style={styles.modalCancelText}>Annuler</Text>
                         </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Type d'activité</Text>
+                        <View style={styles.modalPlaceholder} />
                     </View>
+
                     <ScrollView style={styles.modalContent}>
                         {activityTypes.map(renderTypeOption)}
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
+
+            {/* Date Picker */}
+            {showDatePicker && (
+                <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={handleDateChange}
+                    minimumDate={new Date()}
+                />
+            )}
+
+            {/* Start Time Picker */}
+            {showStartTimePicker && (
+                <DateTimePicker
+                    value={new Date()}
+                    mode="time"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={handleStartTimeChange}
+                />
+            )}
+
+            {/* End Time Picker */}
+            {showEndTimePicker && (
+                <DateTimePicker
+                    value={new Date()}
+                    mode="time"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={handleEndTimeChange}
+                />
+            )}
         </SafeAreaView>
     );
 };
@@ -391,87 +498,200 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: "#F8F9FA",
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: "#FFFFFF",
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        borderBottomColor: "#E5E7EB",
     },
     backButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: Colors.lightGray,
+        backgroundColor: "#F3F4F6",
         justifyContent: "center",
         alignItems: "center",
     },
     headerTitle: {
-        ...TextStyles.h3,
-        color: Colors.text.primary,
+        fontSize: 20,
         fontWeight: "600",
+        color: "#1F2937",
+        fontFamily: "Inter_600SemiBold",
     },
-    placeholder: {
-        width: 40,
+    saveButton: {
+        backgroundColor: "#4DA1A9",
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    saveButtonDisabled: {
+        backgroundColor: "#9CA3AF",
+    },
+    saveButtonText: {
+        color: "#FFFFFF",
+        fontSize: 16,
+        fontWeight: "600",
+        fontFamily: "Inter_600SemiBold",
     },
     content: {
         flex: 1,
-        paddingHorizontal: Spacing.md,
+        paddingHorizontal: 20,
     },
     section: {
-        marginTop: Spacing.lg,
+        marginTop: 24,
     },
     sectionTitle: {
-        ...TextStyles.h4,
-        color: Colors.text.primary,
-        marginBottom: Spacing.sm,
-        fontWeight: "600",
-    },
-    textInput: {
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 12,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
         fontSize: 16,
-        backgroundColor: Colors.white,
-        color: Colors.text.primary,
+        fontWeight: "600",
+        color: "#374151",
+        marginBottom: 12,
+        fontFamily: "Inter_600SemiBold",
     },
-    descriptionInput: {
+    input: {
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 16,
+        backgroundColor: "#FFFFFF",
+        color: "#1F2937",
+        fontFamily: "Inter_400Regular",
+    },
+    textArea: {
         height: 100,
-        paddingTop: Spacing.sm,
+        paddingTop: 14,
+        textAlignVertical: "top",
     },
     typeSelector: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        padding: 16,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: "#D1D5DB",
         borderRadius: 12,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        backgroundColor: Colors.white,
+        backgroundColor: "#FFFFFF",
     },
     typeSelectorContent: {
         flexDirection: "row",
         alignItems: "center",
     },
-    typeSelectorText: {
-        ...TextStyles.body1,
-        color: Colors.text.primary,
-        fontSize: 16,
-        marginLeft: Spacing.sm,
-    },
     typeIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 32,
+        height: 32,
+        borderRadius: 8,
         justifyContent: "center",
         alignItems: "center",
+        marginRight: 12,
+    },
+    typeSelectorText: {
+        fontSize: 16,
+        color: "#1F2937",
+        fontFamily: "Inter_400Regular",
+    },
+    dateTimeButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        marginBottom: 16,
+    },
+    dateTimeText: {
+        fontSize: 16,
+        color: "#1F2937",
+        marginLeft: 12,
+        flex: 1,
+        fontFamily: "Inter_400Regular",
+    },
+    timeRow: {
+        flexDirection: "row",
+        gap: 12,
+    },
+    timeColumn: {
+        flex: 1,
+    },
+    timeLabel: {
+        fontSize: 14,
+        color: "#6B7280",
+        marginBottom: 8,
+        fontFamily: "Inter_400Regular",
+    },
+    timeButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        borderRadius: 8,
+        backgroundColor: "#FFFFFF",
+    },
+    timeText: {
+        fontSize: 14,
+        color: "#1F2937",
+        marginLeft: 8,
+        fontFamily: "Inter_400Regular",
+    },
+    bottomSpacing: {
+        height: 40,
+    },
+
+    // Modal styles
+    modalContainer: {
+        flex: 1,
+        backgroundColor: "#FFFFFF",
+    },
+    modalHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#1F2937",
+        fontFamily: "Inter_600SemiBold",
+    },
+    modalCancelText: {
+        fontSize: 16,
+        color: "#4DA1A9",
+        fontFamily: "Inter_400Regular",
+    },
+    modalPlaceholder: {
+        width: 60,
+    },
+    modalContent: {
+        flex: 1,
+        paddingHorizontal: 20,
+    },
+    typeOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        marginVertical: 4,
+        backgroundColor: "#F9FAFB",
+    },
+    typeText: {
+        fontSize: 16,
+        color: "#1F2937",
+        marginLeft: 12,
+        flex: 1,
+        fontFamily: "Inter_400Regular",
     },
     prioritiesContainer: {
         flexDirection: "row",
@@ -510,70 +730,6 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: Colors.border,
         backgroundColor: Colors.white,
-    },
-    saveButton: {
-        backgroundColor: "rgba(126, 217, 87, 0.91)",
-        borderRadius: 12,
-        paddingVertical: Spacing.md,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    saveButtonDisabled: {
-        backgroundColor: Colors.lightGray,
-    },
-    saveButtonText: {
-        ...TextStyles.button,
-        color: Colors.white,
-        fontWeight: "600",
-        fontSize: 16,
-    },
-    // Modal Styles
-    modalContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    modalHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    modalTitle: {
-        ...TextStyles.h3,
-        color: Colors.text.primary,
-        fontWeight: "600",
-    },
-    modalCloseButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Colors.lightGray,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modalContent: {
-        flex: 1,
-        paddingHorizontal: Spacing.md,
-    },
-    typeOption: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: Spacing.md,
-        borderRadius: 12,
-        marginTop: Spacing.sm,
-        backgroundColor: Colors.white,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    typeText: {
-        ...TextStyles.body1,
-        color: Colors.text.primary,
-        flex: 1,
-        marginLeft: Spacing.sm,
-        fontSize: 16,
     },
 });
 

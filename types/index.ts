@@ -45,6 +45,53 @@ export interface ChecklistItem {
     createdAt: Date;
 }
 
+// Types pour les dépenses collaboratives
+export interface ExpenseItem {
+    id: string;
+    tripId: string;
+    label: string; // "Courses", "Essence", etc.
+    amount: number; // Montant total
+    paidBy: string; // UID de celui qui a payé
+    paidByName: string; // Nom de celui qui a payé
+    participants: string[]; // UIDs des participants concernés
+    participantNames: string[]; // Noms des participants
+    date: Date; // Date de la dépense
+    createdBy: string; // UID du créateur
+    createdAt: Date; // Date de création
+    updatedAt?: Date; // Date de dernière modification
+}
+
+export interface TripExpenses {
+    tripId: string;
+    expenses: ExpenseItem[];
+    updatedAt: Date;
+    updatedBy: string;
+}
+
+// Types pour les calculs de remboursements
+export interface MemberBalance {
+    userId: string;
+    userName: string;
+    totalPaid: number; // Ce qu'il a payé
+    totalOwed: number; // Ce qu'il doit
+    balance: number; // Solde (positif = créditeur, négatif = débiteur)
+}
+
+export interface DebtCalculation {
+    from: string; // UID du débiteur
+    fromName: string; // Nom du débiteur
+    to: string; // UID du créditeur
+    toName: string; // Nom du créditeur
+    amount: number; // Montant à rembourser
+}
+
+export interface ExpensesSummary {
+    totalExpenses: number;
+    memberBalances: MemberBalance[];
+    debtsToSettle: DebtCalculation[];
+    myBalance: MemberBalance | null;
+}
+
 // Types pour les activités
 export interface Activity {
     id: string;
@@ -138,7 +185,7 @@ export type RootStackParamList = {
     Notes: { tripId: string };
 
     // Activity Management - À implémenter avec les maquettes
-    AddActivity: { tripId: string };
+    AddActivity: { tripId: string; editActivity?: any };
     EditActivity: { tripId: string; activityId: string };
 
     // Checklist Item Management - À implémenter avec les maquettes

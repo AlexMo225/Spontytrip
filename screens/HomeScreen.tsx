@@ -421,24 +421,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     )}
                 </View>
 
-                {/* Debug info visible */}
-                <View
-                    style={{
-                        padding: 16,
-                        backgroundColor: "#f0f0f0",
-                        margin: 16,
-                        borderRadius: 8,
-                    }}
-                >
-                    <Text style={{ fontSize: 14, fontWeight: "bold" }}>
-                        Debug Info:
-                    </Text>
-                    <Text>Loading: {loading ? "true" : "false"}</Text>
-                    <Text>Error: {error || "none"}</Text>
-                    <Text>Trips count: {trips.length}</Text>
-                    <Text>User: {user?.email || "none"}</Text>
-                </View>
-
                 <ScrollView
                     style={styles.tripsContainer}
                     showsVerticalScrollIndicator={false}
@@ -528,102 +510,29 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                     {!loading && !error && trips.length > 0 && (
                         <View style={styles.tripsGrid}>
-                            <Text
-                                style={{
-                                    padding: 16,
-                                    fontWeight: "bold",
-                                    color: "red",
-                                }}
-                            >
-                                🎯 VOYAGES TROUVÉS : {trips.slice(0, 3).length}{" "}
-                                sur {trips.length}
-                            </Text>
-                            {trips.slice(0, 3).map((trip, index) => {
-                                console.log(
-                                    `🏠 Rendu voyage ${index}:`,
-                                    trip.title
-                                );
-                                return (
-                                    <View
-                                        key={trip.id}
-                                        style={{
-                                            backgroundColor: "#e0f2fe",
-                                            margin: 16,
-                                            padding: 16,
-                                            borderRadius: 12,
-                                            borderWidth: 2,
-                                            borderColor: "#4DA1A9",
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 18,
-                                                fontWeight: "bold",
-                                                color: "#4DA1A9",
-                                            }}
-                                        >
-                                            {trip.title}
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 14,
-                                                color: "#666",
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            📍 {trip.destination}
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                color: "#666",
-                                                marginTop: 2,
-                                            }}
-                                        >
-                                            👥 {trip.members.length} membre(s)
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                color: "#666",
-                                                marginTop: 2,
-                                            }}
-                                        >
-                                            📅{" "}
-                                            {formatDateRange(
-                                                trip.startDate,
-                                                trip.endDate
-                                            )}
-                                        </Text>
-                                        <TouchableOpacity
-                                            style={{
-                                                backgroundColor: "#4DA1A9",
-                                                padding: 8,
-                                                borderRadius: 8,
-                                                marginTop: 8,
-                                                alignItems: "center",
-                                            }}
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "TripDetails",
-                                                    {
-                                                        tripId: trip.id,
-                                                    }
-                                                )
-                                            }
-                                        >
-                                            <Text
-                                                style={{
-                                                    color: "white",
-                                                    fontWeight: "bold",
-                                                }}
-                                            >
-                                                Voir les détails
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                );
-                            })}
+                            {trips
+                                .slice(0, 3)
+                                .map((trip) => renderTripCard(trip))}
+
+                            {trips.length > 3 && (
+                                <TouchableOpacity
+                                    style={styles.seeAllButton}
+                                    onPress={() =>
+                                        navigation.navigate("MainApp", {
+                                            screen: "MyTrips",
+                                        })
+                                    }
+                                >
+                                    <Text style={styles.seeAllButtonText}>
+                                        Voir tous mes voyages ({trips.length})
+                                    </Text>
+                                    <Ionicons
+                                        name="arrow-forward"
+                                        size={16}
+                                        color="#7ED957"
+                                    />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     )}
                 </ScrollView>
@@ -953,6 +862,22 @@ const styles = StyleSheet.create({
         fontFamily: TextStyles.body.family,
         fontWeight: "600",
         color: Colors.backgroundColors.primary,
+    },
+    seeAllButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: Spacing.medium,
+        marginTop: Spacing.small,
+        backgroundColor: "#F0F8F0",
+        borderRadius: 12,
+        gap: 8,
+    },
+    seeAllButtonText: {
+        fontSize: 16,
+        fontFamily: TextStyles.body.family,
+        fontWeight: "600",
+        color: "#7ED957",
     },
 });
 
