@@ -92,6 +92,26 @@ export interface ExpensesSummary {
     myBalance: MemberBalance | null;
 }
 
+// Types pour les notes collaboratives
+export interface TripNote {
+    id: string;
+    tripId: string;
+    content: string;
+    createdBy: string;
+    createdByName: string;
+    createdAt: Date;
+    updatedAt: Date;
+    authorAvatar?: string;
+    isImportant?: boolean;
+}
+
+export interface TripNotesCollection {
+    tripId: string;
+    notes: TripNote[];
+    totalNotes: number;
+    lastUpdated: Date;
+}
+
 // Types pour les activités
 export interface Activity {
     id: string;

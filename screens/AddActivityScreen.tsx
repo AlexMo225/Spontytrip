@@ -75,23 +75,53 @@ const priorities = [
 
 const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     const { user } = useAuth();
-    const { tripId } = route.params;
+    const { tripId, editActivity } = route.params;
+    const isEditing = !!editActivity;
 
-    const [activityName, setActivityName] = useState("");
+    const [activityName, setActivityName] = useState(editActivity?.title || "");
     const [selectedType, setSelectedType] = useState<string>("sightseeing");
-    const [location, setLocation] = useState("");
-    const [description, setDescription] = useState("");
+    const [location, setLocation] = useState(editActivity?.location || "");
+    const [link, setLink] = useState(editActivity?.link || "");
+    const [description, setDescription] = useState(
+        editActivity?.description || ""
+    );
     const [selectedPriority, setSelectedPriority] = useState<string>("medium");
     const [estimatedDuration, setEstimatedDuration] = useState("");
     const [estimatedCost, setEstimatedCost] = useState("");
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [startTime, setStartTime] = useState("");
-    const [endTime, setEndTime] = useState("");
+    const [selectedDate, setSelectedDate] = useState(() => {
+        if (editActivity?.date) {
+            // Si c'est un Timestamp Firebase, le convertir en Date
+            if (
+                editActivity.date.toDate &&
+                typeof editActivity.date.toDate === "function"
+            ) {
+                return editActivity.date.toDate();
+            }
+            // Si c'est déjà un objet Date
+            return editActivity.date instanceof Date
+                ? editActivity.date
+                : new Date(editActivity.date);
+        }
+        return new Date();
+    });
+    const [startTime, setStartTime] = useState(editActivity?.startTime || "");
+    const [endTime, setEndTime] = useState(editActivity?.endTime || "");
     const [isLoading, setIsLoading] = useState(false);
     const [showTypeModal, setShowTypeModal] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showStartTimePicker, setShowStartTimePicker] = useState(false);
     const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+
+    // Fonction de validation pour les liens
+    const isValidUrl = (url: string): boolean => {
+        if (!url.trim()) return true; // Lien optionnel, vide = valide
+        try {
+            const urlPattern = /^https?:\/\/.+/i;
+            return urlPattern.test(url.trim());
+        } catch {
+            return false;
+        }
+    };
 
     const handleSave = async () => {
         if (!activityName.trim()) {
@@ -99,20 +129,29 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
             return;
         }
 
+        if (!isValidUrl(link)) {
+            Alert.alert(
+                "Erreur",
+                "Le lien doit commencer par http:// ou https://"
+            );
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            // Créer l'activité avec nettoyage des valeurs undefined
+            // Préparer les données de l'activité
             const activityData: any = {
-                id: `activity_${Date.now()}`,
+                id: isEditing ? editActivity.id : `activity_${Date.now()}`,
                 title: activityName.trim(),
                 date: selectedDate,
-                createdBy: user?.uid || "",
-                createdByName:
-                    user?.displayName || user?.email || "Utilisateur",
-                createdAt: new Date(),
-                votes: [], // Initialiser avec un tableau vide
-                validated: false, // Par défaut non validée
+                createdBy: isEditing ? editActivity.createdBy : user?.uid || "",
+                createdByName: isEditing
+                    ? editActivity.createdByName
+                    : user?.displayName || user?.email || "Utilisateur",
+                createdAt: isEditing ? editActivity.createdAt : new Date(),
+                votes: isEditing ? editActivity.votes : [], // Conserver les votes existants
+                validated: isEditing ? editActivity.validated : false, // Conserver le statut de validation
             };
 
             // Ajouter seulement les champs non vides (éviter undefined)
@@ -128,8 +167,17 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
             if (location.trim()) {
                 activityData.location = location.trim();
             }
+            if (link.trim()) {
+                activityData.link = link.trim();
+            }
 
-            const newActivity = activityData as TripActivity;
+            // Ajouter la date de modification si on édite
+            if (isEditing) {
+                activityData.updatedAt = new Date();
+                activityData.updatedBy = user?.uid || "";
+            }
+
+            const activity = activityData as TripActivity;
 
             // Sauvegarder dans Firebase
             const firebaseService = (
@@ -141,8 +189,16 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                 tripId
             );
 
-            // Ajouter la nouvelle activité
-            const updatedActivities = [...currentActivities, newActivity];
+            let updatedActivities;
+            if (isEditing) {
+                // Remplacer l'activité existante
+                updatedActivities = currentActivities.map((a) =>
+                    a.id === editActivity.id ? activity : a
+                );
+            } else {
+                // Ajouter la nouvelle activité
+                updatedActivities = [...currentActivities, activity];
+            }
 
             await firebaseService.updateActivities(
                 tripId,
@@ -150,12 +206,21 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                 user?.uid || ""
             );
 
-            Alert.alert("Succès", "Activité ajoutée au voyage", [
-                { text: "OK", onPress: () => navigation.goBack() },
-            ]);
+            Alert.alert(
+                "Succès",
+                isEditing
+                    ? "Activité modifiée avec succès"
+                    : "Activité ajoutée au voyage",
+                [{ text: "OK", onPress: () => navigation.goBack() }]
+            );
         } catch (error) {
-            console.error("Erreur création activité:", error);
-            Alert.alert("Erreur", "Impossible d'ajouter l'activité");
+            console.error("Erreur sauvegarde activité:", error);
+            Alert.alert(
+                "Erreur",
+                isEditing
+                    ? "Impossible de modifier l'activité"
+                    : "Impossible d'ajouter l'activité"
+            );
         } finally {
             setIsLoading(false);
         }
@@ -276,7 +341,9 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                 >
                     <Ionicons name="arrow-back" size={24} color="#4DA1A9" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Nouvelle activité</Text>
+                <Text style={styles.headerTitle}>
+                    {isEditing ? "Modifier l'activité" : "Nouvelle activité"}
+                </Text>
                 <TouchableOpacity
                     style={[
                         styles.saveButton,
@@ -414,6 +481,31 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                         onChangeText={setLocation}
                         placeholderTextColor="#9CA3AF"
                     />
+                </View>
+
+                {/* Lien (optionnel) */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Lien (optionnel)</Text>
+                    <TextInput
+                        style={[
+                            styles.input,
+                            !isValidUrl(link) &&
+                                link.trim() &&
+                                styles.inputError,
+                        ]}
+                        placeholder="https://... (billetterie, site officiel, etc.)"
+                        value={link}
+                        onChangeText={setLink}
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="url"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
+                    {!isValidUrl(link) && link.trim() && (
+                        <Text style={styles.errorText}>
+                            Le lien doit commencer par http:// ou https://
+                        </Text>
+                    )}
                 </View>
 
                 {/* Description */}
@@ -562,6 +654,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
         backgroundColor: "#FFFFFF",
         color: "#1F2937",
+        fontFamily: "Inter_400Regular",
+    },
+    inputError: {
+        borderColor: "#EF4444",
+        borderWidth: 2,
+    },
+    errorText: {
+        fontSize: 14,
+        color: "#EF4444",
+        marginTop: 8,
         fontFamily: "Inter_400Regular",
     },
     textArea: {

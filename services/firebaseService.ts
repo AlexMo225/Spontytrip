@@ -161,11 +161,33 @@ export interface TripNotes {
     updatedByName: string;
 }
 
+// Nouvelle interface pour les notes individuelles
+export interface TripNote {
+    id: string;
+    tripId: string;
+    content: string;
+    createdBy: string;
+    createdByName: string;
+    createdAt: Date;
+    updatedAt: Date;
+    authorAvatar?: string;
+    isImportant?: boolean;
+}
+
+// Collection de notes pour un voyage
+export interface TripNotesCollection {
+    tripId: string;
+    notes: TripNote[];
+    totalNotes: number;
+    lastUpdated: Date;
+}
+
 export interface TripActivity {
     id: string;
     title: string;
     description?: string;
     location?: string;
+    link?: string; // Lien optionnel (URL vers billetterie, site officiel, etc.)
     date: Date;
     startTime?: string;
     endTime?: string;
@@ -637,9 +659,172 @@ class FirebaseService {
     }
 
     // ==========================================
-    // NOTES
+    // NOTES - Système de notes multiples
     // ==========================================
 
+    // Souscrire aux notes d'un voyage (nouvelle structure)
+    subscribeToTripNotes(
+        tripId: string,
+        callback: (notes: TripNote[]) => void
+    ): () => void {
+        const unsubscribe = this.db
+            .collection("trips")
+            .doc(tripId)
+            .collection("notes")
+            .orderBy("updatedAt", "desc")
+            .onSnapshot((snapshot) => {
+                const notes: TripNote[] = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    notes.push({
+                        id: doc.id,
+                        tripId: tripId,
+                        content: data.content,
+                        createdBy: data.createdBy,
+                        createdByName: data.createdByName,
+                        createdAt: convertFirebaseTimestamp(data.createdAt),
+                        updatedAt: convertFirebaseTimestamp(data.updatedAt),
+                        authorAvatar: data.authorAvatar,
+                        isImportant: data.isImportant || false,
+                    });
+                });
+                callback(notes);
+            });
+
+        return unsubscribe;
+    }
+
+    // Créer une nouvelle note
+    async createNote(
+        tripId: string,
+        content: string,
+        userId: string,
+        userName: string,
+        isImportant: boolean = false
+    ): Promise<string> {
+        try {
+            const noteRef = this.db
+                .collection("trips")
+                .doc(tripId)
+                .collection("notes")
+                .doc();
+
+            const now = firebase.firestore.FieldValue.serverTimestamp();
+
+            await noteRef.set({
+                content,
+                createdBy: userId,
+                createdByName: userName,
+                createdAt: now,
+                updatedAt: now,
+                isImportant,
+            });
+
+            return noteRef.id;
+        } catch (error) {
+            console.error("Erreur création note:", error);
+            throw new Error("Impossible de créer la note");
+        }
+    }
+
+    // Modifier une note existante
+    async updateNote(
+        tripId: string,
+        noteId: string,
+        content: string,
+        userId: string,
+        isImportant?: boolean
+    ): Promise<void> {
+        try {
+            const noteRef = this.db
+                .collection("trips")
+                .doc(tripId)
+                .collection("notes")
+                .doc(noteId);
+
+            const updateData: any = {
+                content,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+
+            if (isImportant !== undefined) {
+                updateData.isImportant = isImportant;
+            }
+
+            await noteRef.update(updateData);
+        } catch (error) {
+            console.error("Erreur mise à jour note:", error);
+            throw new Error("Impossible de mettre à jour la note");
+        }
+    }
+
+    // Supprimer une note
+    async deleteNote(tripId: string, noteId: string): Promise<void> {
+        try {
+            await this.db
+                .collection("trips")
+                .doc(tripId)
+                .collection("notes")
+                .doc(noteId)
+                .delete();
+        } catch (error) {
+            console.error("Erreur suppression note:", error);
+            throw new Error("Impossible de supprimer la note");
+        }
+    }
+
+    // Vérifier si l'utilisateur peut modifier/supprimer une note
+    canEditNote(
+        note: TripNote,
+        userId: string,
+        tripCreatorId: string
+    ): boolean {
+        return note.createdBy === userId || tripCreatorId === userId;
+    }
+
+    // Migration des anciennes notes vers le nouveau système
+    async migrateOldNotesToNewSystem(tripId: string): Promise<void> {
+        try {
+            // Récupérer l'ancienne note s'il y en a une
+            const querySnapshot = await this.db
+                .collection("notes")
+                .where("tripId", "==", tripId)
+                .limit(1)
+                .get();
+
+            if (!querySnapshot.empty) {
+                const oldNoteDoc = querySnapshot.docs[0];
+                const oldNoteData = oldNoteDoc.data();
+
+                // Créer une nouvelle note dans le nouveau système
+                const noteRef = this.db
+                    .collection("trips")
+                    .doc(tripId)
+                    .collection("notes")
+                    .doc();
+
+                const now = firebase.firestore.FieldValue.serverTimestamp();
+
+                await noteRef.set({
+                    content: oldNoteData.content,
+                    createdBy: oldNoteData.updatedBy,
+                    createdByName: oldNoteData.updatedByName,
+                    createdAt: oldNoteData.updatedAt,
+                    updatedAt: now,
+                    isImportant: false,
+                });
+
+                // Optionnel : supprimer l'ancienne note
+                // await oldNoteDoc.ref.delete();
+
+                console.log(`✅ Migration réussie pour le voyage ${tripId}`);
+            }
+        } catch (error) {
+            console.error("Erreur migration notes:", error);
+        }
+    }
+
+    // Ancienne fonction pour compatibilité (système de notes unique)
     subscribeToNotes(
         tripId: string,
         callback: (notes: TripNotes | null) => void
@@ -650,8 +835,13 @@ class FirebaseService {
             .onSnapshot((snapshot) => {
                 if (!snapshot.empty) {
                     const doc = snapshot.docs[0];
+                    const data = doc.data();
                     callback({
-                        ...doc.data(),
+                        tripId: data.tripId,
+                        content: data.content,
+                        updatedAt: convertFirebaseTimestamp(data.updatedAt),
+                        updatedBy: data.updatedBy,
+                        updatedByName: data.updatedByName,
                     } as TripNotes);
                 } else {
                     callback(null);
@@ -661,6 +851,7 @@ class FirebaseService {
         return unsubscribe;
     }
 
+    // Ancienne fonction pour compatibilité (système de notes unique)
     async updateNotes(
         tripId: string,
         content: string,
@@ -763,6 +954,9 @@ class FirebaseService {
                 }
                 if (activity.location) {
                     cleaned.location = activity.location;
+                }
+                if (activity.link) {
+                    cleaned.link = activity.link;
                 }
 
                 return cleaned as TripActivity;
@@ -1019,7 +1213,7 @@ class FirebaseService {
     }
 
     // ==========================================
-    // UTILS
+    // UTILITIES - GÉNÉRATION ET VALIDATION
     // ==========================================
 
     generateInviteCode(): string {
@@ -1032,13 +1226,17 @@ class FirebaseService {
     }
 
     async isInviteCodeUnique(code: string): Promise<boolean> {
-        const trip = await this.getTripByInviteCode(code);
-        return trip === null;
+        const querySnapshot = await this.db
+            .collection("trips")
+            .where("inviteCode", "==", code)
+            .limit(1)
+            .get();
+        return querySnapshot.empty;
     }
 
     async generateUniqueInviteCode(): Promise<string> {
         let code: string;
-        let isUnique: boolean;
+        let isUnique = false;
 
         do {
             code = this.generateInviteCode();
@@ -1049,88 +1247,82 @@ class FirebaseService {
     }
 
     // ==========================================
-    // DELETE TRIP
+    // TRIP MANAGEMENT - SUPPRESSION
     // ==========================================
 
     async deleteTrip(tripId: string, userId: string): Promise<void> {
         try {
-            // Vérifier que l'utilisateur est le créateur
             const trip = await this.getTripById(tripId);
             if (!trip) {
                 throw new Error("Voyage introuvable");
             }
 
             if (trip.creatorId !== userId) {
-                throw new Error("Seul le créateur peut supprimer le voyage");
+                throw new Error("Seul le créateur du voyage peut le supprimer");
             }
 
-            // Supprimer toutes les sous-collections en parallèle
-            const deletePromises = [
-                // Supprimer la checklist
-                this.db
-                    .collection("checklists")
-                    .where("tripId", "==", tripId)
-                    .get()
-                    .then((snapshot) => {
-                        const batch = this.db.batch();
-                        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-                        return batch.commit();
-                    }),
+            // Supprimer toutes les sous-collections
+            const batch = this.db.batch();
 
-                // Supprimer les dépenses
-                this.db
-                    .collection("expenses")
-                    .where("tripId", "==", tripId)
-                    .get()
-                    .then((snapshot) => {
-                        const batch = this.db.batch();
-                        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-                        return batch.commit();
-                    }),
+            // Supprimer la checklist
+            const checklistQuery = await this.db
+                .collection("checklist")
+                .where("tripId", "==", tripId)
+                .get();
+            checklistQuery.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
 
-                // Supprimer les notes
-                this.db
-                    .collection("notes")
-                    .where("tripId", "==", tripId)
-                    .get()
-                    .then((snapshot) => {
-                        const batch = this.db.batch();
-                        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-                        return batch.commit();
-                    }),
+            // Supprimer les dépenses
+            const expensesQuery = await this.db
+                .collection("expenses")
+                .where("tripId", "==", tripId)
+                .get();
+            expensesQuery.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
 
-                // Supprimer les activités
-                this.db
-                    .collection("activities")
-                    .where("tripId", "==", tripId)
-                    .get()
-                    .then((snapshot) => {
-                        const batch = this.db.batch();
-                        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-                        return batch.commit();
-                    }),
-            ];
+            // Supprimer les notes (ancien système)
+            const notesQuery = await this.db
+                .collection("notes")
+                .where("tripId", "==", tripId)
+                .get();
+            notesQuery.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
 
-            // Attendre que toutes les sous-collections soient supprimées
-            await Promise.all(deletePromises);
+            // Supprimer les activités
+            const activitiesQuery = await this.db
+                .collection("activities")
+                .where("tripId", "==", tripId)
+                .get();
+            activitiesQuery.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
 
-            // Enfin, supprimer le voyage principal
-            await this.db.collection("trips").doc(tripId).delete();
+            // Supprimer les notes du nouveau système
+            const tripNotesQuery = await this.db
+                .collection("trips")
+                .doc(tripId)
+                .collection("notes")
+                .get();
+            tripNotesQuery.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
 
-            console.log("✅ Voyage supprimé avec succès:", tripId);
+            // Supprimer le voyage lui-même
+            batch.delete(this.db.collection("trips").doc(tripId));
 
-            // Émettre l'événement de suppression pour notifier tous les utilisateurs
-            const { tripRefreshEmitter } = await import("../hooks/useTripSync");
-            tripRefreshEmitter.emitTripDeleted(
-                tripId,
-                userId,
-                trip.creatorName
-            );
+            await batch.commit();
         } catch (error) {
-            console.error("❌ Erreur suppression voyage:", error);
-            throw new Error("Impossible de supprimer le voyage");
+            console.error("Erreur suppression voyage:", error);
+            throw error;
         }
     }
+
+    // ==========================================
+    // TRIP MANAGEMENT - MISE À JOUR COVER IMAGE
+    // ==========================================
 
     async updateTripCoverImage(
         tripId: string,
@@ -1138,28 +1330,31 @@ class FirebaseService {
         userId: string
     ): Promise<void> {
         try {
-            const tripRef = this.db.collection("trips").doc(tripId);
-            const updateData: any = {
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            };
-
-            if (coverImage) {
-                updateData.coverImage = coverImage;
-            } else {
-                // Supprimer le champ coverImage
-                updateData.coverImage = firebase.firestore.FieldValue.delete();
+            const trip = await this.getTripById(tripId);
+            if (!trip) {
+                throw new Error("Voyage introuvable");
             }
 
-            await tripRef.update(updateData);
+            if (trip.creatorId !== userId) {
+                throw new Error(
+                    "Seul le créateur peut modifier l'image de couverture"
+                );
+            }
+
+            await this.db.collection("trips").doc(tripId).update({
+                coverImage,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
         } catch (error) {
-            console.error("Erreur mise à jour photo de couverture:", error);
-            throw new Error(
-                "Impossible de mettre à jour la photo de couverture"
-            );
+            console.error("Erreur mise à jour image:", error);
+            throw error;
         }
     }
 
-    // Écouter les mises à jour temps réel d'un voyage
+    // ==========================================
+    // TRIP SUBSCRIPTION - TEMPS RÉEL
+    // ==========================================
+
     subscribeToTrip(
         tripId: string,
         callback: (trip: FirestoreTrip | null) => void
@@ -1169,8 +1364,28 @@ class FirebaseService {
             .doc(tripId)
             .onSnapshot((doc) => {
                 if (doc.exists) {
-                    const trip = convertFirestoreTrip(doc);
-                    callback(trip);
+                    const data = doc.data();
+                    if (data) {
+                        // Convertir manuellement au lieu d'utiliser convertFirestoreTrip
+                        const convertedTrip: FirestoreTrip = {
+                            id: doc.id,
+                            ...data,
+                            startDate: convertFirebaseTimestamp(data.startDate),
+                            endDate: convertFirebaseTimestamp(data.endDate),
+                            createdAt: convertFirebaseTimestamp(data.createdAt),
+                            updatedAt: convertFirebaseTimestamp(data.updatedAt),
+                            members:
+                                data.members?.map((member: TripMember) => ({
+                                    ...member,
+                                    joinedAt: convertFirebaseTimestamp(
+                                        member.joinedAt
+                                    ),
+                                })) || [],
+                        } as FirestoreTrip;
+                        callback(convertedTrip);
+                    } else {
+                        callback(null);
+                    }
                 } else {
                     callback(null);
                 }
@@ -1180,7 +1395,7 @@ class FirebaseService {
     }
 
     // ==========================================
-    // VOTES ET VALIDATION DES ACTIVITÉS
+    // ACTIVITIES - VOTE ET VALIDATION
     // ==========================================
 
     async voteForActivity(
@@ -1201,41 +1416,39 @@ class FirebaseService {
                 const docData = querySnapshot.docs[0].data();
                 const activities = docData.activities || [];
 
-                // Trouver l'activité à mettre à jour
-                const updatedActivities = activities.map((activity: any) => {
-                    if (activity.id === activityId) {
-                        const currentVotes = activity.votes || [];
+                const activityIndex = activities.findIndex(
+                    (activity: any) => activity.id === activityId
+                );
 
-                        if (isVoting) {
-                            // Ajouter le vote si pas déjà présent
-                            if (!currentVotes.includes(userId)) {
-                                return {
-                                    ...activity,
-                                    votes: [...currentVotes, userId],
-                                };
-                            }
-                        } else {
-                            // Retirer le vote
-                            return {
-                                ...activity,
-                                votes: currentVotes.filter(
-                                    (vote: string) => vote !== userId
-                                ),
-                            };
+                if (activityIndex !== -1) {
+                    const activity = activities[activityIndex];
+                    const currentVotes = activity.votes || [];
+
+                    if (isVoting) {
+                        // Ajouter le vote si pas déjà présent
+                        if (!currentVotes.includes(userId)) {
+                            activity.votes = [...currentVotes, userId];
                         }
+                    } else {
+                        // Retirer le vote
+                        activity.votes = currentVotes.filter(
+                            (vote: string) => vote !== userId
+                        );
                     }
-                    return activity;
-                });
 
-                await docRef.update({
-                    activities: updatedActivities,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: userId,
-                });
+                    activities[activityIndex] = activity;
+
+                    await docRef.update({
+                        activities,
+                        updatedAt:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: userId,
+                    });
+                }
             }
         } catch (error) {
             console.error("Erreur vote activité:", error);
-            throw new Error("Impossible de voter pour l'activité");
+            throw new Error("Impossible de voter pour cette activité");
         }
     }
 
@@ -1257,75 +1470,72 @@ class FirebaseService {
                 const docData = querySnapshot.docs[0].data();
                 const activities = docData.activities || [];
 
-                // Trouver l'activité à valider
-                const updatedActivities = activities.map((activity: any) => {
-                    if (activity.id === activityId) {
-                        return {
-                            ...activity,
-                            validated,
-                        };
-                    }
-                    return activity;
-                });
+                const activityIndex = activities.findIndex(
+                    (activity: any) => activity.id === activityId
+                );
 
-                await docRef.update({
-                    activities: updatedActivities,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: userId,
-                });
+                if (activityIndex !== -1) {
+                    const activity = activities[activityIndex];
+                    activity.validated = validated;
+                    activity.status = validated ? "validated" : "pending";
+
+                    activities[activityIndex] = activity;
+
+                    await docRef.update({
+                        activities,
+                        updatedAt:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: userId,
+                    });
+                }
             }
         } catch (error) {
             console.error("Erreur validation activité:", error);
-            throw new Error("Impossible de valider l'activité");
+            throw new Error("Impossible de valider cette activité");
         }
     }
 
-    // Calculer le statut d'une activité
+    // ==========================================
+    // ACTIVITIES - HELPERS
+    // ==========================================
+
     calculateActivityStatus(
         activity: TripActivity
     ): "pending" | "validated" | "in_progress" | "completed" | "past" {
         const now = new Date();
         const activityDate = new Date(activity.date);
 
-        // Définir les heures de début et fin de l'activité
-        const activityStart = new Date(activityDate);
-        const activityEnd = new Date(activityDate);
-
-        if (activity.startTime) {
-            const [hours, minutes] = activity.startTime.split(":");
-            activityStart.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        }
-
-        if (activity.endTime) {
-            const [hours, minutes] = activity.endTime.split(":");
-            activityEnd.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        } else {
-            // Si pas d'heure de fin, considérer 2h par défaut
-            activityEnd.setHours(activityStart.getHours() + 2);
-        }
-
-        // Logique de statut
-        if (now > activityEnd) {
+        // Si l'activité est dans le passé
+        if (activityDate < now) {
             return "past";
-        } else if (now >= activityStart && now <= activityEnd) {
-            return "in_progress";
-        } else if (activity.validated) {
-            return "validated";
-        } else {
-            return "pending";
         }
+
+        // Si l'activité est validée
+        if (activity.validated) {
+            return "validated";
+        }
+
+        // Sinon, en attente
+        return "pending";
     }
 
-    // Trouver l'activité avec le plus de votes
     getTopActivity(activities: TripActivity[]): TripActivity | null {
-        if (!activities.length) return null;
+        if (!activities || activities.length === 0) return null;
 
-        return activities.reduce((top, current) => {
-            const topVotes = top.votes?.length || 0;
-            const currentVotes = current.votes?.length || 0;
-            return currentVotes > topVotes ? current : top;
+        let topActivity = activities[0];
+        let maxVotes = topActivity.votes?.length || 0;
+
+        activities.forEach((activity) => {
+            const voteCount = activity.votes?.length || 0;
+            if (voteCount > maxVotes) {
+                maxVotes = voteCount;
+                topActivity = activity;
+            }
         });
+
+        return maxVotes > 0 ? topActivity : null;
     }
 }
 
-export default new FirebaseService();
+const firebaseService = new FirebaseService();
+export default firebaseService;

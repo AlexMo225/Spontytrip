@@ -5,6 +5,7 @@ import firebaseService, {
     TripActivities,
     TripChecklist,
     TripExpenses,
+    TripNote,
     TripNotes,
 } from "../services/firebaseService";
 
@@ -13,6 +14,7 @@ export interface TripSyncData {
     checklist: TripChecklist | null;
     expenses: TripExpenses | null;
     notes: TripNotes | null;
+    tripNotes: TripNote[];
     activities: TripActivities | null;
     loading: boolean;
     error: string | null;
@@ -24,6 +26,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
     const [checklist, setChecklist] = useState<TripChecklist | null>(null);
     const [expenses, setExpenses] = useState<TripExpenses | null>(null);
     const [notes, setNotes] = useState<TripNotes | null>(null);
+    const [tripNotes, setTripNotes] = useState<TripNote[]>([]);
     const [activities, setActivities] = useState<TripActivities | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
         let unsubscribeChecklist: (() => void) | null = null;
         let unsubscribeExpenses: (() => void) | null = null;
         let unsubscribeNotes: (() => void) | null = null;
+        let unsubscribeTripNotes: (() => void) | null = null;
         let unsubscribeActivities: (() => void) | null = null;
         let unsubscribeTrip: (() => void) | null = null;
 
@@ -87,6 +91,13 @@ export const useTripSync = (tripId: string): TripSyncData => {
                     }
                 );
 
+                unsubscribeTripNotes = firebaseService.subscribeToTripNotes(
+                    tripId,
+                    (tripNotesData) => {
+                        setTripNotes(tripNotesData);
+                    }
+                );
+
                 unsubscribeActivities = firebaseService.subscribeToActivities(
                     tripId,
                     (activitiesData) => {
@@ -98,7 +109,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
                     tripId,
                     (updatedTrip: FirestoreTrip | null) => {
                         if (updatedTrip) {
-                            // console.log("🔄 Mise à jour voyage reçue:", {
+                            // console.log("�� Mise à jour voyage reçue:", {
                             //     tripId: updatedTrip.id,
                             //     coverImage: updatedTrip.coverImage,
                             //     updatedAt: updatedTrip.updatedAt
@@ -123,6 +134,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
             unsubscribeChecklist?.();
             unsubscribeExpenses?.();
             unsubscribeNotes?.();
+            unsubscribeTripNotes?.();
             unsubscribeActivities?.();
             unsubscribeTrip?.();
         };
@@ -133,6 +145,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
         checklist,
         expenses,
         notes,
+        tripNotes,
         activities,
         loading,
         error,

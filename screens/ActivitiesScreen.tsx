@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import * as Linking from "expo-linking";
 import React, { useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
     Animated,
+    Clipboard,
     Modal,
     SafeAreaView,
     ScrollView,
@@ -41,6 +43,7 @@ interface DayGroup {
 }
 
 type ViewMode = "timeline" | "list";
+type FilterType = "all" | "validated" | "pending" | "past";
 
 const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
     const { user } = useAuth();
@@ -52,7 +55,13 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
     const [selectedActivity, setSelectedActivity] =
         useState<TripActivity | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [filterType, setFilterType] = useState<FilterType>("all");
+    const [realtimeNotification, setRealtimeNotification] = useState<
+        string | null
+    >(null);
     const animatedValues = useRef<{ [key: string]: Animated.Value }>({});
+    const voteAnimations = useRef<{ [key: string]: Animated.Value }>({});
+    const notificationAnim = useRef(new Animated.Value(0));
 
     // Synchroniser les activités locales avec Firebase
     React.useEffect(() => {
@@ -68,27 +77,144 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         }
     }, [activities]);
 
+    // 🔥 Synchronisation temps réel de l'activité sélectionnée
+    React.useEffect(() => {
+        if (selectedActivity && localActivities.length > 0) {
+            const updatedActivity = localActivities.find(
+                (activity) => activity.id === selectedActivity.id
+            );
+
+            if (updatedActivity) {
+                // Vérifier si les votes ont changé pour déclencher une animation
+                const oldVoteCount = selectedActivity.votes?.length || 0;
+                const newVoteCount = updatedActivity.votes?.length || 0;
+                const oldVotes = selectedActivity.votes || [];
+                const newVotes = updatedActivity.votes || [];
+
+                if (newVoteCount !== oldVoteCount) {
+                    // Animation de changement de vote
+                    createVoteAnimation(updatedActivity.id);
+
+                    // 🔔 Détecter qui a voté (nouveau votant)
+                    if (newVoteCount > oldVoteCount) {
+                        const newVoters = newVotes.filter(
+                            (vote) => !oldVotes.includes(vote)
+                        );
+                        const newVoter = newVoters.find(
+                            (voterId) => voterId !== user?.uid
+                        );
+
+                        if (newVoter && trip?.members) {
+                            const voterMember = trip.members.find(
+                                (m) => m.userId === newVoter
+                            );
+                            const voterName =
+                                voterMember?.name ||
+                                voterMember?.email ||
+                                "Quelqu'un";
+                            setRealtimeNotification(`❤️ ${voterName} a voté !`);
+
+                            // Masquer la notification après 3 secondes
+                            setTimeout(
+                                () => setRealtimeNotification(null),
+                                3000
+                            );
+                        }
+                    }
+
+                    // 🔔 Détecter qui a retiré son vote
+                    if (newVoteCount < oldVoteCount) {
+                        const removedVoters = oldVotes.filter(
+                            (vote) => !newVotes.includes(vote)
+                        );
+                        const removedVoter = removedVoters.find(
+                            (voterId) => voterId !== user?.uid
+                        );
+
+                        if (removedVoter && trip?.members) {
+                            const voterMember = trip.members.find(
+                                (m) => m.userId === removedVoter
+                            );
+                            const voterName =
+                                voterMember?.name ||
+                                voterMember?.email ||
+                                "Quelqu'un";
+                            setRealtimeNotification(
+                                `💔 ${voterName} a retiré son vote`
+                            );
+
+                            // Masquer la notification après 3 secondes
+                            setTimeout(
+                                () => setRealtimeNotification(null),
+                                3000
+                            );
+                        }
+                    }
+                }
+
+                // Mettre à jour l'activité sélectionnée avec les nouvelles données
+                setSelectedActivity(updatedActivity);
+            }
+        }
+    }, [localActivities, selectedActivity?.id, user?.uid, trip?.members]);
+
     // Créer des valeurs d'animation pour les nouvelles activités
     const createAnimationForActivity = (activityId: string) => {
         if (!animatedValues.current[activityId]) {
             animatedValues.current[activityId] = new Animated.Value(0);
+            voteAnimations.current[activityId] = new Animated.Value(1);
 
-            // Animation d'apparition
+            // Animation d'apparition avec slide + fade
             Animated.spring(animatedValues.current[activityId], {
                 toValue: 1,
                 useNativeDriver: true,
-                tension: 100,
+                tension: 120,
                 friction: 8,
             }).start();
         }
     };
 
-    // Grouper les activités par jour et trier
-    const groupedActivities = useMemo(() => {
+    // Créer animation de vote avec confetti discret
+    const createVoteAnimation = (activityId: string) => {
+        const voteAnim = voteAnimations.current[activityId];
+        if (voteAnim) {
+            Animated.sequence([
+                Animated.timing(voteAnim, {
+                    toValue: 1.2,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(voteAnim, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    tension: 200,
+                    friction: 4,
+                }),
+            ]).start();
+        }
+    };
+
+    // Filtrer les activités selon le filtre sélectionné
+    const filteredActivities = useMemo(() => {
         if (!localActivities.length) return [];
 
+        // Filtrer selon le type sélectionné
+        return localActivities.filter((activity) => {
+            if (filterType === "all") return true;
+            if (filterType === "validated") return activity.validated;
+            if (filterType === "pending")
+                return !activity.validated && activity.status !== "past";
+            if (filterType === "past") return activity.status === "past";
+            return true;
+        });
+    }, [localActivities, filterType]);
+
+    // Grouper les activités par jour et trier
+    const groupedActivities = useMemo(() => {
+        if (!filteredActivities.length) return [];
+
         // Filtrer les activités avec des dates valides et les trier
-        const validActivities = localActivities.filter((activity) => {
+        const validActivities = filteredActivities.filter((activity) => {
             if (!activity.date) {
                 console.warn("Activité sans date:", activity.title);
                 return false;
@@ -163,7 +289,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                 } as DayGroup;
             })
             .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
-    }, [localActivities]);
+    }, [filteredActivities]);
 
     // Trouver l'activité top (plus de votes)
     const topActivity = useMemo(() => {
@@ -174,24 +300,10 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!user) return;
 
         try {
-            // Animation de vote
-            const animValue = animatedValues.current[activityId];
-            if (animValue) {
-                Animated.sequence([
-                    Animated.timing(animValue, {
-                        toValue: 1.1,
-                        duration: 100,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(animValue, {
-                        toValue: 1,
-                        duration: 100,
-                        useNativeDriver: true,
-                    }),
-                ]).start();
-            }
+            // 🎯 Animation de vote immédiate pour feedback utilisateur
+            createVoteAnimation(activityId);
 
-            // Optimistic update
+            // 🔄 Optimistic update pour réactivité immédiate
             setLocalActivities((prev) =>
                 prev.map((activity) => {
                     if (activity.id === activityId) {
@@ -206,6 +318,20 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                 })
             );
 
+            // 🔥 Mise à jour immédiate de l'activité sélectionnée si c'est celle-ci
+            if (selectedActivity && selectedActivity.id === activityId) {
+                const votes = selectedActivity.votes || [];
+                const newVotes = currentlyVoted
+                    ? votes.filter((vote) => vote !== user.uid)
+                    : [...votes, user.uid];
+
+                setSelectedActivity({
+                    ...selectedActivity,
+                    votes: newVotes,
+                });
+            }
+
+            // 💾 Sauvegarde dans Firebase (en arrière-plan)
             await firebaseService.voteForActivity(
                 tripId,
                 activityId,
@@ -216,9 +342,19 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
             console.error("Erreur vote:", error);
             Alert.alert("Erreur", "Impossible de voter pour cette activité");
 
-            // Rollback en cas d'erreur
+            // 🔄 Rollback en cas d'erreur
             if (activities?.activities) {
                 setLocalActivities(activities.activities);
+
+                // Rollback aussi pour l'activité sélectionnée
+                if (selectedActivity && selectedActivity.id === activityId) {
+                    const originalActivity = activities.activities.find(
+                        (a) => a.id === activityId
+                    );
+                    if (originalActivity) {
+                        setSelectedActivity(originalActivity);
+                    }
+                }
             }
         }
     };
@@ -252,13 +388,13 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
     const getStatusColor = (status?: string) => {
         switch (status) {
             case "validated":
-                return "#4CAF50";
+                return "#10B981"; // Vert plus doux
             case "in_progress":
-                return "#FF9500";
+                return "#F59E0B"; // Orange plus doux
             case "past":
-                return "#999999";
+                return "#94A3B8"; // Gris plus doux
             default:
-                return "#4DA1A9";
+                return "#6366F1"; // Bleu plus doux pour "En attente"
         }
     };
 
@@ -292,7 +428,11 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         const votes = activity.votes || [];
         const hasVoted = votes.includes(user?.uid || "");
         const voteCount = votes.length;
+        const memberCount = trip?.members.length || 1;
+        const votePercentage = (voteCount / memberCount) * 100;
         const isTopActivity = topActivity?.id === activity.id && voteCount > 0;
+        const voteAnim =
+            voteAnimations.current[activity.id] || new Animated.Value(1);
 
         return (
             <View style={styles.voteSection}>
@@ -300,13 +440,12 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                     style={[
                         styles.voteButton,
                         hasVoted && styles.voteButtonActive,
-                        isTopActivity && styles.topActivityButton,
                     ]}
                     onPress={() => handleVote(activity.id, hasVoted)}
                 >
                     <Ionicons
                         name={hasVoted ? "heart" : "heart-outline"}
-                        size={16}
+                        size={18}
                         color={hasVoted ? "#FFFFFF" : "#4DA1A9"}
                     />
                     <Text
@@ -319,9 +458,10 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                     </Text>
                 </TouchableOpacity>
 
+                {/* Badge Top activité */}
                 {isTopActivity && (
                     <View style={styles.topBadge}>
-                        <Ionicons name="star" size={12} color="#FFD700" />
+                        <Ionicons name="star" size={14} color="#FFD700" />
                         <Text style={styles.topBadgeText}>Top activité</Text>
                     </View>
                 )}
@@ -509,6 +649,19 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                     </Text>
                                 </View>
                             )}
+
+                            {activity.link && (
+                                <View style={styles.linkInfo}>
+                                    <Ionicons
+                                        name="link-outline"
+                                        size={14}
+                                        color="#4DA1A9"
+                                    />
+                                    <Text style={styles.linkIndicatorText}>
+                                        Lien disponible
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
                         {activity.description && (
@@ -640,6 +793,83 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
     );
 
+    const renderFilterButtons = () => (
+        <View
+            style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                backgroundColor: "#F8F9FA",
+                borderBottomWidth: 1,
+                borderBottomColor: "#E2E8F0",
+            }}
+        >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {[
+                    { key: "all", label: "Toutes", icon: "apps-outline" },
+                    {
+                        key: "validated",
+                        label: "Validées",
+                        icon: "checkmark-circle-outline",
+                    },
+                    {
+                        key: "pending",
+                        label: "À valider",
+                        icon: "time-outline",
+                    },
+                    { key: "past", label: "Passées", icon: "archive-outline" },
+                ].map((filter) => (
+                    <TouchableOpacity
+                        key={filter.key}
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            marginRight: 12,
+                            borderRadius: 20,
+                            backgroundColor:
+                                filterType === filter.key
+                                    ? "#4DA1A9"
+                                    : "#FFFFFF",
+                            borderWidth: 1,
+                            borderColor: "#4DA1A9",
+                            shadowColor: "#000",
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 2,
+                            elevation: 2,
+                        }}
+                        onPress={() => setFilterType(filter.key as FilterType)}
+                    >
+                        <Ionicons
+                            name={filter.icon as any}
+                            size={16}
+                            color={
+                                filterType === filter.key
+                                    ? "#FFFFFF"
+                                    : "#4DA1A9"
+                            }
+                        />
+                        <Text
+                            style={{
+                                fontSize: 14,
+                                fontFamily: Fonts.body.family,
+                                color:
+                                    filterType === filter.key
+                                        ? "#FFFFFF"
+                                        : "#4DA1A9",
+                                marginLeft: 6,
+                                fontWeight: "500",
+                            }}
+                        >
+                            {filter.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        </View>
+    );
+
     const renderViewModeToggle = () => (
         <View style={styles.viewModeToggle}>
             <TouchableOpacity
@@ -761,6 +991,9 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Statistiques */}
             {renderPlanningStats()}
 
+            {/* Filtres */}
+            {renderFilterButtons()}
+
             {/* Toggle de vue */}
             {renderViewModeToggle()}
 
@@ -815,7 +1048,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Ionicons name="add" size={28} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* Modal de détails d'activité */}
+            {/* Modal de détails d'activité - Version améliorée */}
             <Modal
                 visible={showDetailModal}
                 animationType="slide"
@@ -825,76 +1058,95 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                 <SafeAreaView style={styles.modalContainer}>
                     {selectedActivity && (
                         <>
-                            {/* Header du modal */}
-                            <View style={styles.modalHeader}>
+                            {/* Header moderne avec fermeture */}
+                            <View style={styles.modernModalHeader}>
                                 <TouchableOpacity
-                                    style={styles.closeButton}
+                                    style={styles.modernCloseButton}
                                     onPress={handleCloseDetailModal}
                                 >
                                     <Ionicons
                                         name="close"
                                         size={24}
-                                        color="#637887"
+                                        color="#6B7280"
                                     />
                                 </TouchableOpacity>
-                                <Text style={styles.modalTitle}>
-                                    Détails de l'activité
-                                </Text>
-                                <View style={styles.placeholder} />
+
+                                {/* Badge de statut en haut à droite */}
+                                <View
+                                    style={[
+                                        styles.modernStatusBadge,
+                                        {
+                                            backgroundColor: getStatusColor(
+                                                selectedActivity.status
+                                            ),
+                                        },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name={getStatusIcon(
+                                            selectedActivity.status
+                                        )}
+                                        size={14}
+                                        color="#FFFFFF"
+                                    />
+                                    <Text style={styles.modernStatusText}>
+                                        {getStatusText(selectedActivity.status)}
+                                    </Text>
+                                </View>
                             </View>
 
                             <ScrollView
-                                style={styles.modalContent}
+                                style={styles.modernModalContent}
                                 showsVerticalScrollIndicator={false}
                             >
-                                {/* Titre et statut */}
-                                <View style={styles.detailHeader}>
-                                    <Text style={styles.detailTitle}>
-                                        {selectedActivity.title}
-                                    </Text>
-                                    <View
+                                {/* 🔔 Notification temps réel */}
+                                {realtimeNotification && (
+                                    <Animated.View
                                         style={[
-                                            styles.detailStatusBadge,
+                                            styles.realtimeNotification,
                                             {
-                                                backgroundColor: getStatusColor(
-                                                    selectedActivity.status
-                                                ),
+                                                opacity: 1,
+                                                transform: [{ translateY: 0 }],
                                             },
                                         ]}
                                     >
-                                        <Ionicons
-                                            name={getStatusIcon(
-                                                selectedActivity.status
-                                            )}
-                                            size={16}
-                                            color="#FFFFFF"
-                                        />
-                                        <Text style={styles.detailStatusText}>
-                                            {getStatusText(
-                                                selectedActivity.status
-                                            )}
+                                        <Text
+                                            style={
+                                                styles.realtimeNotificationText
+                                            }
+                                        >
+                                            {realtimeNotification}
                                         </Text>
-                                    </View>
+                                    </Animated.View>
+                                )}
+
+                                {/* Titre principal avec emoji */}
+                                <View style={styles.modernTitleSection}>
+                                    <Text style={styles.modernActivityTitle}>
+                                        🎯 {selectedActivity.title}
+                                    </Text>
                                 </View>
 
-                                {/* Informations principales */}
-                                <View style={styles.detailSection}>
-                                    <Text style={styles.sectionTitle}>
-                                        Informations
-                                    </Text>
-
+                                {/* Carte d'informations principales */}
+                                <View style={styles.modernInfoCard}>
                                     {/* Date */}
-                                    <View style={styles.detailRow}>
-                                        <Ionicons
-                                            name="calendar-outline"
-                                            size={20}
-                                            color="#4DA1A9"
-                                        />
-                                        <View style={styles.detailRowContent}>
-                                            <Text style={styles.detailLabel}>
+                                    <View style={styles.modernInfoRow}>
+                                        <View style={styles.modernInfoIcon}>
+                                            <Ionicons
+                                                name="calendar"
+                                                size={20}
+                                                color="#4DA1A9"
+                                            />
+                                        </View>
+                                        <View style={styles.modernInfoContent}>
+                                            <Text
+                                                style={styles.modernInfoLabel}
+                                            >
                                                 Date
                                             </Text>
-                                            <Text style={styles.detailValue}>
+                                            <Text
+                                                style={styles.modernInfoValue}
+                                            >
                                                 {selectedActivity.date.toLocaleDateString(
                                                     "fr-FR",
                                                     {
@@ -911,22 +1163,28 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                     {/* Heure */}
                                     {(selectedActivity.startTime ||
                                         selectedActivity.endTime) && (
-                                        <View style={styles.detailRow}>
-                                            <Ionicons
-                                                name="time-outline"
-                                                size={20}
-                                                color="#4DA1A9"
-                                            />
+                                        <View style={styles.modernInfoRow}>
+                                            <View style={styles.modernInfoIcon}>
+                                                <Ionicons
+                                                    name="time"
+                                                    size={20}
+                                                    color="#4DA1A9"
+                                                />
+                                            </View>
                                             <View
-                                                style={styles.detailRowContent}
+                                                style={styles.modernInfoContent}
                                             >
                                                 <Text
-                                                    style={styles.detailLabel}
+                                                    style={
+                                                        styles.modernInfoLabel
+                                                    }
                                                 >
                                                     Horaire
                                                 </Text>
                                                 <Text
-                                                    style={styles.detailValue}
+                                                    style={
+                                                        styles.modernInfoValue
+                                                    }
                                                 >
                                                     {selectedActivity.startTime ||
                                                         "Non définie"}
@@ -939,22 +1197,28 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
 
                                     {/* Lieu */}
                                     {selectedActivity.location && (
-                                        <View style={styles.detailRow}>
-                                            <Ionicons
-                                                name="location-outline"
-                                                size={20}
-                                                color="#4DA1A9"
-                                            />
+                                        <View style={styles.modernInfoRow}>
+                                            <View style={styles.modernInfoIcon}>
+                                                <Ionicons
+                                                    name="location"
+                                                    size={20}
+                                                    color="#4DA1A9"
+                                                />
+                                            </View>
                                             <View
-                                                style={styles.detailRowContent}
+                                                style={styles.modernInfoContent}
                                             >
                                                 <Text
-                                                    style={styles.detailLabel}
+                                                    style={
+                                                        styles.modernInfoLabel
+                                                    }
                                                 >
                                                     Lieu
                                                 </Text>
                                                 <Text
-                                                    style={styles.detailValue}
+                                                    style={
+                                                        styles.modernInfoValue
+                                                    }
                                                 >
                                                     {selectedActivity.location}
                                                 </Text>
@@ -962,150 +1226,428 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                         </View>
                                     )}
 
-                                    {/* Créé par */}
-                                    <View style={styles.detailRow}>
-                                        <Ionicons
-                                            name="person-outline"
-                                            size={20}
-                                            color="#4DA1A9"
-                                        />
-                                        <View style={styles.detailRowContent}>
-                                            <Text style={styles.detailLabel}>
+                                    {/* Lien */}
+                                    {selectedActivity.link && (
+                                        <View style={styles.modernInfoRow}>
+                                            <View style={styles.modernInfoIcon}>
+                                                <Ionicons
+                                                    name="link"
+                                                    size={20}
+                                                    color="#4DA1A9"
+                                                />
+                                            </View>
+                                            <View
+                                                style={styles.modernInfoContent}
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.modernInfoLabel
+                                                    }
+                                                >
+                                                    Lien utile
+                                                </Text>
+                                                <TouchableOpacity
+                                                    style={styles.linkButton}
+                                                    onPress={() => {
+                                                        // Ouvrir le lien dans le navigateur
+                                                        Linking.openURL(
+                                                            selectedActivity.link!
+                                                        );
+                                                    }}
+                                                    onLongPress={() => {
+                                                        // Copier le lien dans le presse-papiers
+                                                        Clipboard.setString(
+                                                            selectedActivity.link!
+                                                        );
+                                                        Alert.alert(
+                                                            "Copié !",
+                                                            "Le lien a été copié dans le presse-papiers"
+                                                        );
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name="open-outline"
+                                                        size={16}
+                                                        color="#FFFFFF"
+                                                    />
+                                                    <Text
+                                                        style={
+                                                            styles.linkButtonText
+                                                        }
+                                                    >
+                                                        {selectedActivity.link.includes(
+                                                            "ticket"
+                                                        ) ||
+                                                        selectedActivity.link.includes(
+                                                            "billet"
+                                                        ) ||
+                                                        selectedActivity.link.includes(
+                                                            "booking"
+                                                        )
+                                                            ? "Acheter un billet"
+                                                            : selectedActivity.link.includes(
+                                                                  "official"
+                                                              ) ||
+                                                              selectedActivity.link.includes(
+                                                                  "officiel"
+                                                              )
+                                                            ? "Site officiel"
+                                                            : "Voir le lien"}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                                <Text
+                                                    style={styles.linkHintText}
+                                                >
+                                                    Appui long pour copier
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    )}
+
+                                    {/* Proposé par */}
+                                    <View style={styles.modernInfoRow}>
+                                        <View style={styles.modernInfoIcon}>
+                                            <Ionicons
+                                                name="person"
+                                                size={20}
+                                                color="#4DA1A9"
+                                            />
+                                        </View>
+                                        <View style={styles.modernInfoContent}>
+                                            <Text
+                                                style={styles.modernInfoLabel}
+                                            >
                                                 Proposé par
                                             </Text>
-                                            <Text style={styles.detailValue}>
+                                            <Text
+                                                style={styles.modernInfoValue}
+                                            >
                                                 {selectedActivity.createdByName}
                                             </Text>
                                         </View>
                                     </View>
                                 </View>
 
-                                {/* Description */}
+                                {/* Description si elle existe */}
                                 {selectedActivity.description && (
-                                    <View style={styles.detailSection}>
-                                        <Text style={styles.sectionTitle}>
-                                            Description
+                                    <View style={styles.modernDescriptionCard}>
+                                        <Text
+                                            style={
+                                                styles.modernDescriptionTitle
+                                            }
+                                        >
+                                            💬 Description
                                         </Text>
-                                        <Text style={styles.descriptionText}>
+                                        <Text
+                                            style={styles.modernDescriptionText}
+                                        >
                                             {selectedActivity.description}
                                         </Text>
                                     </View>
                                 )}
 
-                                {/* Section votes */}
-                                <View style={styles.detailSection}>
-                                    <Text style={styles.sectionTitle}>
-                                        Votes (
+                                {/* Section votes moderne */}
+                                <View style={styles.modernVotesCard}>
+                                    <Text style={styles.modernVotesTitle}>
+                                        ❤️ Votes (
                                         {selectedActivity.votes?.length || 0})
                                     </Text>
+
                                     {selectedActivity.votes &&
                                     selectedActivity.votes.length > 0 ? (
-                                        <View style={styles.votersContainer}>
-                                            {selectedActivity.votes.map(
-                                                (voterId) => {
-                                                    const voter =
-                                                        trip?.members.find(
-                                                            (m) =>
-                                                                m.userId ===
-                                                                voterId
+                                        <>
+                                            {/* Barre de progression des votes */}
+                                            <View
+                                                style={
+                                                    styles.modernVoteProgress
+                                                }
+                                            >
+                                                <View
+                                                    style={
+                                                        styles.modernVoteProgressBar
+                                                    }
+                                                >
+                                                    <Animated.View
+                                                        style={[
+                                                            styles.modernVoteProgressFill,
+                                                            {
+                                                                width: `${Math.min(
+                                                                    ((selectedActivity
+                                                                        .votes
+                                                                        ?.length ||
+                                                                        0) /
+                                                                        (trip
+                                                                            ?.members
+                                                                            .length ||
+                                                                            1)) *
+                                                                        100,
+                                                                    100
+                                                                )}%`,
+                                                                transform: [
+                                                                    {
+                                                                        scaleY:
+                                                                            voteAnimations
+                                                                                .current[
+                                                                                selectedActivity
+                                                                                    .id
+                                                                            ] ||
+                                                                            1,
+                                                                    },
+                                                                ],
+                                                            },
+                                                        ]}
+                                                    />
+                                                </View>
+                                                <View
+                                                    style={
+                                                        styles.modernVoteProgressInfo
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.modernVoteProgressText
+                                                        }
+                                                    >
+                                                        {selectedActivity.votes
+                                                            ?.length || 0}
+                                                        /
+                                                        {trip?.members.length ||
+                                                            1}{" "}
+                                                        votes
+                                                    </Text>
+                                                    {/* Pourcentage de participation */}
+                                                    <Text
+                                                        style={
+                                                            styles.modernVoteProgressPercentage
+                                                        }
+                                                    >
+                                                        {Math.round(
+                                                            ((selectedActivity
+                                                                .votes
+                                                                ?.length || 0) /
+                                                                (trip?.members
+                                                                    .length ||
+                                                                    1)) *
+                                                                100
+                                                        )}
+                                                        %
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            {/* Avatars des votants */}
+                                            <View
+                                                style={styles.modernVotersRow}
+                                            >
+                                                {selectedActivity.votes
+                                                    .slice(0, 5)
+                                                    .map((voterId, index) => {
+                                                        const voter =
+                                                            trip?.members.find(
+                                                                (m) =>
+                                                                    m.userId ===
+                                                                    voterId
+                                                            );
+                                                        const initials =
+                                                            voter?.name
+                                                                ? voter.name
+                                                                      .split(
+                                                                          " "
+                                                                      )
+                                                                      .map(
+                                                                          (n) =>
+                                                                              n[0]
+                                                                      )
+                                                                      .join("")
+                                                                      .toUpperCase()
+                                                                : voter?.email
+                                                                      ?.charAt(
+                                                                          0
+                                                                      )
+                                                                      .toUpperCase() ||
+                                                                  "?";
+
+                                                        return (
+                                                            <Animated.View
+                                                                key={voterId}
+                                                                style={[
+                                                                    styles.modernVoterAvatar,
+                                                                    {
+                                                                        marginLeft:
+                                                                            index >
+                                                                            0
+                                                                                ? -12
+                                                                                : 0,
+                                                                        transform:
+                                                                            [
+                                                                                {
+                                                                                    scale:
+                                                                                        voteAnimations
+                                                                                            .current[
+                                                                                            selectedActivity
+                                                                                                .id
+                                                                                        ] ||
+                                                                                        1,
+                                                                                },
+                                                                            ],
+                                                                    },
+                                                                ]}
+                                                            >
+                                                                <Text
+                                                                    style={
+                                                                        styles.modernVoterInitials
+                                                                    }
+                                                                >
+                                                                    {initials}
+                                                                </Text>
+                                                                {/* Indicateur "Vous" pour l'utilisateur actuel */}
+                                                                {voterId ===
+                                                                    user?.uid && (
+                                                                    <View
+                                                                        style={
+                                                                            styles.currentUserIndicator
+                                                                        }
+                                                                    >
+                                                                        <Text
+                                                                            style={
+                                                                                styles.currentUserText
+                                                                            }
+                                                                        >
+                                                                            Vous
+                                                                        </Text>
+                                                                    </View>
+                                                                )}
+                                                            </Animated.View>
                                                         );
-                                                    return (
-                                                        <View
-                                                            key={voterId}
+                                                    })}
+                                                {(selectedActivity.votes
+                                                    ?.length || 0) > 5 && (
+                                                    <Animated.View
+                                                        style={[
+                                                            styles.modernVoterAvatar,
+                                                            {
+                                                                marginLeft: -12,
+                                                                transform: [
+                                                                    {
+                                                                        scale:
+                                                                            voteAnimations
+                                                                                .current[
+                                                                                selectedActivity
+                                                                                    .id
+                                                                            ] ||
+                                                                            1,
+                                                                    },
+                                                                ],
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <Text
                                                             style={
-                                                                styles.voterItem
+                                                                styles.modernVoterInitials
                                                             }
                                                         >
-                                                            <Ionicons
-                                                                name="heart"
-                                                                size={16}
-                                                                color="#EF4444"
-                                                            />
-                                                            <Text
-                                                                style={
-                                                                    styles.voterName
-                                                                }
-                                                            >
-                                                                {voterId ===
-                                                                user?.uid
-                                                                    ? "Vous"
-                                                                    : voter?.name ||
-                                                                      voter?.email ||
-                                                                      "Membre"}
-                                                            </Text>
-                                                        </View>
-                                                    );
-                                                }
-                                            )}
-                                        </View>
+                                                            +
+                                                            {(selectedActivity
+                                                                .votes
+                                                                ?.length || 0) -
+                                                                5}
+                                                        </Text>
+                                                    </Animated.View>
+                                                )}
+                                            </View>
+                                        </>
                                     ) : (
-                                        <Text style={styles.noVotesText}>
-                                            Aucun vote pour le moment
-                                        </Text>
+                                        <View style={styles.modernEmptyVotes}>
+                                            <Text
+                                                style={
+                                                    styles.modernEmptyVotesEmoji
+                                                }
+                                            >
+                                                🗳️
+                                            </Text>
+                                            <Text
+                                                style={
+                                                    styles.modernEmptyVotesText
+                                                }
+                                            >
+                                                Soyez le premier à voter !
+                                            </Text>
+                                            <Text
+                                                style={
+                                                    styles.modernEmptyVotesSubtext
+                                                }
+                                            >
+                                                Montrez votre intérêt pour cette
+                                                activité
+                                            </Text>
+                                        </View>
                                     )}
                                 </View>
+                            </ScrollView>
 
-                                {/* Actions dans le modal */}
-                                <View style={styles.modalActions}>
-                                    {/* Bouton de vote */}
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.modalActionButton,
+                            {/* Actions en bas - Version moderne */}
+                            <View style={styles.modernModalActions}>
+                                {/* Bouton de vote principal */}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.modernVoteButton,
+                                        selectedActivity.votes?.includes(
+                                            user?.uid || ""
+                                        ) && styles.modernVoteButtonActive,
+                                    ]}
+                                    onPress={() => {
+                                        const hasVoted =
                                             selectedActivity.votes?.includes(
                                                 user?.uid || ""
-                                            ) && styles.modalActionButtonActive,
-                                        ]}
-                                        onPress={() => {
-                                            const hasVoted =
-                                                selectedActivity.votes?.includes(
-                                                    user?.uid || ""
-                                                );
-                                            handleVote(
-                                                selectedActivity.id,
-                                                hasVoted
                                             );
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name={
-                                                selectedActivity.votes?.includes(
-                                                    user?.uid || ""
-                                                )
-                                                    ? "heart"
-                                                    : "heart-outline"
-                                            }
-                                            size={20}
-                                            color={
-                                                selectedActivity.votes?.includes(
-                                                    user?.uid || ""
-                                                )
-                                                    ? "#FFFFFF"
-                                                    : "#4DA1A9"
-                                            }
-                                        />
-                                        <Text
-                                            style={[
-                                                styles.modalActionText,
-                                                selectedActivity.votes?.includes(
-                                                    user?.uid || ""
-                                                ) &&
-                                                    styles.modalActionTextActive,
-                                            ]}
-                                        >
-                                            {selectedActivity.votes?.includes(
+                                        handleVote(
+                                            selectedActivity.id,
+                                            hasVoted
+                                        );
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={
+                                            selectedActivity.votes?.includes(
                                                 user?.uid || ""
                                             )
-                                                ? "Voté"
-                                                : "Voter"}
-                                        </Text>
-                                    </TouchableOpacity>
+                                                ? "heart"
+                                                : "heart-outline"
+                                        }
+                                        size={22}
+                                        color={
+                                            selectedActivity.votes?.includes(
+                                                user?.uid || ""
+                                            )
+                                                ? "#FFFFFF"
+                                                : "#4DA1A9"
+                                        }
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.modernVoteButtonText,
+                                            selectedActivity.votes?.includes(
+                                                user?.uid || ""
+                                            ) &&
+                                                styles.modernVoteButtonTextActive,
+                                        ]}
+                                    >
+                                        {selectedActivity.votes?.includes(
+                                            user?.uid || ""
+                                        )
+                                            ? "Voté !"
+                                            : "Voter"}
+                                    </Text>
+                                </TouchableOpacity>
 
-                                    {/* Bouton d'édition pour le créateur */}
+                                {/* Actions secondaires */}
+                                <View style={styles.modernSecondaryActions}>
+                                    {/* Bouton Modifier (si créateur) */}
                                     {(selectedActivity.createdBy ===
                                         user?.uid ||
                                         trip?.creatorId === user?.uid) && (
                                         <TouchableOpacity
-                                            style={styles.modalActionButton}
+                                            style={styles.modernSecondaryButton}
                                             onPress={() => {
                                                 handleCloseDetailModal();
                                                 navigation.navigate(
@@ -1121,17 +1663,12 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                             <Ionicons
                                                 name="pencil"
                                                 size={20}
-                                                color="#4DA1A9"
+                                                color="#6B7280"
                                             />
-                                            <Text
-                                                style={styles.modalActionText}
-                                            >
-                                                Modifier
-                                            </Text>
                                         </TouchableOpacity>
                                     )}
                                 </View>
-                            </ScrollView>
+                            </View>
                         </>
                     )}
                 </SafeAreaView>
@@ -1227,46 +1764,63 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         paddingHorizontal: 32,
+        paddingVertical: 64,
     },
     emptyTitle: {
         fontSize: 24,
-        fontWeight: "bold",
-        color: "#637887",
-        marginTop: 16,
-        marginBottom: 8,
+        fontWeight: "700",
+        color: "#374151",
+        marginTop: 24,
+        marginBottom: 12,
     },
     emptyDescription: {
         fontSize: 16,
-        color: "#637887",
+        color: "#6B7280",
         textAlign: "center",
         lineHeight: 24,
+        marginBottom: 32,
     },
     emptyButton: {
         backgroundColor: "#4DA1A9",
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
+        paddingHorizontal: 32,
+        paddingVertical: 16,
+        borderRadius: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 6,
     },
     emptyButtonText: {
         color: "#FFFFFF",
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: "700",
+        textAlign: "center",
     },
     viewModeToggle: {
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
         padding: 16,
-        backgroundColor: "#F8F9FA",
+        backgroundColor: "#F8FAFC",
         borderTopWidth: 1,
         borderTopColor: "#E2E8F0",
     },
     viewModeButton: {
-        padding: 8,
-        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
         backgroundColor: "#FFFFFF",
         borderWidth: 1,
         borderColor: "#4DA1A9",
+        marginHorizontal: 6,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     viewModeButtonActive: {
         backgroundColor: "#4DA1A9",
@@ -1281,17 +1835,23 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
     },
     dayGroup: {
-        marginBottom: 24,
+        marginBottom: 32,
     },
     dayHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: "#F8F9FA",
-        borderRadius: 8,
-        marginBottom: 8,
+        paddingHorizontal: 20,
+        paddingVertical: 18,
+        backgroundColor: "#F8FAFC",
+        borderRadius: 16,
+        marginBottom: 16,
+        marginHorizontal: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
     },
     dayTitle: {
         fontSize: 18,
@@ -1300,195 +1860,257 @@ const styles = StyleSheet.create({
         textTransform: "capitalize",
     },
     todayHeader: {
-        backgroundColor: "#E8F5E8",
-        borderColor: "#4CAF50",
-        borderWidth: 1,
+        backgroundColor: "#ECFDF5",
+        borderColor: "#10B981",
+        borderWidth: 2,
     },
     todayTitle: {
-        color: "#4CAF50",
+        color: "#10B981",
+        fontWeight: "700",
     },
     pastHeader: {
-        backgroundColor: "#FFF0F0",
-        borderColor: "#FF9999",
+        backgroundColor: "#FEF2F2",
+        borderColor: "#F87171",
         borderWidth: 1,
     },
     pastTitle: {
-        color: "#FF6B6B",
+        color: "#EF4444",
+        fontWeight: "600",
     },
     dayStats: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
+        flexDirection: "column",
+        alignItems: "flex-end",
     },
     dayStatsText: {
         fontSize: 12,
         fontFamily: Fonts.body.family,
         color: "#637887",
+        marginBottom: 2,
     },
     timeline: {
         flex: 1,
+        paddingHorizontal: 16,
     },
     timelineItem: {
         flexDirection: "row",
-        marginBottom: 16,
+        marginBottom: 24,
+        position: "relative",
     },
     timelineLine: {
-        flex: 1,
+        position: "absolute",
+        left: 6,
+        top: 14,
+        bottom: -24,
         width: 2,
         backgroundColor: "#E2E8F0",
-        marginLeft: 5,
     },
     timelinePoint: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
         backgroundColor: "#4DA1A9",
-        marginRight: 8,
+        marginRight: 16,
+        borderWidth: 3,
+        borderColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+        marginTop: 6,
     },
     timelineContent: {
         flex: 1,
     },
     activityCard: {
         backgroundColor: Colors.backgroundColors.primary,
-        borderRadius: 12,
-        padding: 16,
-        elevation: 2,
+        borderRadius: 20,
+        marginHorizontal: 16,
+        marginBottom: 20,
+        elevation: 4,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        borderLeftWidth: 4,
-        borderLeftColor: "#4DA1A9",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        overflow: "hidden",
     },
     activityHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: 8,
+        padding: 20,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F1F5F9",
     },
     activityTitleRow: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
     },
     activityTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontFamily: Fonts.heading.family,
-        fontWeight: "600",
+        fontWeight: "700",
         color: Colors.text.primary,
-        marginRight: 8,
+        flex: 1,
+        marginRight: 12,
     },
     statusBadge: {
-        padding: 4,
-        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
         backgroundColor: "#4DA1A9",
     },
     statusText: {
         fontSize: 12,
         fontFamily: Fonts.body.family,
         color: "#FFFFFF",
+        fontWeight: "600",
+        marginLeft: 4,
     },
     activityInfo: {
-        flex: 1,
-        marginRight: 12,
+        gap: 8,
     },
     timeInfo: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 4,
     },
     timeText: {
-        fontSize: 14,
+        fontSize: 15,
         fontFamily: Fonts.body.family,
-        color: "#637887",
+        color: "#475569",
         fontWeight: "500",
+        marginLeft: 8,
     },
     locationInfo: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 4,
     },
     locationText: {
-        fontSize: 14,
+        fontSize: 15,
         fontFamily: Fonts.body.family,
-        color: "#637887",
-        marginLeft: 4,
+        color: "#475569",
+        marginLeft: 8,
+    },
+    linkInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    linkIndicatorText: {
+        fontSize: 13,
+        color: "#4DA1A9",
+        marginLeft: 8,
+        fontWeight: "500",
     },
     activityDescription: {
         fontSize: 14,
         fontFamily: Fonts.body.family,
-        color: "#637887",
+        color: "#64748B",
         lineHeight: 20,
-        marginBottom: 8,
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#F1F5F9",
     },
     voteSection: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 8,
+        padding: 20,
+        paddingTop: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F1F5F9",
     },
     voteButton: {
-        padding: 8,
-        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 16,
         backgroundColor: "#FFFFFF",
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: "#4DA1A9",
+        shadowColor: "#4DA1A9",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+        alignSelf: "flex-start",
+        marginBottom: 12,
     },
     voteButtonActive: {
         backgroundColor: "#4DA1A9",
-    },
-    topActivityButton: {
-        backgroundColor: "#FFD700",
+        transform: [{ scale: 1.02 }],
     },
     voteButtonText: {
-        fontSize: 14,
+        fontSize: 15,
         fontFamily: Fonts.body.family,
         color: "#4DA1A9",
         marginLeft: 8,
+        fontWeight: "600",
     },
     voteButtonTextActive: {
         color: "#FFFFFF",
     },
     topBadge: {
-        backgroundColor: "#FFD700",
-        borderRadius: 12,
-        padding: 4,
-        marginLeft: 8,
-    },
-    topBadgeText: {
-        fontSize: 12,
-        fontFamily: Fonts.body.family,
-        color: "#FFFFFF",
-    },
-    validationSection: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 8,
+        backgroundColor: "#FFD700",
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        marginTop: 12,
+        alignSelf: "flex-start",
+        shadowColor: "#FFD700",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    topBadgeText: {
+        fontSize: 13,
+        fontFamily: Fonts.body.family,
+        color: "#FFFFFF",
+        fontWeight: "700",
+        marginLeft: 6,
+    },
+    validationSection: {
+        padding: 20,
+        paddingTop: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F1F5F9",
     },
     voteProgress: {
-        flex: 1,
-        marginRight: 8,
+        marginBottom: 16,
     },
     voteProgressBar: {
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: "#E2E8F0",
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#F1F5F9",
+        overflow: "hidden",
+        marginBottom: 8,
     },
     voteProgressFill: {
         height: "100%",
-        borderRadius: 6,
+        borderRadius: 4,
         backgroundColor: "#4DA1A9",
+        minWidth: 4,
     },
     voteProgressText: {
-        fontSize: 12,
+        fontSize: 13,
         fontFamily: Fonts.body.family,
-        color: "#637887",
+        color: "#64748B",
         textAlign: "center",
+        fontWeight: "500",
     },
     validateButton: {
-        padding: 8,
-        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
         backgroundColor: "#FFFFFF",
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: "#4CAF50",
+        alignSelf: "flex-start",
     },
     validateButtonActive: {
         backgroundColor: "#4CAF50",
@@ -1498,6 +2120,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.body.family,
         color: "#4CAF50",
         marginLeft: 8,
+        fontWeight: "600",
     },
     validateButtonTextActive: {
         color: "#FFFFFF",
@@ -1506,164 +2129,325 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginTop: 8,
+        padding: 20,
+        paddingTop: 16,
+        backgroundColor: "#FAFBFC",
     },
     createdBy: {
-        fontSize: 12,
+        fontSize: 13,
         fontFamily: Fonts.body.family,
-        color: "#999",
+        color: "#64748B",
         fontStyle: "italic",
     },
     actionButtons: {
         flexDirection: "row",
         alignItems: "center",
+        gap: 8,
     },
     editButton: {
-        padding: 8,
-        borderRadius: 8,
+        padding: 12,
+        borderRadius: 12,
         backgroundColor: "#FFFFFF",
         borderWidth: 1,
         borderColor: "#4DA1A9",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     deleteButton: {
-        padding: 8,
-        borderRadius: 8,
+        padding: 12,
+        borderRadius: 12,
         backgroundColor: "#FFFFFF",
         borderWidth: 1,
         borderColor: "#EF4444",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     listView: {
-        paddingHorizontal: 16,
-        paddingBottom: 20,
+        paddingTop: 8,
+        paddingBottom: 100,
     },
     modalContainer: {
         flex: 1,
         backgroundColor: Colors.backgroundColors.primary,
     },
-    modalHeader: {
+    modernModalHeader: {
         flexDirection: "row",
         alignItems: "center",
-        padding: 16,
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F1F5F9",
     },
-    closeButton: {
+    modernCloseButton: {
         padding: 8,
+        borderRadius: 12,
+        backgroundColor: "#F8FAFC",
     },
-    modalTitle: {
-        fontSize: 18,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        flex: 1,
-        textAlign: "center",
-    },
-    placeholder: {
-        width: 40,
-    },
-    modalContent: {
-        flex: 1,
-        paddingHorizontal: 16,
-    },
-    detailHeader: {
+    modernStatusBadge: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        gap: 4,
     },
-    detailTitle: {
-        fontSize: 18,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        flex: 1,
-    },
-    detailStatusBadge: {
-        padding: 4,
-        borderRadius: 8,
-        backgroundColor: "#4DA1A9",
-    },
-    detailStatusText: {
+    modernStatusText: {
         fontSize: 12,
         fontFamily: Fonts.body.family,
+        fontWeight: "600",
         color: "#FFFFFF",
     },
-    detailSection: {
+    modernModalContent: {
+        flex: 1,
+        paddingHorizontal: 20,
+    },
+    modernTitleSection: {
+        alignItems: "center",
+        paddingVertical: 20,
+    },
+    modernActivityTitle: {
+        fontSize: 24,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "700",
+        color: Colors.text.primary,
+        textAlign: "center",
+        lineHeight: 32,
+    },
+    modernInfoCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    modernInfoRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
         marginBottom: 16,
     },
-    sectionTitle: {
+    modernInfoIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "#F0F9FF",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 12,
+    },
+    modernInfoContent: {
+        flex: 1,
+        paddingTop: 2,
+    },
+    modernInfoLabel: {
+        fontSize: 12,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#94A3B8",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        marginBottom: 4,
+    },
+    modernInfoValue: {
         fontSize: 16,
+        fontFamily: Fonts.body.family,
+        fontWeight: "500",
+        color: Colors.text.primary,
+        lineHeight: 22,
+    },
+    modernDescriptionCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    modernDescriptionTitle: {
+        fontSize: 18,
         fontFamily: Fonts.heading.family,
         fontWeight: "600",
         color: Colors.text.primary,
-        marginBottom: 8,
+        marginBottom: 12,
     },
-    detailRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 4,
+    modernDescriptionText: {
+        fontSize: 16,
+        fontFamily: Fonts.body.family,
+        color: "#64748B",
+        lineHeight: 24,
     },
-    detailRowContent: {
+    modernVotesCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    modernVotesTitle: {
+        fontSize: 18,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "600",
+        color: Colors.text.primary,
+        marginBottom: 16,
+    },
+    modernVoteProgress: {
+        marginBottom: 16,
+    },
+    modernVoteProgressBar: {
+        height: 8,
         flex: 1,
-    },
-    detailLabel: {
-        fontSize: 14,
-        fontFamily: Fonts.body.family,
-        color: "#637887",
-    },
-    detailValue: {
-        fontSize: 14,
-        fontFamily: Fonts.body.family,
-        color: "#4DA1A9",
-    },
-    descriptionText: {
-        fontSize: 14,
-        fontFamily: Fonts.body.family,
-        color: "#637887",
-        lineHeight: 20,
-    },
-    votersContainer: {
-        flexDirection: "row",
-        alignItems: "center",
+        backgroundColor: "#F1F5F9",
+        borderRadius: 4,
+        overflow: "hidden",
         marginBottom: 8,
     },
-    voterItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginRight: 8,
+    modernVoteProgressFill: {
+        height: "100%",
+        backgroundColor: "#10B981",
+        borderRadius: 4,
+        minWidth: 4,
     },
-    voterName: {
+    modernVoteProgressText: {
         fontSize: 14,
         fontFamily: Fonts.body.family,
-        color: "#637887",
-    },
-    noVotesText: {
-        fontSize: 14,
-        fontFamily: Fonts.body.family,
-        color: "#637887",
+        fontWeight: "600",
+        color: "#64748B",
         textAlign: "center",
     },
-    modalActions: {
+    modernVoteProgressInfo: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: 16,
     },
-    modalActionButton: {
-        padding: 8,
-        borderRadius: 8,
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderColor: "#4DA1A9",
+    modernVoteProgressPercentage: {
+        fontSize: 12,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#64748B",
+        textAlign: "right",
     },
-    modalActionButtonActive: {
+    modernVotersRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        flexWrap: "wrap",
+        gap: 4,
+    },
+    modernVoterAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: "#4DA1A9",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 3,
+        borderColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    modalActionText: {
+    modernVoterInitials: {
+        fontSize: 12,
+        fontFamily: Fonts.body.family,
+        fontWeight: "700",
+        color: "#FFFFFF",
+    },
+    modernEmptyVotes: {
+        alignItems: "center",
+        paddingVertical: 24,
+    },
+    modernEmptyVotesEmoji: {
+        fontSize: 48,
+        marginBottom: 12,
+    },
+    modernEmptyVotesText: {
+        fontSize: 18,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "600",
+        color: Colors.text.primary,
+        marginBottom: 4,
+    },
+    modernEmptyVotesSubtext: {
         fontSize: 14,
         fontFamily: Fonts.body.family,
+        color: "#94A3B8",
+        textAlign: "center",
+    },
+    modernModalActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        borderTopWidth: 1,
+        borderTopColor: "#F1F5F9",
+        backgroundColor: "#FAFBFC",
+    },
+    modernVoteButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 20,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+        borderColor: "#4DA1A9",
+        shadowColor: "#4DA1A9",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+        minWidth: 120,
+    },
+    modernVoteButtonActive: {
+        backgroundColor: "#4DA1A9",
+        borderColor: "#4DA1A9",
+        transform: [{ scale: 1.02 }],
+    },
+    modernVoteButtonText: {
+        fontSize: 16,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
         color: "#4DA1A9",
         marginLeft: 8,
     },
-    modalActionTextActive: {
+    modernVoteButtonTextActive: {
         color: "#FFFFFF",
+    },
+    modernSecondaryActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    modernSecondaryButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "#F8FAFC",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
     },
     floatingAddButton: {
         position: "absolute",
@@ -1675,6 +2459,64 @@ const styles = StyleSheet.create({
         backgroundColor: "#4DA1A9",
         justifyContent: "center",
         alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    currentUserIndicator: {
+        position: "absolute",
+        top: 0,
+        right: 0,
+        padding: 4,
+        borderRadius: 12,
+        backgroundColor: "#4DA1A9",
+    },
+    currentUserText: {
+        fontSize: 12,
+        fontFamily: Fonts.body.family,
+        fontWeight: "700",
+        color: "#FFFFFF",
+    },
+    realtimeNotification: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    realtimeNotificationText: {
+        fontSize: 16,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#64748B",
+        textAlign: "center",
+    },
+    linkButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#4DA1A9",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        marginTop: 4,
+    },
+    linkButtonText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "600",
+        marginLeft: 6,
+    },
+    linkHintText: {
+        fontSize: 12,
+        color: "#6B7280",
+        marginTop: 4,
+        fontStyle: "italic",
     },
 });
 
