@@ -19,6 +19,7 @@ import {
     EditTripScreen,
     ExpensesScreen,
     ExploreScreen,
+    FeedDetailsScreen,
     GalleryScreen,
     HomeScreen,
     JoinTripScreen,
@@ -228,6 +229,13 @@ export default function MainAppNavigator() {
                 <Stack.Screen
                     name="Gallery"
                     component={GalleryScreen}
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name="FeedDetails"
+                    component={FeedDetailsScreen}
                     options={{
                         headerShown: false,
                     }}

@@ -1,5 +1,6 @@
 // Fichier d'export pour les composants SpontyTrip
 
+export { default as ActivityFeed } from "./ActivityFeed";
 export { default as AuthTest } from "./AuthTest";
 export { default as Avatar } from "./Avatar";
 export { default as Button } from "./Button";

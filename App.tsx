@@ -1,5 +1,5 @@
-import React from "react";
 import { StatusBar } from "expo-status-bar";
+import React from "react";
 
 // Navigation
 import AuthNavigator from "./navigation/AuthNavigator";

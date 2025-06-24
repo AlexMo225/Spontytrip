@@ -50,7 +50,22 @@ const JoinTripScreen: React.FC<Props> = ({ navigation }) => {
                 tripRefreshEmitter.emitRefresh();
             });
 
-            if (trip) {
+            if (trip && user) {
+                // Logger l'activité de rejoindre le voyage
+                try {
+                    const firebaseService = (
+                        await import("../services/firebaseService")
+                    ).default;
+                    await firebaseService.logActivity(
+                        trip.id,
+                        user.uid,
+                        user.displayName || user.email || "Utilisateur",
+                        "trip_join"
+                    );
+                } catch (logError) {
+                    console.error("Erreur logging join trip:", logError);
+                }
+
                 Alert.alert(
                     "Succès !",
                     `Vous avez rejoint le voyage "${trip.title}"`,

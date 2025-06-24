@@ -212,6 +212,7 @@ export type RootStackParamList = {
     Expenses: { tripId: string };
     Notes: { tripId: string };
     Chat: { tripId: string };
+    FeedDetails: { tripId: string };
 
     // Activity Management - À implémenter avec les maquettes
     AddActivity: { tripId: string; editActivity?: any };
@@ -262,4 +263,42 @@ export interface RegisterRequest {
 export interface LoginRequest {
     email: string;
     password: string;
+}
+
+// Types pour les activités récentes (Activity Feed)
+export interface ActivityLogEntry {
+    id: string;
+    tripId: string;
+    userId: string;
+    userName: string;
+    userAvatar?: string;
+    action: ActivityActionType;
+    actionData: any;
+    timestamp: Date;
+    description: string;
+    icon: string;
+    color: string;
+}
+
+export type ActivityActionType =
+    | "checklist_add"
+    | "checklist_complete"
+    | "checklist_delete"
+    | "expense_add"
+    | "expense_update"
+    | "expense_delete"
+    | "note_add"
+    | "note_update"
+    | "note_delete"
+    | "activity_add"
+    | "activity_vote"
+    | "activity_validate"
+    | "activity_delete"
+    | "trip_join"
+    | "trip_update";
+
+export interface TripActivityFeed {
+    tripId: string;
+    activities: ActivityLogEntry[];
+    lastUpdated: Date;
 }

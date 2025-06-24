@@ -131,6 +131,17 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 cleanedItems,
                 user?.uid || ""
             );
+
+            // Logger l'activité si l'item est complété
+            if (newCompletedState && user) {
+                await firebaseService.logActivity(
+                    tripId,
+                    user.uid,
+                    user.displayName || user.email || "Utilisateur",
+                    "checklist_complete",
+                    { title: item.title }
+                );
+            }
         } catch (error) {
             console.error("Erreur toggle item:", error);
             // Rollback en cas d'erreur
@@ -278,6 +289,11 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                         );
 
                         try {
+                            // Trouver l'élément pour récupérer son titre
+                            const itemToDelete = localItems.find(
+                                (i) => i.id === itemId
+                            );
+
                             // Supprimer dans Firebase
                             const firebaseService = (
                                 await import("../services/firebaseService")
@@ -290,6 +306,26 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                                 updatedItems,
                                 user?.uid || ""
                             );
+
+                            // Logger l'activité de suppression
+                            if (itemToDelete) {
+                                try {
+                                    await firebaseService.retryLogActivity(
+                                        tripId,
+                                        user?.uid || "",
+                                        user?.displayName ||
+                                            user?.email ||
+                                            "Utilisateur",
+                                        "checklist_delete",
+                                        { title: itemToDelete.title }
+                                    );
+                                } catch (logError) {
+                                    console.error(
+                                        "Erreur logging suppression checklist:",
+                                        logError
+                                    );
+                                }
+                            }
                         } catch (error) {
                             console.error("Erreur suppression item:", error);
                             // Rollback en cas d'erreur

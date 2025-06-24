@@ -2,21 +2,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import {
     Alert,
+    Dimensions,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Avatar from "../components/Avatar";
 import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
 import { MainTabParamList, RootStackParamList } from "../types";
-import Avatar from "../components/Avatar";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 type ProfileScreenNavigationProp = CompositeNavigationProp<
     BottomTabNavigationProp<MainTabParamList, "Profile">,
@@ -29,6 +32,7 @@ interface Props {
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const { user, signOut } = useAuth();
+    const insets = useSafeAreaInsets();
 
     // Debug : Afficher les données utilisateur
     console.log("🔍 Données utilisateur dans ProfileScreen:", {
@@ -106,25 +110,42 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
+            {/* Header avec dégradé */}
+            <LinearGradient
+                colors={["#7ED957", "#4DA1A9"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.header, { paddingTop: insets.top }]}
+            >
                 <Text style={styles.headerTitle}>Profil</Text>
-            </View>
+                <View style={styles.headerDecoration}>
+                    <View style={styles.floatingElement} />
+                    <View
+                        style={[
+                            styles.floatingElement,
+                            styles.floatingElement2,
+                        ]}
+                    />
+                </View>
+            </LinearGradient>
 
             <ScrollView
                 style={styles.content}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
             >
-                {/* Section Profil Utilisateur */}
-                <View style={styles.profileSection}>
+                {/* Section Profil Utilisateur avec carte moderne */}
+                <View style={styles.profileCard}>
                     <View style={styles.profileInfo}>
-                        {/* Photo de profil */}
+                        {/* Photo de profil avec effet premium */}
                         <View style={styles.avatarContainer}>
-                            <Avatar
-                                imageUrl={user?.photoURL}
-                                size={96}
-                                showBorder={true}
-                            />
+                            <View style={styles.avatarGlow}>
+                                <Avatar
+                                    imageUrl={user?.photoURL}
+                                    size={100}
+                                    showBorder={true}
+                                />
+                            </View>
                         </View>
 
                         {/* Nom, email et date d'inscription */}
@@ -135,60 +156,58 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Text style={styles.userEmail}>
                                 {user?.email || "email@example.com"}
                             </Text>
-                            <Text style={styles.joinDate}>
-                                Membre depuis{" "}
-                                {new Date().toLocaleDateString("fr-FR", {
-                                    month: "long",
-                                    year: "numeric",
-                                })}
-                            </Text>
+                            <View style={styles.joinDateBadge}>
+                                <Ionicons
+                                    name="calendar"
+                                    size={12}
+                                    color="#7ED957"
+                                />
+                                <Text style={styles.joinDate}>
+                                    Membre depuis{" "}
+                                    {new Date().toLocaleDateString("fr-FR", {
+                                        month: "long",
+                                        year: "numeric",
+                                    })}
+                                </Text>
+                            </View>
                         </View>
                     </View>
 
-                    {/* Bouton Modifier le profil */}
+                    {/* Bouton Modifier le profil avec dégradé */}
                     <TouchableOpacity
-                        style={styles.editButton}
+                        style={styles.editButtonContainer}
                         onPress={handleEditProfile}
+                        activeOpacity={0.8}
                     >
-                        <Ionicons
-                            name="pencil"
-                            size={16}
-                            color="#FFFFFF"
-                            style={styles.editIcon}
-                        />
-                        <Text style={styles.editButtonText}>
-                            Modifier le profil
-                        </Text>
+                        <LinearGradient
+                            colors={["#7ED957", "#4DA1A9"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.editButton}
+                        >
+                            <Ionicons
+                                name="pencil"
+                                size={16}
+                                color="#FFFFFF"
+                                style={styles.editIcon}
+                            />
+                            <Text style={styles.editButtonText}>
+                                Modifier le profil
+                            </Text>
+                        </LinearGradient>
                     </TouchableOpacity>
                 </View>
 
-                {/* Section Statistiques */}
-                <View style={styles.statsSection}>
-                    <View style={styles.statsContainer}>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>12</Text>
-                            <Text style={styles.statLabel}>Voyages</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>47</Text>
-                            <Text style={styles.statLabel}>Destinations</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>156</Text>
-                            <Text style={styles.statLabel}>Souvenirs</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Section Paramètres */}
+                {/* Section Paramètres avec cartes modernes */}
                 <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>Paramètres</Text>
 
-                    {/* Options des paramètres */}
-                    <View style={styles.optionsList}>
+                    <View style={styles.settingsCard}>
+                        {/* Options des paramètres */}
                         <TouchableOpacity
                             style={styles.optionItem}
                             onPress={handleNotifications}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.optionLeft}>
                                 <View
@@ -196,14 +215,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                         styles.optionIcon,
                                         {
                                             backgroundColor:
-                                                "rgba(126, 217, 87, 0.1)",
+                                                "rgba(126, 217, 87, 0.15)",
                                         },
                                     ]}
                                 >
                                     <Ionicons
                                         name="notifications"
                                         size={20}
-                                        color="rgba(126, 217, 87, 0.91)"
+                                        color="#7ED957"
                                     />
                                 </View>
                                 <Text style={styles.optionText}>
@@ -213,13 +232,16 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color={Colors.textSecondary}
+                                color="#7ED957"
                             />
                         </TouchableOpacity>
+
+                        <View style={styles.optionSeparator} />
 
                         <TouchableOpacity
                             style={styles.optionItem}
                             onPress={handlePrivacy}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.optionLeft}>
                                 <View
@@ -227,14 +249,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                         styles.optionIcon,
                                         {
                                             backgroundColor:
-                                                "rgba(126, 217, 87, 0.1)",
+                                                "rgba(77, 161, 169, 0.15)",
                                         },
                                     ]}
                                 >
                                     <Ionicons
                                         name="shield-checkmark"
                                         size={20}
-                                        color="rgba(126, 217, 87, 0.91)"
+                                        color="#4DA1A9"
                                     />
                                 </View>
                                 <Text style={styles.optionText}>
@@ -244,13 +266,16 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color={Colors.textSecondary}
+                                color="#4DA1A9"
                             />
                         </TouchableOpacity>
+
+                        <View style={styles.optionSeparator} />
 
                         <TouchableOpacity
                             style={styles.optionItem}
                             onPress={handleSecurity}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.optionLeft}>
                                 <View
@@ -258,14 +283,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                         styles.optionIcon,
                                         {
                                             backgroundColor:
-                                                "rgba(126, 217, 87, 0.1)",
+                                                "rgba(255, 107, 107, 0.15)",
                                         },
                                     ]}
                                 >
                                     <Ionicons
                                         name="lock-closed"
                                         size={20}
-                                        color="rgba(126, 217, 87, 0.91)"
+                                        color="#FF6B6B"
                                     />
                                 </View>
                                 <Text style={styles.optionText}>Sécurité</Text>
@@ -273,13 +298,16 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color={Colors.textSecondary}
+                                color="#FF6B6B"
                             />
                         </TouchableOpacity>
+
+                        <View style={styles.optionSeparator} />
 
                         <TouchableOpacity
                             style={styles.optionItem}
                             onPress={handleHelp}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.optionLeft}>
                                 <View
@@ -287,14 +315,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                         styles.optionIcon,
                                         {
                                             backgroundColor:
-                                                "rgba(126, 217, 87, 0.1)",
+                                                "rgba(255, 217, 61, 0.15)",
                                         },
                                     ]}
                                 >
                                     <Ionicons
                                         name="help-circle"
                                         size={20}
-                                        color="rgba(126, 217, 87, 0.91)"
+                                        color="#FFD93D"
                                     />
                                 </View>
                                 <Text style={styles.optionText}>Aide</Text>
@@ -302,13 +330,16 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color={Colors.textSecondary}
+                                color="#FFD93D"
                             />
                         </TouchableOpacity>
+
+                        <View style={styles.optionSeparator} />
 
                         <TouchableOpacity
                             style={styles.optionItem}
                             onPress={handleAbout}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.optionLeft}>
                                 <View
@@ -316,14 +347,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                         styles.optionIcon,
                                         {
                                             backgroundColor:
-                                                "rgba(126, 217, 87, 0.1)",
+                                                "rgba(126, 217, 87, 0.15)",
                                         },
                                     ]}
                                 >
                                     <Ionicons
                                         name="information-circle"
                                         size={20}
-                                        color="rgba(126, 217, 87, 0.91)"
+                                        color="#7ED957"
                                     />
                                 </View>
                                 <Text style={styles.optionText}>À propos</Text>
@@ -331,7 +362,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color={Colors.textSecondary}
+                                color="#7ED957"
                             />
                         </TouchableOpacity>
                     </View>
@@ -340,23 +371,29 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Section Déconnexion */}
                 <View style={styles.logoutSection}>
                     <TouchableOpacity
-                        style={styles.logoutButton}
+                        style={styles.logoutButtonContainer}
                         onPress={handleLogout}
                         activeOpacity={0.8}
                     >
-                        <View style={styles.logoutButtonContent}>
+                        <LinearGradient
+                            colors={["#FF6B6B", "#E74C3C"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.logoutButton}
+                        >
                             <Ionicons
                                 name="log-out-outline"
                                 size={20}
                                 color="#FFFFFF"
-                                style={styles.logoutIcon}
                             />
                             <Text style={styles.logoutButtonText}>
                                 Se déconnecter
                             </Text>
-                        </View>
+                        </LinearGradient>
                     </TouchableOpacity>
                 </View>
+
+                <View style={styles.bottomSpacing} />
             </ScrollView>
         </View>
     );
@@ -365,125 +402,146 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: "#F8F9FA",
     },
     header: {
-        height: 72,
-        justifyContent: "center",
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.lg,
-        backgroundColor: Colors.background,
+        paddingBottom: 20,
+        position: "relative",
+        overflow: "hidden",
     },
     headerTitle: {
-        ...TextStyles.h2,
-        color: Colors.textPrimary,
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#FFFFFF",
         textAlign: "center",
+        marginTop: 10,
+    },
+    headerDecoration: {
+        position: "absolute",
+        top: 0,
+        right: 0,
+        opacity: 0.3,
+    },
+    floatingElement: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "rgba(255,255,255,0.2)",
+        position: "absolute",
+        top: -20,
+        right: -20,
+    },
+    floatingElement2: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        top: 40,
+        right: 30,
     },
     content: {
         flex: 1,
+        marginTop: -10,
     },
-    profileSection: {
-        alignItems: "center",
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.xl,
-        paddingBottom: Spacing.lg,
-        marginTop: Spacing.lg,
+    scrollContent: {
+        paddingBottom: 20,
+    },
+    profileCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 20,
+        padding: 24,
+        marginHorizontal: 16,
+        marginTop: 10,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
     },
     profileInfo: {
         alignItems: "center",
-        marginBottom: Spacing.lg,
+        marginBottom: 20,
     },
     avatarContainer: {
-        marginBottom: Spacing.md,
+        marginBottom: 16,
+    },
+    avatarGlow: {
+        padding: 4,
+        borderRadius: 60,
+        backgroundColor: "rgba(126, 217, 87, 0.1)",
     },
     userInfo: {
         alignItems: "center",
     },
     userName: {
-        ...TextStyles.h3,
-        color: Colors.textPrimary,
+        fontSize: 26,
+        fontWeight: "700",
+        color: "#1A1A1A",
         marginBottom: 4,
-        fontSize: 24,
-        fontWeight: "600",
     },
     userEmail: {
-        ...TextStyles.body1,
-        color: Colors.textSecondary,
-        marginBottom: 4,
         fontSize: 16,
+        color: "#666",
+        marginBottom: 8,
+    },
+    joinDateBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "rgba(126, 217, 87, 0.1)",
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 6,
     },
     joinDate: {
-        ...TextStyles.body2,
-        color: Colors.textSecondary,
-        fontSize: 14,
+        fontSize: 12,
+        color: "#7ED957",
+        fontWeight: "600",
+    },
+    editButtonContainer: {
+        borderRadius: 25,
+        overflow: "hidden",
     },
     editButton: {
-        backgroundColor: "rgba(126, 217, 87, 0.91)",
-        paddingHorizontal: Spacing.lg,
-        borderRadius: 25,
-        minWidth: 180,
-        height: 44,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        flexDirection: "row",
+        gap: 8,
     },
-    editIcon: {
-        marginRight: 8,
-    },
+    editIcon: {},
     editButtonText: {
-        ...TextStyles.button,
-        color: "#FFFFFF",
-        fontWeight: "600",
         fontSize: 16,
-    },
-    statsSection: {
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.xl,
-    },
-    statsContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        backgroundColor: "#F8F9FA",
-        borderRadius: 16,
-        padding: Spacing.md,
-    },
-    statCard: {
-        flex: 1,
-        alignItems: "center",
-        paddingVertical: Spacing.sm,
-    },
-    statNumber: {
-        fontSize: 28,
-        fontWeight: "700",
-        color: "#4DA1A9",
-        marginBottom: 4,
-    },
-    statLabel: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        fontWeight: "500",
+        fontWeight: "600",
+        color: "#FFFFFF",
     },
     settingsSection: {
-        paddingHorizontal: Spacing.md,
-        marginBottom: Spacing.xl,
+        paddingHorizontal: 16,
+        marginTop: 24,
     },
     sectionTitle: {
-        ...TextStyles.h3,
-        color: Colors.textPrimary,
-        marginBottom: Spacing.md,
         fontSize: 20,
-        fontWeight: "600",
+        fontWeight: "700",
+        color: "#1A1A1A",
+        marginBottom: 12,
     },
-    optionsList: {
-        backgroundColor: Colors.background,
+    settingsCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        paddingVertical: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 4,
     },
     optionItem: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        paddingVertical: Spacing.md,
-        paddingHorizontal: 0,
-        minHeight: 64,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
     },
     optionLeft: {
         flexDirection: "row",
@@ -496,41 +554,42 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: Spacing.md,
+        marginRight: 12,
     },
     optionText: {
-        ...TextStyles.body1,
-        color: Colors.textPrimary,
-        flex: 1,
         fontSize: 16,
         fontWeight: "500",
+        color: "#1A1A1A",
+        flex: 1,
+    },
+    optionSeparator: {
+        height: 1,
+        backgroundColor: "#F0F0F0",
+        marginLeft: 68,
+        marginRight: 16,
     },
     logoutSection: {
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.xl,
+        paddingHorizontal: 16,
+        marginTop: 24,
+    },
+    logoutButtonContainer: {
+        borderRadius: 16,
+        overflow: "hidden",
     },
     logoutButton: {
-        backgroundColor: "#E74C3C",
-        borderRadius: 12,
-        alignItems: "center",
-        height: 48,
-        justifyContent: "center",
-        paddingHorizontal: Spacing.lg,
-        marginTop: Spacing.md,
-    },
-    logoutButtonContent: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-    },
-    logoutIcon: {
-        marginRight: 8,
+        paddingVertical: 16,
+        gap: 8,
     },
     logoutButtonText: {
-        ...TextStyles.button,
-        color: "#FFFFFF",
-        fontWeight: "600",
         fontSize: 16,
+        fontWeight: "600",
+        color: "#FFFFFF",
+    },
+    bottomSpacing: {
+        height: 20,
     },
 });
 

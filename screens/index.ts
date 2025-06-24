@@ -32,4 +32,5 @@ export { default as EditProfileScreen } from "./EditProfileScreen";
 // Other
 export { default as ExpensesScreen } from "./ExpensesScreen";
 export { default as ExploreScreen } from "./ExploreScreen";
+export { default as FeedDetailsScreen } from "./FeedDetailsScreen";
 export { default as NotesScreen } from "./NotesScreen";

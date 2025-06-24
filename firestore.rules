@@ -178,6 +178,19 @@ service cloud.firestore {
         canAccessTrip(resource.data.tripId);
     }
 
+    // Activity Feed : logs d'activités des voyages
+    match /activity-feed/{activityId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId) &&
+        getUserId() == request.resource.data.userId;
+      // Pas de modification ni suppression pour préserver l'historique
+      allow update, delete: if false;
+    }
+
     // ===============================
     // INVITATIONS
     // ===============================

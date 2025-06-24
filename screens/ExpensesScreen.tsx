@@ -194,6 +194,15 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
 
             await firebaseService.addExpense(tripId, expense, user.uid);
 
+            // Logger l'activité
+            await firebaseService.retryLogActivity(
+                tripId,
+                user.uid,
+                user.displayName || user.email || "Utilisateur",
+                "expense_add",
+                { label: expense.label, amount: expense.amount }
+            );
+
             // Réinitialiser le formulaire
             setNewExpense({
                 label: "",
@@ -250,6 +259,28 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                                 expense.id,
                                 user.uid
                             );
+
+                            // Logger l'activité de suppression
+                            try {
+                                await firebaseService.retryLogActivity(
+                                    tripId,
+                                    user.uid,
+                                    user.displayName ||
+                                        user.email ||
+                                        "Utilisateur",
+                                    "expense_delete",
+                                    {
+                                        label: expense.label,
+                                        amount: expense.amount,
+                                    }
+                                );
+                            } catch (logError) {
+                                console.error(
+                                    "Erreur logging suppression dépense:",
+                                    logError
+                                );
+                            }
+
                             Alert.alert("Succès", "Dépense supprimée");
                         } catch (error) {
                             console.error("Erreur suppression dépense:", error);

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -7,14 +6,13 @@ import {
     Dimensions,
     FlatList,
     Image,
-    ScrollView,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MainTabParamList, RootStackParamList } from "../types";
 
 type DiscoverScreenNavigationProp = CompositeNavigationProp<
@@ -84,7 +82,6 @@ const destinations: Destination[] = [
         image: "https://images.unsplash.com/photo-1516550893923-42d28e5677af?w=400&h=500&fit=crop&auto=format&q=80",
         distance: null,
     },
-
     {
         name: "Athènes",
         country: "Grèce",
@@ -92,7 +89,6 @@ const destinations: Destination[] = [
         image: "https://images.unsplash.com/photo-1555993539-1732b0258235?w=400&h=500&fit=crop&auto=format&q=80",
         distance: null,
     },
-
     {
         name: "Copenhague",
         country: "Danemark",
@@ -142,7 +138,6 @@ const destinations: Destination[] = [
         image: "https://images.unsplash.com/photo-1595867818082-083862f3d630?w=400&h=500&fit=crop&auto=format&q=80",
         distance: null,
     },
-
     {
         name: "Florence",
         country: "Italie",
@@ -160,7 +155,9 @@ const categories = [
 ];
 
 const { width } = Dimensions.get("window");
-const cardWidth = (width - 44) / 2; // 16px margin + 12px gap between cards
+const CARD_MARGIN = 12;
+const CARD_PADDING = 16;
+const cardWidth = (width - CARD_PADDING * 2 - CARD_MARGIN) / 2;
 
 const DiscoverScreen: React.FC<Props> = ({ navigation }) => {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(
@@ -199,199 +196,180 @@ const DiscoverScreen: React.FC<Props> = ({ navigation }) => {
     );
 
     const renderDestination = ({ item }: { item: Destination }) => (
-        <TouchableOpacity
-            style={styles.destinationCard}
-            onPress={() => {
-                // Navigation vers CreateTripScreen avec destination pré-remplie
-                navigation.navigate("CreateTrip", {
-                    selectedDestination: item.name,
-                });
-            }}
-        >
-            <View style={styles.destinationImage}>
-                <Image
-                    source={{ uri: item.image }}
-                    style={styles.destinationImageStyle}
-                    resizeMode="cover"
-                />
-            </View>
-            <View style={styles.destinationInfo}>
-                <Text style={styles.destinationName}>{item.name}</Text>
-                <Text style={styles.destinationCountry}>{item.country}</Text>
-            </View>
-        </TouchableOpacity>
+        <View style={styles.cardWrapper}>
+            <TouchableOpacity
+                style={styles.destinationCard}
+                onPress={() => {
+                    navigation.navigate("CreateTrip", {
+                        selectedDestination: item.name,
+                    });
+                }}
+            >
+                <View style={styles.imageContainer}>
+                    <Image
+                        source={{ uri: item.image }}
+                        style={styles.destinationImage}
+                        resizeMode="cover"
+                    />
+                </View>
+                <View style={styles.cardContent}>
+                    <Text style={styles.destinationName}>{item.name}</Text>
+                    <Text style={styles.destinationCountry}>
+                        {item.country}
+                    </Text>
+                </View>
+            </TouchableOpacity>
+        </View>
     );
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={["top"]}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.textPrimary}
-                    />
-                </TouchableOpacity>
                 <Text style={styles.headerTitle}>Destinations</Text>
-                <View style={styles.headerSpacer} />
             </View>
 
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Filtres par catégorie */}
-                <View style={styles.filtersContainer}>
-                    <FlatList
-                        data={categories}
-                        renderItem={renderCategoryFilter}
-                        keyExtractor={(item) => item.id}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.filtersContent}
-                        ItemSeparatorComponent={() => (
-                            <View style={{ width: 12 }} />
-                        )}
-                    />
-                </View>
+            {/* Filters */}
+            <View style={styles.filtersSection}>
+                <FlatList
+                    data={categories}
+                    renderItem={renderCategoryFilter}
+                    keyExtractor={(item) => item.id}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filtersContainer}
+                    ItemSeparatorComponent={() => (
+                        <View style={styles.filterSeparator} />
+                    )}
+                />
+            </View>
 
-                {/* Grille des destinations */}
-                <View style={styles.destinationsContainer}>
-                    <FlatList
-                        data={filteredDestinations}
-                        renderItem={renderDestination}
-                        keyExtractor={(item) => item.name}
-                        numColumns={2}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.destinationsContent}
-                        columnWrapperStyle={styles.destinationRow}
-                        ItemSeparatorComponent={() => (
-                            <View style={{ height: 12 }} />
-                        )}
-                        scrollEnabled={false}
-                    />
-                </View>
-            </ScrollView>
-        </View>
+            {/* Destinations Grid */}
+            <FlatList
+                data={filteredDestinations}
+                renderItem={renderDestination}
+                keyExtractor={(item) => item.name}
+                numColumns={2}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.gridContainer}
+                columnWrapperStyle={styles.gridRow}
+                style={styles.gridList}
+            />
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: "#FFFFFF",
     },
     header: {
-        flexDirection: "row",
-        alignItems: "center",
         paddingHorizontal: 16,
-        paddingVertical: 16,
-        paddingTop: 60, // Pour la safe area
-        backgroundColor: Colors.background,
-    },
-    backButton: {
-        width: 48,
-        height: 48,
-        justifyContent: "center",
-        alignItems: "center",
+        paddingTop: 8,
+        paddingBottom: 16,
+        backgroundColor: "#FFFFFF",
     },
     headerTitle: {
-        ...TextStyles.h2,
-        color: Colors.textPrimary,
-        flex: 1,
+        fontSize: 32,
+        fontWeight: "700",
+        color: "#1F2937",
         textAlign: "center",
-        marginRight: 48, // Pour compenser le bouton retour
+        letterSpacing: -0.8,
     },
-    headerSpacer: {
-        width: 48,
-    },
-    content: {
-        flex: 1,
+    filtersSection: {
+        backgroundColor: "#FFFFFF",
+        paddingBottom: 20,
     },
     filtersContainer: {
-        paddingVertical: 12,
+        paddingHorizontal: 16,
     },
-    filtersContent: {
-        paddingHorizontal: 12,
+    filterSeparator: {
+        width: 10,
     },
     categoryButton: {
         paddingHorizontal: 16,
-        paddingVertical: 6,
-        backgroundColor: "#F0F2F4",
-        borderRadius: 16,
-        height: 32,
+        paddingVertical: 8,
+        backgroundColor: "#F8FAFC",
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        minHeight: 34,
         justifyContent: "center",
         alignItems: "center",
     },
     categoryButtonActive: {
         backgroundColor: "#7ED957",
+        borderColor: "#7ED957",
     },
     categoryText: {
-        ...TextStyles.body2,
-        color: Colors.textPrimary,
-        fontSize: 14,
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#64748B",
+        textAlign: "center",
     },
     categoryTextActive: {
-        color: Colors.background,
+        color: "#FFFFFF",
+        fontWeight: "700",
     },
-    destinationsContainer: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
+    gridList: {
+        flex: 1,
+        backgroundColor: "#FFFFFF",
     },
-    destinationsContent: {
-        paddingBottom: 20,
+    gridContainer: {
+        paddingHorizontal: CARD_PADDING,
+        paddingTop: 4,
+        paddingBottom: 40,
     },
-    destinationRow: {
+    gridRow: {
         justifyContent: "space-between",
+        marginBottom: 20,
+    },
+    cardWrapper: {
+        width: cardWidth,
     },
     destinationCard: {
-        width: cardWidth,
-        backgroundColor: Colors.background,
-        borderRadius: 12,
-        marginBottom: 12,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        overflow: "hidden",
+        // Ombres cross-platform
+        ...Platform.select({
+            ios: {
+                shadowColor: "#000000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 12,
+            },
+            android: {
+                elevation: 6,
+            },
+        }),
+    },
+    imageContainer: {
+        width: "100%",
+        height: 200,
+        backgroundColor: "#F1F5F9",
     },
     destinationImage: {
         width: "100%",
-        height: 231,
-        borderRadius: 12,
-        overflow: "hidden",
-        marginBottom: 12,
-    },
-    imagePlaceholder: {
-        flex: 1,
-        backgroundColor: "#F0F2F4",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    destinationImageStyle: {
-        width: "100%",
         height: "100%",
     },
-    destinationInfo: {
-        paddingHorizontal: 0,
+    cardContent: {
+        padding: 16,
+        backgroundColor: "#FFFFFF",
     },
     destinationName: {
-        ...TextStyles.h3,
-        color: Colors.textPrimary,
-        fontSize: 16,
-        marginBottom: 2,
+        fontSize: 18,
+        fontWeight: "700",
+        color: "#1F2937",
+        marginBottom: 4,
+        lineHeight: 22,
     },
     destinationCountry: {
-        ...TextStyles.body2,
-        color: Colors.textSecondary,
-        fontSize: 12,
+        fontSize: 14,
+        fontWeight: "500",
+        color: "#6B7280",
+        lineHeight: 18,
     },
 });
 

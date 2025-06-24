@@ -871,6 +871,11 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                 prev.filter((a) => a.id !== activityId)
                             );
 
+                            // Trouver l'activité pour récupérer son titre
+                            const activityToDelete = localActivities.find(
+                                (a) => a.id === activityId
+                            );
+
                             // Supprimer dans Firebase
                             const updatedActivities = localActivities.filter(
                                 (a) => a.id !== activityId
@@ -880,6 +885,26 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                 updatedActivities,
                                 user?.uid || ""
                             );
+
+                            // Logger l'activité de suppression
+                            if (activityToDelete) {
+                                try {
+                                    await firebaseService.retryLogActivity(
+                                        tripId,
+                                        user?.uid || "",
+                                        user?.displayName ||
+                                            user?.email ||
+                                            "Utilisateur",
+                                        "activity_delete",
+                                        { title: activityToDelete.title }
+                                    );
+                                } catch (logError) {
+                                    console.error(
+                                        "Erreur logging suppression activité:",
+                                        logError
+                                    );
+                                }
+                            }
                         } catch (error) {
                             console.error(
                                 "Erreur suppression activité:",

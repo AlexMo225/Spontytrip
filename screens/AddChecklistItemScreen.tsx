@@ -130,6 +130,19 @@ const AddChecklistItemScreen: React.FC<Props> = ({ navigation, route }) => {
                 user.uid
             );
 
+            // Logger l'activité pour nouvel élément de checklist
+            try {
+                await firebaseService.retryLogActivity(
+                    tripId,
+                    user.uid,
+                    user.displayName || user.email || "Utilisateur",
+                    "checklist_add",
+                    { title: itemName.trim(), category: selectedCategory }
+                );
+            } catch (logError) {
+                console.error("Erreur logging checklist:", logError);
+            }
+
             console.log("✅ Élément ajouté avec succès:", newItem);
             navigation.goBack();
         } catch (error) {

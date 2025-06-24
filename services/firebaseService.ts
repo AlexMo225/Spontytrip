@@ -2,6 +2,9 @@ import firebase from "firebase/app";
 import "firebase/firestore";
 import { getChecklistTemplate } from "../constants/ChecklistTemplates";
 
+// Import des nouveaux types pour l'activity feed
+import type { ActivityActionType, ActivityLogEntry } from "../types";
+
 // ==========================================
 // UTILITAIRES DE CONVERSION
 // ==========================================
@@ -494,6 +497,9 @@ class FirebaseService {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
 
+            // Attendre un petit moment pour que les permissions se propagent
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
             console.log(`✅ Membre ajouté avec succès au voyage ${tripId}`);
         } catch (error) {
             console.error("❌ Erreur rejoindre voyage:", error);
@@ -651,6 +657,8 @@ class FirebaseService {
                 console.log("⚠️ Aucune checklist trouvée pour ce voyage");
                 throw new Error("Checklist introuvable pour ce voyage");
             }
+
+            // Note: Le logging d'activité est géré séparément dans les screens
         } catch (error) {
             console.error("❌ Erreur mise à jour checklist:", error);
             throw new Error("Impossible de mettre à jour la checklist");
@@ -706,6 +714,8 @@ class FirebaseService {
                     updatedBy: userId,
                 });
             }
+
+            // Note: Le logging d'activité est géré séparément dans les screens
         } catch (error) {
             console.error("Erreur ajout dépense:", error);
             throw new Error("Impossible d'ajouter la dépense");
@@ -880,6 +890,8 @@ class FirebaseService {
                 updatedAt: now,
                 isImportant,
             });
+
+            // Note: Le logging d'activité est géré séparément dans les screens
 
             return noteRef.id;
         } catch (error) {
@@ -1605,6 +1617,8 @@ class FirebaseService {
                             firebase.firestore.FieldValue.serverTimestamp(),
                         updatedBy: userId,
                     });
+
+                    // Note: Le logging d'activité est géré séparément dans les screens
                 }
             }
         } catch (error) {
@@ -1695,6 +1709,416 @@ class FirebaseService {
         });
 
         return maxVotes > 0 ? topActivity : null;
+    }
+
+    // ==========================================
+    // ACTIVITY FEED (LOGS D'ACTIVITÉS)
+    // ==========================================
+
+    // Utilitaire pour filtrer les valeurs undefined (Firebase n'accepte pas undefined)
+    private cleanFirebaseObject(obj: any): any {
+        const cleaned: any = {};
+        Object.keys(obj).forEach((key) => {
+            if (obj[key] !== undefined) {
+                cleaned[key] = obj[key];
+            }
+        });
+        return cleaned;
+    }
+
+    // Helper pour retry le logging avec délai (pour les nouveaux membres)
+    async retryLogActivity(
+        tripId: string,
+        userId: string,
+        userName: string,
+        action: ActivityActionType,
+        actionData: any = {},
+        userAvatar?: string,
+        retryCount: number = 0
+    ): Promise<void> {
+        const maxRetries = 3;
+        const delayMs = 1000 * (retryCount + 1); // 1s, 2s, 3s
+
+        try {
+            // Attendre un peu pour que les permissions se propagent
+            if (retryCount > 0) {
+                console.log(
+                    `⏳ Retry ${retryCount}/${maxRetries} dans ${delayMs}ms...`
+                );
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+
+            await this.logActivity(
+                tripId,
+                userId,
+                userName,
+                action,
+                actionData,
+                userAvatar
+            );
+            console.log(`✅ Logging réussi après ${retryCount} retry(s)`);
+        } catch (error: any) {
+            if (error.code === "permission-denied" && retryCount < maxRetries) {
+                console.log(
+                    `🔄 Retry ${
+                        retryCount + 1
+                    }/${maxRetries} pour permissions...`
+                );
+                return this.retryLogActivity(
+                    tripId,
+                    userId,
+                    userName,
+                    action,
+                    actionData,
+                    userAvatar,
+                    retryCount + 1
+                );
+            } else {
+                console.error(
+                    `❌ Logging définitivement échoué après ${retryCount} retry(s):`,
+                    error
+                );
+                throw error;
+            }
+        }
+    }
+
+    async logActivity(
+        tripId: string,
+        userId: string,
+        userName: string,
+        action: ActivityActionType,
+        actionData: any = {},
+        userAvatar?: string
+    ): Promise<void> {
+        try {
+            console.log(`📝 Tentative de logging activité:`, {
+                tripId,
+                userId,
+                userName,
+                action,
+                actionData,
+            });
+
+            // Vérifier d'abord l'accès au voyage pour diagnostiquer les permissions
+            const tripDoc = await this.db.collection("trips").doc(tripId).get();
+            if (tripDoc.exists) {
+                const tripData = tripDoc.data();
+                console.log(`🔍 Vérification permissions:`, {
+                    userId,
+                    creatorId: tripData?.creatorId,
+                    memberIds: tripData?.memberIds || [],
+                    isCreator: tripData?.creatorId === userId,
+                    isMember: (tripData?.memberIds || []).includes(userId),
+                });
+            }
+
+            // Nettoyer les données avant envoi
+            const cleanedActionData = this.cleanFirebaseObject(actionData);
+            const cleanedUserAvatar = userAvatar || null;
+
+            const activityDetails = this.getActivityDetails(
+                action,
+                cleanedActionData,
+                userName
+            );
+
+            const activityEntry = this.cleanFirebaseObject({
+                tripId,
+                userId,
+                userName,
+                userAvatar: cleanedUserAvatar,
+                action,
+                actionData: cleanedActionData,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                description: activityDetails.description,
+                icon: activityDetails.icon,
+                color: activityDetails.color,
+            });
+
+            console.log(`📤 Données à envoyer:`, activityEntry);
+
+            await this.db.collection("activity-feed").add(activityEntry);
+            console.log("✅ Activité loggée avec succès");
+        } catch (error: any) {
+            console.error("❌ Erreur logging activité:", error);
+
+            // Logs détaillés pour diagnostiquer les problèmes de permissions
+            if (error.code === "permission-denied") {
+                console.error("🚫 Erreur de permissions détectée:", {
+                    errorCode: error.code,
+                    errorMessage: error.message,
+                    userId,
+                    tripId,
+                    action,
+                });
+
+                // Essayer de récupérer des infos sur le voyage pour diagnostiquer
+                try {
+                    const tripDoc = await this.db
+                        .collection("trips")
+                        .doc(tripId)
+                        .get();
+                    if (tripDoc.exists) {
+                        const tripData = tripDoc.data();
+                        console.error("🔍 Diagnostic permissions:", {
+                            tripExists: true,
+                            creatorId: tripData?.creatorId,
+                            memberIds: tripData?.memberIds || [],
+                            userIsCreator: tripData?.creatorId === userId,
+                            userIsMember: (tripData?.memberIds || []).includes(
+                                userId
+                            ),
+                        });
+                    } else {
+                        console.error("❌ Voyage introuvable pour diagnostic");
+                    }
+                } catch (diagError) {
+                    console.error("❌ Erreur diagnostic:", diagError);
+                }
+            }
+
+            // Ne pas faire échouer l'action principale si le logging échoue
+            console.log("⚠️ Logging échoué mais action principale continue");
+        }
+    }
+
+    // Initialiser la collection activity-feed
+    private async initializeActivityFeedCollection(
+        tripId: string
+    ): Promise<void> {
+        try {
+            // Créer une activité d'initialisation du système
+            const systemEntry = {
+                tripId,
+                userId: "system",
+                userName: "SpontyTrip",
+                action: "trip_update" as ActivityActionType,
+                actionData: {},
+                timestamp: new Date(),
+                description: "Système d'activités initialisé",
+                icon: "checkmark-circle",
+                color: "#7ED957",
+            };
+
+            await this.db.collection("activity-feed").add(systemEntry);
+            console.log(
+                "✅ Collection activity-feed initialisée pour le voyage:",
+                tripId
+            );
+        } catch (error) {
+            console.error("❌ Erreur initialisation collection:", error);
+        }
+    }
+
+    // Obtenir les détails visuels d'une activité
+    private getActivityDetails(
+        action: ActivityActionType,
+        actionData: any,
+        userName: string
+    ): { description: string; icon: string; color: string } {
+        switch (action) {
+            case "checklist_add":
+                return {
+                    description: `${userName} a ajouté "${actionData.title}" à la checklist`,
+                    icon: "checkmark-circle",
+                    color: "#7ED957",
+                };
+
+            case "checklist_complete":
+                return {
+                    description: `${userName} a terminé "${actionData.title}"`,
+                    icon: "checkmark-done",
+                    color: "#10B981",
+                };
+
+            case "expense_add":
+                return {
+                    description: `${userName} a payé ${actionData.label} (${actionData.amount}€)`,
+                    icon: "card",
+                    color: "#EF4444",
+                };
+
+            case "expense_update":
+                return {
+                    description: `${userName} a modifié une dépense`,
+                    icon: "pencil",
+                    color: "#F59E0B",
+                };
+
+            case "note_add":
+                return {
+                    description: `${userName} a ajouté une ${
+                        actionData.isImportant ? "note importante" : "note"
+                    }`,
+                    icon: actionData.isImportant ? "star" : "document-text",
+                    color: actionData.isImportant ? "#FFD93D" : "#3B82F6",
+                };
+
+            case "note_delete":
+                return {
+                    description: `${userName} a supprimé une note`,
+                    icon: "trash",
+                    color: "#EF4444",
+                };
+
+            case "activity_add":
+                return {
+                    description: `${userName} a proposé "${actionData.title}"`,
+                    icon: "add-circle",
+                    color: "#8B5CF6",
+                };
+
+            case "activity_delete":
+                return {
+                    description: `${userName} a supprimé "${actionData.title}"`,
+                    icon: "trash",
+                    color: "#EF4444",
+                };
+
+            case "activity_vote":
+                return {
+                    description: `${userName} a voté pour "${actionData.title}"`,
+                    icon: "heart",
+                    color: "#EC4899",
+                };
+
+            case "activity_validate":
+                return {
+                    description: `${userName} a validé "${actionData.title}"`,
+                    icon: "star",
+                    color: "#FFD93D",
+                };
+
+            case "expense_delete":
+                return {
+                    description: `${userName} a supprimé une dépense (${actionData.label})`,
+                    icon: "trash",
+                    color: "#EF4444",
+                };
+
+            case "checklist_delete":
+                return {
+                    description: `${userName} a supprimé "${actionData.title}" de la checklist`,
+                    icon: "trash",
+                    color: "#EF4444",
+                };
+
+            case "trip_join":
+                return {
+                    description: `${userName} a rejoint le voyage`,
+                    icon: "person-add",
+                    color: "#4DA1A9",
+                };
+
+            case "trip_update":
+                return {
+                    description: `${userName} a mis à jour le voyage`,
+                    icon: "settings",
+                    color: "#6B7280",
+                };
+
+            default:
+                return {
+                    description: `${userName} a effectué une action`,
+                    icon: "ellipsis-horizontal",
+                    color: "#6B7280",
+                };
+        }
+    }
+
+    // S'abonner au feed d'activités d'un voyage
+    subscribeToActivityFeed(
+        tripId: string,
+        callback: (feed: ActivityLogEntry[]) => void
+    ): () => void {
+        const unsubscribe = this.db
+            .collection("activity-feed")
+            .where("tripId", "==", tripId)
+            .orderBy("timestamp", "desc")
+            .limit(50) // Limiter aux 50 dernières activités
+            .onSnapshot(
+                (snapshot) => {
+                    const activities: ActivityLogEntry[] = snapshot.docs.map(
+                        (doc) =>
+                            ({
+                                id: doc.id,
+                                ...doc.data(),
+                                timestamp: convertFirebaseTimestamp(
+                                    doc.data().timestamp
+                                ),
+                            } as ActivityLogEntry)
+                    );
+
+                    callback(activities);
+                },
+                (error) => {
+                    console.error("❌ Erreur écoute activity feed:", error);
+
+                    // Si c'est un problème de permissions ou collection inexistante,
+                    // retourner un array vide sans crash
+                    if (
+                        error.code === "permission-denied" ||
+                        error.code === "not-found" ||
+                        error.message.includes("permissions")
+                    ) {
+                        console.log(
+                            "🔧 Collection activity-feed pas encore accessible, retour d'un feed vide"
+                        );
+                        callback([]);
+                    } else {
+                        callback([]);
+                    }
+                }
+            );
+
+        return unsubscribe;
+    }
+
+    // Nettoyer les anciennes activités (plus de 30 jours)
+    async cleanOldActivities(): Promise<void> {
+        try {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const oldActivities = await this.db
+                .collection("activity-feed")
+                .where("timestamp", "<", thirtyDaysAgo)
+                .get();
+
+            const batch = this.db.batch();
+            oldActivities.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            if (oldActivities.docs.length > 0) {
+                await batch.commit();
+                console.log(
+                    `✅ ${oldActivities.docs.length} anciennes activités nettoyées`
+                );
+            }
+        } catch (error) {
+            console.error("❌ Erreur nettoyage activités:", error);
+        }
+    }
+
+    // 🧪 FONCTION DE TEST - À supprimer plus tard
+    async createTestActivity(tripId: string): Promise<void> {
+        try {
+            const user = firebase.auth().currentUser;
+            if (user) {
+                await this.logActivity(
+                    tripId,
+                    user.uid,
+                    user.displayName || "Utilisateur Test",
+                    "checklist_complete",
+                    { title: "Test de l'activity feed" }
+                );
+                console.log("🧪 Activité test créée avec succès !");
+            }
+        } catch (error) {
+            console.error("❌ Erreur création activité test:", error);
+        }
     }
 }
 

@@ -17,6 +17,8 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ActivityFeed from "../components/ActivityFeed";
+import Avatar from "../components/Avatar";
 import { Colors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
 import { useTripSync } from "../hooks/useTripSync";
@@ -35,13 +37,6 @@ interface Props {
     route: TripDetailsScreenRouteProp;
 }
 
-interface TripMember {
-    id: string;
-    name: string;
-    avatar: string;
-    role: "creator" | "member";
-}
-
 interface TripStats {
     checklistProgress: number;
     totalExpenses: number;
@@ -54,12 +49,21 @@ interface TripStats {
 const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
     const { user } = useAuth();
     const { tripId } = route.params;
-    const { trip, checklist, expenses, notes, activities, loading, error } =
-        useTripSync(tripId);
+    const {
+        trip,
+        checklist,
+        expenses,
+        notes,
+        activities,
+        activityFeed,
+        loading,
+        error,
+    } = useTripSync(tripId);
     const insets = useSafeAreaInsets();
 
     const scrollY = useRef(new Animated.Value(0)).current;
     const [activeTab, setActiveTab] = useState("overview");
+    const [showMemberNames, setShowMemberNames] = useState(false);
 
     // Calculer les statistiques en temps réel
     const getChecklistProgress = (): number => {
@@ -410,20 +414,6 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         duration: calculateDuration(trip.startDate, trip.endDate),
     };
 
-    const mockMembers: TripMember[] = trip.members.map((member) => ({
-        id: member.userId,
-        name:
-            member.userId === user?.uid
-                ? "Vous"
-                : member.name || member.email || "Membre",
-        avatar:
-            member.avatar ||
-            `https://i.pravatar.cc/150?img=${
-                Math.abs((member.userId || "default").charCodeAt(0) % 70) + 1
-            }`,
-        role: member.userId === trip.creatorId ? "creator" : "member",
-    }));
-
     const tripStats: TripStats = {
         checklistProgress: getChecklistProgress(),
         totalExpenses: getTotalExpenses(),
@@ -580,102 +570,80 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {/* Team Section */}
             <View style={styles.teamSection}>
-                <Text style={styles.sectionTitle}>Équipe du voyage</Text>
+                <View style={styles.teamHeader}>
+                    <Text style={styles.sectionTitle}>Équipe du voyage</Text>
+                    <TouchableOpacity
+                        onPress={() => setShowMemberNames(!showMemberNames)}
+                        style={styles.toggleNamesButton}
+                    >
+                        <Ionicons
+                            name={showMemberNames ? "eye-off" : "eye"}
+                            size={16}
+                            color="#7ED957"
+                        />
+                    </TouchableOpacity>
+                </View>
                 <View style={styles.teamMembers}>
-                    {mockMembers.map((member, index) => (
+                    {trip.members.map((member, index) => (
                         <View
-                            key={member.id}
+                            key={member.userId}
                             style={[
                                 styles.memberCard,
-                                { marginLeft: index > 0 ? -12 : 0 },
+                                {
+                                    marginLeft: showMemberNames
+                                        ? 0
+                                        : index > 0
+                                        ? -12
+                                        : 0,
+                                },
                             ]}
                         >
-                            <Image
-                                source={{ uri: member.avatar }}
-                                style={styles.memberAvatar}
+                            <Avatar
+                                imageUrl={member.avatar}
+                                size={44}
+                                showBorder={member.userId === trip.creatorId}
                             />
-                            {member.role === "creator" && (
+                            {member.userId === trip.creatorId && (
                                 <View style={styles.crownBadge}>
                                     <Ionicons
                                         name="star"
-                                        size={10}
+                                        size={12}
                                         color="#FFD93D"
                                     />
                                 </View>
                             )}
+                            {showMemberNames && (
+                                <View style={styles.memberNameBadge}>
+                                    <Text style={styles.memberNameText}>
+                                        {member.userId === user?.uid
+                                            ? "Vous"
+                                            : member.name || "Membre"}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     ))}
-                    <View style={styles.addMemberButton}>
+                    <TouchableOpacity
+                        style={styles.addMemberButton}
+                        onPress={() => navigation.navigate("JoinTrip")}
+                    >
                         <Ionicons name="add" size={16} color="#7ED957" />
-                    </View>
+                    </TouchableOpacity>
                 </View>
                 <Text style={styles.teamSubtext}>
-                    {mockMembers.length} membres
+                    {trip.members.length} membre
+                    {trip.members.length > 1 ? "s" : ""}
                 </Text>
             </View>
 
-            {/* Recent Activity */}
-            <View style={styles.activitySection}>
-                <Text style={styles.sectionTitle}>Activité récente</Text>
-                <View style={styles.activityList}>
-                    <View style={styles.activityItem}>
-                        <View
-                            style={[
-                                styles.activityIcon,
-                                { backgroundColor: "#7ED957" },
-                            ]}
-                        >
-                            <Ionicons
-                                name="checkbox"
-                                size={16}
-                                color="#FFFFFF"
-                            />
-                        </View>
-                        <View style={styles.activityContent}>
-                            <Text style={styles.activityText}>
-                                Sophie a ajouté 3 tâches à la checklist
-                            </Text>
-                            <Text style={styles.activityTime}>il y a 1h</Text>
-                        </View>
-                    </View>
-                    <View style={styles.activityItem}>
-                        <View
-                            style={[
-                                styles.activityIcon,
-                                { backgroundColor: "#4DA1A9" },
-                            ]}
-                        >
-                            <Ionicons name="wallet" size={16} color="#FFFFFF" />
-                        </View>
-                        <View style={styles.activityContent}>
-                            <Text style={styles.activityText}>
-                                Alex a payé les billets d'avion (847€)
-                            </Text>
-                            <Text style={styles.activityTime}>il y a 2h</Text>
-                        </View>
-                    </View>
-                    <View style={styles.activityItem}>
-                        <View
-                            style={[
-                                styles.activityIcon,
-                                { backgroundColor: "#FFD93D" },
-                            ]}
-                        >
-                            <Ionicons
-                                name="document-text"
-                                size={16}
-                                color="#FFFFFF"
-                            />
-                        </View>
-                        <View style={styles.activityContent}>
-                            <Text style={styles.activityText}>
-                                Clara a mis à jour les notes partagées
-                            </Text>
-                            <Text style={styles.activityTime}>il y a 2h</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
+            {/* Activity Feed temps réel */}
+            <ActivityFeed
+                activities={activityFeed}
+                maxItems={6}
+                showHeader={true}
+                tripId={tripId}
+                onSeeAll={() => navigation.navigate("FeedDetails", { tripId })}
+            />
         </View>
     );
 
@@ -1416,39 +1384,76 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#E2E8F0",
     },
+    teamHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
+    },
     sectionTitle: {
         fontSize: 16,
         fontWeight: "600",
         color: "#333",
-        marginBottom: 12,
+    },
+    toggleNamesButton: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+        borderRadius: 20,
+        backgroundColor: "rgba(255,255,255,0.9)",
     },
     teamMembers: {
         flexDirection: "row",
         alignItems: "center",
         marginBottom: 8,
+        paddingBottom: 20, // Espace pour les noms
     },
     memberCard: {
         position: "relative",
+        marginRight: 12, // Plus d'espace entre les avatars
     },
     memberAvatar: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        borderWidth: 3,
-        borderColor: "#FFFFFF",
+        // Les styles sont maintenant gérés par le composant Avatar
     },
     crownBadge: {
         position: "absolute",
-        top: -4,
-        right: -4,
-        width: 20,
-        height: 20,
-        borderRadius: 10,
+        top: -6,
+        right: -6,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         backgroundColor: "#FFFFFF",
         justifyContent: "center",
         alignItems: "center",
         borderWidth: 2,
         borderColor: "#FFD93D",
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+    memberNameBadge: {
+        position: "absolute",
+        bottom: -28,
+        left: "50%",
+        transform: [{ translateX: -50 }],
+        backgroundColor: "rgba(0,0,0,0.8)",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        minWidth: 60,
+        alignItems: "center",
+    },
+    memberNameText: {
+        fontSize: 10,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        textAlign: "center",
     },
     addMemberButton: {
         width: 44,

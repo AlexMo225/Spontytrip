@@ -8,6 +8,7 @@ import firebaseService, {
     TripNote,
     TripNotes,
 } from "../services/firebaseService";
+import type { ActivityLogEntry } from "../types";
 
 export interface TripSyncData {
     trip: FirestoreTrip | null;
@@ -16,6 +17,7 @@ export interface TripSyncData {
     notes: TripNotes | null;
     tripNotes: TripNote[];
     activities: TripActivities | null;
+    activityFeed: ActivityLogEntry[];
     loading: boolean;
     error: string | null;
 }
@@ -28,6 +30,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
     const [notes, setNotes] = useState<TripNotes | null>(null);
     const [tripNotes, setTripNotes] = useState<TripNote[]>([]);
     const [activities, setActivities] = useState<TripActivities | null>(null);
+    const [activityFeed, setActivityFeed] = useState<ActivityLogEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +41,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
         notes?: () => void;
         tripNotes?: () => void;
         activities?: () => void;
+        activityFeed?: () => void;
         trip?: () => void;
     }>({});
 
@@ -110,6 +114,15 @@ export const useTripSync = (tripId: string): TripSyncData => {
                         }
                     );
 
+                // 4. S'abonner au feed d'activités récentes
+                unsubscribeRefs.current.activityFeed =
+                    firebaseService.subscribeToActivityFeed(
+                        tripId,
+                        (feedData) => {
+                            setActivityFeed(feedData);
+                        }
+                    );
+
                 unsubscribeRefs.current.trip = firebaseService.subscribeToTrip(
                     tripId,
                     (updatedTrip: FirestoreTrip | null) => {
@@ -147,6 +160,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
         notes,
         tripNotes,
         activities,
+        activityFeed,
         loading,
         error,
     };

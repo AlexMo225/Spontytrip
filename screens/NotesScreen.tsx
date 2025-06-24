@@ -173,6 +173,25 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                     onPress: async () => {
                         try {
                             await firebaseService.deleteNote(tripId, note.id);
+
+                            // Logger l'activité de suppression
+                            try {
+                                await firebaseService.retryLogActivity(
+                                    tripId,
+                                    user?.uid || "",
+                                    user?.displayName ||
+                                        user?.email ||
+                                        "Utilisateur",
+                                    "note_delete",
+                                    {}
+                                );
+                            } catch (logError) {
+                                console.error(
+                                    "Erreur logging suppression note:",
+                                    logError
+                                );
+                            }
+
                             showSuccessMessage("Note supprimée avec succès");
                         } catch (error) {
                             Alert.alert(
@@ -216,6 +235,20 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                     user?.displayName || user?.email || "Utilisateur",
                     isImportant
                 );
+
+                // Logger l'activité pour nouvelle note
+                try {
+                    await firebaseService.retryLogActivity(
+                        tripId,
+                        user?.uid || "",
+                        user?.displayName || user?.email || "Utilisateur",
+                        "note_add",
+                        { isImportant }
+                    );
+                } catch (logError) {
+                    console.error("Erreur logging note:", logError);
+                }
+
                 showSuccessMessage("Note créée avec succès");
             }
 

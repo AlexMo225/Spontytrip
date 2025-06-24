@@ -206,6 +206,22 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                 user?.uid || ""
             );
 
+            // Logger l'activité si c'est une nouvelle activité (pas une édition)
+            if (!isEditing && user) {
+                try {
+                    // Utiliser retryLogActivity pour gérer les problèmes de permissions des nouveaux membres
+                    await firebaseService.retryLogActivity(
+                        tripId,
+                        user.uid,
+                        user.displayName || user.email || "Utilisateur",
+                        "activity_add",
+                        { title: activityName.trim() }
+                    );
+                } catch (logError) {
+                    console.error("Erreur logging activité:", logError);
+                }
+            }
+
             Alert.alert(
                 "Succès",
                 isEditing
