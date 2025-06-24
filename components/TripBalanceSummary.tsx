@@ -36,27 +36,57 @@ const TripBalanceSummary: React.FC<TripBalanceSummaryProps> = ({
             return [];
         }
 
+        // Calculer le total des dépenses
         const totalExpenses = expenses.reduce(
-            (sum, expense) => sum + expense.amount,
+            (sum, expense) => sum + (expense.amount || 0),
             0
         );
-        const averagePerPerson = totalExpenses / members.length;
+
+        if (totalExpenses === 0) {
+            return []; // Pas de dépenses = pas de remboursements
+        }
 
         // Calculer ce que chaque personne a payé
         const paidByPerson = members.reduce((acc, member) => {
             const totalPaid = expenses
                 .filter((expense) => expense.paidBy === member.userId)
-                .reduce((sum, expense) => sum + expense.amount, 0);
+                .reduce((sum, expense) => sum + (expense.amount || 0), 0);
             acc[member.userId] = totalPaid;
             return acc;
         }, {} as Record<string, number>);
 
+        // Calculer ce que chaque personne doit (basé sur les participants de chaque dépense)
+        const owedByPerson = members.reduce((acc, member) => {
+            acc[member.userId] = 0;
+            return acc;
+        }, {} as Record<string, number>);
+
+        expenses.forEach((expense) => {
+            if (
+                expense.participants &&
+                expense.participants.length > 0 &&
+                expense.amount > 0
+            ) {
+                const amountPerParticipant =
+                    expense.amount / expense.participants.length;
+                expense.participants.forEach((participantId) => {
+                    if (owedByPerson[participantId] !== undefined) {
+                        owedByPerson[participantId] += amountPerParticipant;
+                    }
+                });
+            }
+        });
+
         // Calculer les soldes (positif = doit recevoir, négatif = doit payer)
-        const balances = members.map((member) => ({
-            userId: member.userId,
-            name: member.name,
-            balance: paidByPerson[member.userId] - averagePerPerson,
-        }));
+        const balances = members
+            .map((member) => ({
+                userId: member.userId,
+                name: member.name,
+                balance:
+                    (paidByPerson[member.userId] || 0) -
+                    (owedByPerson[member.userId] || 0),
+            }))
+            .filter((balance) => Math.abs(balance.balance) >= 0.01); // Ignorer les centimes
 
         // Générer les transactions pour équilibrer
         const transactions: Balance[] = [];
@@ -74,14 +104,14 @@ const TripBalanceSummary: React.FC<TripBalanceSummaryProps> = ({
             const credit = creditors[j].balance;
             const amount = Math.min(debt, credit);
 
-            if (amount > 0.01) {
+            if (amount >= 0.01) {
                 // Ignorer les centimes
                 transactions.push({
                     fromUserId: debtors[i].userId,
                     fromUserName: debtors[i].name,
                     toUserId: creditors[j].userId,
                     toUserName: creditors[j].name,
-                    amount: Math.round(amount * 100) / 100,
+                    amount: Math.round(amount * 100) / 100, // Arrondir à 2 décimales
                 });
             }
 

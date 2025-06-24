@@ -180,15 +180,35 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         if (voteAnim) {
             Animated.sequence([
                 Animated.timing(voteAnim, {
-                    toValue: 1.2,
-                    duration: 150,
+                    toValue: 1.15,
+                    duration: 200,
                     useNativeDriver: true,
                 }),
                 Animated.spring(voteAnim, {
                     toValue: 1,
                     useNativeDriver: true,
+                    tension: 150,
+                    friction: 6,
+                }),
+            ]).start();
+        }
+    };
+
+    // Animation pour la validation
+    const createValidationAnimation = (activityId: string) => {
+        const validationAnim = voteAnimations.current[activityId];
+        if (validationAnim) {
+            Animated.sequence([
+                Animated.timing(validationAnim, {
+                    toValue: 1.1,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(validationAnim, {
+                    toValue: 1,
+                    useNativeDriver: true,
                     tension: 200,
-                    friction: 4,
+                    friction: 8,
                 }),
             ]).start();
         }
@@ -363,6 +383,9 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!user || !trip || trip.creatorId !== user.uid) return;
 
         try {
+            // Animation de validation
+            createValidationAnimation(activityId);
+
             await firebaseService.validateActivity(
                 tripId,
                 activityId,
@@ -422,6 +445,313 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
             default:
                 return "En attente";
         }
+    };
+
+    const renderActivityCard = (activity: TripActivity) => {
+        const animValue = animatedValues.current[activity.id];
+        const canEdit =
+            activity.createdBy === user?.uid || trip?.creatorId === user?.uid;
+        const statusColor = getStatusColor(activity.status);
+        const votes = activity.votes || [];
+        const hasVoted = votes.includes(user?.uid || "");
+        const voteCount = votes.length;
+        const memberCount = trip?.members.length || 1;
+        const votePercentage = (voteCount / memberCount) * 100;
+        const isTopActivity = topActivity?.id === activity.id && voteCount > 0;
+        const isCreator = trip?.creatorId === user?.uid;
+        const voteAnim =
+            voteAnimations.current[activity.id] || new Animated.Value(1);
+
+        return (
+            <TouchableOpacity
+                key={activity.id}
+                onPress={() => handleActivityPress(activity)}
+                activeOpacity={0.8}
+                style={styles.modernCardContainer}
+            >
+                <Animated.View
+                    style={[
+                        styles.modernActivityCard,
+                        {
+                            transform: animValue ? [{ scale: animValue }] : [],
+                            opacity: animValue || 1,
+                        },
+                    ]}
+                >
+                    {/* Header avec titre et badges */}
+                    <View style={styles.modernCardHeader}>
+                        <View style={styles.modernTitleContainer}>
+                            <Text
+                                style={styles.modernActivityTitle}
+                                numberOfLines={2}
+                            >
+                                {activity.title}
+                            </Text>
+
+                            {/* Badges en haut à droite */}
+                            <View style={styles.modernBadgesContainer}>
+                                {/* Badge statut "Passée" */}
+                                {activity.status === "past" && (
+                                    <View
+                                        style={[
+                                            styles.modernStatusBadge,
+                                            styles.pastBadge,
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="time-outline"
+                                            size={10}
+                                            color="#FFFFFF"
+                                        />
+                                        <Text style={styles.modernBadgeText}>
+                                            Passée
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Badge "Validée" */}
+                                {activity.validated && (
+                                    <View
+                                        style={[
+                                            styles.modernStatusBadge,
+                                            styles.validatedBadge,
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="checkmark-circle"
+                                            size={10}
+                                            color="#FFFFFF"
+                                        />
+                                        <Text style={styles.modernBadgeText}>
+                                            Validée
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Badge "Top activité" */}
+                                {isTopActivity && (
+                                    <View style={styles.modernTopBadge}>
+                                        <Ionicons
+                                            name="star"
+                                            size={12}
+                                            color="#FFFFFF"
+                                        />
+                                        <Text style={styles.modernTopBadgeText}>
+                                            Top activité
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
+
+                        {/* Informations principales sur une ligne */}
+                        <View style={styles.modernInfoRow}>
+                            {activity.startTime && (
+                                <View style={styles.modernInfoItem}>
+                                    <Ionicons
+                                        name="time-outline"
+                                        size={14}
+                                        color="#4DA1A9"
+                                    />
+                                    <Text style={styles.modernInfoText}>
+                                        {activity.startTime}
+                                        {activity.endTime &&
+                                            ` - ${activity.endTime}`}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {activity.location && (
+                                <View style={styles.modernInfoItem}>
+                                    <Ionicons
+                                        name="location-outline"
+                                        size={14}
+                                        color="#4DA1A9"
+                                    />
+                                    <Text
+                                        style={styles.modernInfoText}
+                                        numberOfLines={1}
+                                    >
+                                        {activity.location}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {activity.link && (
+                                <View style={styles.modernInfoItem}>
+                                    <Ionicons
+                                        name="link-outline"
+                                        size={14}
+                                        color="#4DA1A9"
+                                    />
+                                    <Text style={styles.modernInfoText}>
+                                        Lien disponible
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Description si présente */}
+                        {activity.description && (
+                            <Text
+                                style={styles.modernDescription}
+                                numberOfLines={2}
+                            >
+                                {activity.description}
+                            </Text>
+                        )}
+                    </View>
+
+                    {/* Section vote avec progress bar large */}
+                    <View style={styles.modernVoteSection}>
+                        {/* Progress bar large et colorée */}
+                        <View style={styles.modernProgressContainer}>
+                            <View style={styles.modernProgressBar}>
+                                <Animated.View
+                                    style={[
+                                        styles.modernProgressFill,
+                                        {
+                                            width: `${Math.min(
+                                                votePercentage,
+                                                100
+                                            )}%`,
+                                            transform: [{ scaleY: voteAnim }],
+                                        },
+                                    ]}
+                                />
+                            </View>
+                            <Text style={styles.modernProgressText}>
+                                {voteCount}/{memberCount} votes
+                            </Text>
+                        </View>
+
+                        {/* Boutons d'action principaux */}
+                        <View style={styles.modernActionRow}>
+                            {/* Bouton Vote */}
+                            <TouchableOpacity
+                                style={[
+                                    styles.modernVoteButton,
+                                    hasVoted && styles.modernVoteButtonActive,
+                                ]}
+                                onPress={() =>
+                                    handleVote(activity.id, hasVoted)
+                                }
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons
+                                    name={hasVoted ? "heart" : "heart-outline"}
+                                    size={16}
+                                    color={hasVoted ? "#FFFFFF" : "#4DA1A9"}
+                                />
+                                <Text
+                                    style={[
+                                        styles.modernVoteButtonText,
+                                        hasVoted &&
+                                            styles.modernVoteButtonTextActive,
+                                    ]}
+                                >
+                                    Voté ({voteCount})
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Bouton Valider (créateur seulement) */}
+                            {isCreator && (
+                                <Animated.View
+                                    style={{
+                                        transform: [{ scale: voteAnim }],
+                                    }}
+                                >
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.modernValidateButton,
+                                            activity.validated &&
+                                                styles.modernValidateButtonActive,
+                                        ]}
+                                        onPress={() =>
+                                            handleValidate(
+                                                activity.id,
+                                                !activity.validated
+                                            )
+                                        }
+                                        activeOpacity={0.8}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                activity.validated
+                                                    ? "checkmark-circle"
+                                                    : "checkmark-circle-outline"
+                                            }
+                                            size={16}
+                                            color={
+                                                activity.validated
+                                                    ? "#FFFFFF"
+                                                    : "#7ED957"
+                                            }
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.modernValidateButtonText,
+                                                activity.validated &&
+                                                    styles.modernValidateButtonTextActive,
+                                            ]}
+                                        >
+                                            {activity.validated
+                                                ? "Validée"
+                                                : "Valider"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Footer avec auteur et actions d'édition */}
+                    <View style={styles.modernCardFooter}>
+                        <Text style={styles.modernAuthorText}>
+                            Par {activity.createdByName}
+                        </Text>
+
+                        {/* Boutons éditer/supprimer en bas à droite */}
+                        {canEdit && (
+                            <View style={styles.modernEditActions}>
+                                <TouchableOpacity
+                                    style={styles.modernEditButton}
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        navigation.navigate("AddActivity", {
+                                            tripId,
+                                            editActivity: activity,
+                                        });
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name="pencil"
+                                        size={14}
+                                        color="#4DA1A9"
+                                    />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.modernDeleteButton}
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteActivity(activity.id);
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name="trash-outline"
+                                        size={14}
+                                        color="#EF4444"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                </Animated.View>
+            </TouchableOpacity>
+        );
     };
 
     const renderVoteSection = (activity: TripActivity) => {
@@ -567,162 +897,6 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                     },
                 },
             ]
-        );
-    };
-
-    const renderActivityCard = (activity: TripActivity) => {
-        const animValue = animatedValues.current[activity.id];
-        const canEdit =
-            activity.createdBy === user?.uid || trip?.creatorId === user?.uid;
-        const statusColor = getStatusColor(activity.status);
-
-        return (
-            <TouchableOpacity
-                key={activity.id}
-                onPress={() => handleActivityPress(activity)}
-                activeOpacity={0.7}
-            >
-                <Animated.View
-                    style={[
-                        styles.activityCard,
-                        {
-                            transform: animValue
-                                ? [
-                                      {
-                                          scale: animValue,
-                                      },
-                                  ]
-                                : [],
-                            opacity: animValue || 1,
-                        },
-                    ]}
-                >
-                    {/* Header avec statut */}
-                    <View style={styles.activityHeader}>
-                        <View style={styles.activityTitleRow}>
-                            <Text style={styles.activityTitle}>
-                                {activity.title}
-                            </Text>
-                            <View
-                                style={[
-                                    styles.statusBadge,
-                                    { backgroundColor: statusColor },
-                                ]}
-                            >
-                                <Ionicons
-                                    name={getStatusIcon(activity.status)}
-                                    size={12}
-                                    color="#FFFFFF"
-                                />
-                                <Text style={styles.statusText}>
-                                    {getStatusText(activity.status)}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Informations de l'activité */}
-                        <View style={styles.activityInfo}>
-                            {activity.startTime && (
-                                <View style={styles.timeInfo}>
-                                    <Ionicons
-                                        name="time-outline"
-                                        size={14}
-                                        color="#637887"
-                                    />
-                                    <Text style={styles.timeText}>
-                                        {activity.startTime}
-                                        {activity.endTime &&
-                                            ` - ${activity.endTime}`}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {activity.location && (
-                                <View style={styles.locationInfo}>
-                                    <Ionicons
-                                        name="location-outline"
-                                        size={14}
-                                        color="#637887"
-                                    />
-                                    <Text style={styles.locationText}>
-                                        {activity.location}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {activity.link && (
-                                <View style={styles.linkInfo}>
-                                    <Ionicons
-                                        name="link-outline"
-                                        size={14}
-                                        color="#4DA1A9"
-                                    />
-                                    <Text style={styles.linkIndicatorText}>
-                                        Lien disponible
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-
-                        {activity.description && (
-                            <Text
-                                style={styles.activityDescription}
-                                numberOfLines={2}
-                            >
-                                {activity.description}
-                            </Text>
-                        )}
-                    </View>
-
-                    {/* Section vote */}
-                    {renderVoteSection(activity)}
-
-                    {/* Section validation (créateur seulement) */}
-                    {renderValidationSection(activity)}
-
-                    {/* Actions */}
-                    <View style={styles.activityActions}>
-                        <Text style={styles.createdBy}>
-                            Par {activity.createdByName}
-                        </Text>
-
-                        {canEdit && (
-                            <View style={styles.actionButtons}>
-                                <TouchableOpacity
-                                    style={styles.editButton}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        navigation.navigate("AddActivity", {
-                                            tripId,
-                                            editActivity: activity,
-                                        });
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="pencil"
-                                        size={16}
-                                        color="#4DA1A9"
-                                    />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={styles.deleteButton}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteActivity(activity.id);
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="trash-outline"
-                                        size={16}
-                                        color="#EF4444"
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
-                </Animated.View>
-            </TouchableOpacity>
         );
     };
 
@@ -2517,6 +2691,261 @@ const styles = StyleSheet.create({
         color: "#6B7280",
         marginTop: 4,
         fontStyle: "italic",
+    },
+    // ===============================
+    // STYLES MODERNES DES CARTES D'ACTIVITÉ
+    // ===============================
+    modernCardContainer: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+    },
+    modernActivityCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 3,
+        borderWidth: 0.5,
+        borderColor: "#E2E8F0",
+    },
+    modernCardHeader: {
+        marginBottom: 16,
+    },
+    modernTitleContainer: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        marginBottom: 12,
+    },
+    modernActivityTitle: {
+        fontSize: 20,
+        fontFamily: Fonts.heading.family,
+        fontWeight: "700",
+        color: Colors.text.primary,
+        flex: 1,
+        marginRight: 12,
+        lineHeight: 26,
+    },
+    modernBadgesContainer: {
+        flexDirection: "column",
+        alignItems: "flex-end",
+        gap: 6,
+    },
+    modernStatusBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+    },
+    pastBadge: {
+        backgroundColor: "#94A3B8",
+    },
+    validatedBadge: {
+        backgroundColor: "#7ED957",
+    },
+    modernBadgeText: {
+        fontSize: 10,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        textTransform: "uppercase",
+    },
+    modernTopBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 16,
+        backgroundColor: "#FFD93D",
+        gap: 4,
+        shadowColor: "#FFD93D",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    modernTopBadgeText: {
+        fontSize: 11,
+        fontFamily: Fonts.body.family,
+        fontWeight: "700",
+        color: "#FFFFFF",
+        textTransform: "uppercase",
+    },
+    modernInfoRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 16,
+        marginBottom: 12,
+    },
+    modernInfoItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        flex: 0,
+        minWidth: 0,
+    },
+    modernInfoText: {
+        fontSize: 14,
+        fontFamily: Fonts.body.family,
+        fontWeight: "500",
+        color: "#64748B",
+        marginLeft: 8,
+        flexShrink: 1,
+    },
+    modernDescription: {
+        fontSize: 14,
+        fontFamily: Fonts.body.family,
+        color: "#64748B",
+        lineHeight: 20,
+        marginTop: 8,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#F1F5F9",
+    },
+    modernVoteSection: {
+        marginBottom: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: "#F1F5F9",
+    },
+    modernProgressContainer: {
+        marginBottom: 16,
+    },
+    modernProgressBar: {
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: "#F1F5F9",
+        overflow: "hidden",
+        marginBottom: 8,
+    },
+    modernProgressFill: {
+        height: "100%",
+        backgroundColor: "#4DA1A9",
+        borderRadius: 6,
+        minWidth: 6,
+    },
+    modernProgressText: {
+        fontSize: 13,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#64748B",
+        textAlign: "center",
+    },
+    modernActionRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+    },
+    modernVoteButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+        borderColor: "#4DA1A9",
+        shadowColor: "#4DA1A9",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 3,
+        minWidth: 120,
+    },
+    modernVoteButtonActive: {
+        backgroundColor: "#4DA1A9",
+        borderColor: "#4DA1A9",
+        transform: [{ scale: 1.02 }],
+    },
+    modernVoteButtonText: {
+        fontSize: 15,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#4DA1A9",
+        marginLeft: 8,
+    },
+    modernVoteButtonTextActive: {
+        color: "#FFFFFF",
+    },
+    modernValidateButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+        borderColor: "#7ED957",
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 3,
+        minWidth: 100,
+    },
+    modernValidateButtonActive: {
+        backgroundColor: "#7ED957",
+        borderColor: "#7ED957",
+        transform: [{ scale: 1.02 }],
+    },
+    modernValidateButtonText: {
+        fontSize: 15,
+        fontFamily: Fonts.body.family,
+        fontWeight: "600",
+        color: "#7ED957",
+        marginLeft: 8,
+    },
+    modernValidateButtonTextActive: {
+        color: "#FFFFFF",
+    },
+    modernCardFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: "#F1F5F9",
+    },
+    modernAuthorText: {
+        fontSize: 13,
+        fontFamily: Fonts.body.family,
+        color: "#94A3B8",
+        fontStyle: "italic",
+    },
+    modernEditActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    modernEditButton: {
+        padding: 10,
+        borderRadius: 10,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1.5,
+        borderColor: "#4DA1A9",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    modernDeleteButton: {
+        padding: 10,
+        borderRadius: 10,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1.5,
+        borderColor: "#EF4444",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
     },
 });
 

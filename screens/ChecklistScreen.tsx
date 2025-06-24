@@ -306,6 +306,12 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     const getItemsByCategory = () => {
         const categories = [
             {
+                id: "essentials",
+                name: "Essentiels",
+                icon: "bag",
+                color: "#7ED957",
+            },
+            {
                 id: "documents",
                 name: "Documents",
                 icon: "document-text",
@@ -315,7 +321,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 id: "clothes",
                 name: "Vêtements",
                 icon: "shirt",
-                color: "#7ED957",
+                color: "#32CD32",
             },
             {
                 id: "toiletries",
@@ -328,6 +334,12 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 name: "Électronique",
                 icon: "phone-portrait",
                 color: "#FF6B6B",
+            },
+            {
+                id: "beach",
+                name: "Plage & Soleil",
+                icon: "sunny",
+                color: "#FF9500",
             },
             { id: "health", name: "Santé", icon: "medical", color: "#9B59B6" },
             {

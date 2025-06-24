@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Animated,
+    Dimensions,
     FlatList,
     Modal,
     SafeAreaView,
@@ -15,7 +17,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
 import { useTripSync } from "../hooks/useTripSync";
 import firebaseService, {
@@ -37,6 +38,32 @@ interface Props {
     route: ExpensesScreenRouteProp;
 }
 
+// 🎨 PALETTE DE COULEURS FINTECH MODERNE
+const FINTECH_COLORS = {
+    // Couleurs principales
+    primary_green: "#7ED957", // Vert clair principal (succès, solde positif)
+    primary_turquoise: "#4DA1A9", // Turquoise (accent, boutons, tags)
+
+    // Couleurs secondaires
+    light_green_bg: "#F0FDF4", // Fond vert très clair
+    light_turquoise_bg: "#F0FDFA", // Fond turquoise très clair
+    soft_red: "#FEF2F2", // Rouge doux pour alertes
+    soft_red_text: "#EF4444", // Rouge pour texte d'erreur
+
+    // Couleurs neutres
+    light_gray: "#F8FAFC", // Gris très clair
+    medium_gray: "#64748B", // Gris moyen
+    dark_gray: "#1E293B", // Gris foncé
+    white: "#FFFFFF",
+
+    // Couleurs d'ombre et bordures
+    shadow: "rgba(0, 0, 0, 0.08)",
+    border: "#E2E8F0",
+    border_focus: "#4DA1A9",
+};
+
+const { width: screenWidth } = Dimensions.get("window");
+
 const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
     const { tripId } = route.params;
     const { user } = useAuth();
@@ -44,7 +71,10 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [showBalanceModal, setShowBalanceModal] = useState(false);
-    const [summary, setSummary] = useState<ExpensesSummary | null>(null);
+
+    // 🎬 Animations pour les effets visuels
+    const balanceAnimValue = useRef(new Animated.Value(1)).current;
+    const cardAnimations = useRef<{ [key: string]: Animated.Value }>({});
 
     // États pour le formulaire d'ajout
     const [newExpense, setNewExpense] = useState({
@@ -54,48 +84,72 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
         participants: [user?.uid || ""],
     });
 
-    useEffect(() => {
-        if (expenses && trip && user) {
-            console.log("📊 === ÉCRAN DÉPENSES - CALCUL ===");
-            console.log("Utilisateur connecté:", user.uid, user.displayName);
-            console.log("Voyage:", trip.title);
-            console.log(
-                "Membres du voyage:",
-                trip.members.map((m: TripMember) => `${m.name} (${m.userId})`)
-            );
-            console.log("Nombre de dépenses:", expenses.expenses?.length || 0);
+    // 📊 Calcul du résumé avec memoization optimisée
+    const summary = useMemo<ExpensesSummary | null>(() => {
+        if (!expenses || !trip || !user) {
+            return null;
+        }
 
+        try {
             const tripMembers = trip.members.map((member) => ({
                 userId: member.userId,
                 name: member.name,
             }));
 
-            const calculatedSummary = firebaseService.calculateExpensesSummary(
+            return firebaseService.calculateExpensesSummary(
                 expenses.expenses || [],
                 tripMembers,
                 user.uid
             );
-
-            console.log("Résumé calculé pour", user.displayName, ":");
-            console.log(
-                "- Total dépenses:",
-                calculatedSummary.totalExpenses.toFixed(2),
-                "€"
-            );
-            console.log(
-                "- Mon solde:",
-                calculatedSummary.myBalance?.balance.toFixed(2),
-                "€"
-            );
-            console.log(
-                "- Nombre de remboursements:",
-                calculatedSummary.debtsToSettle.length
-            );
-            console.log("📊 === FIN CALCUL ÉCRAN ===\n");
-
-            setSummary(calculatedSummary);
+        } catch (error) {
+            console.error("❌ Erreur calcul résumé dépenses:", error);
+            return null;
         }
-    }, [expenses, trip, user]);
+    }, [expenses?.expenses, trip?.members, user?.uid]);
+
+    // 🎬 Animation du solde quand il change
+    useEffect(() => {
+        if (summary?.myBalance) {
+            Animated.sequence([
+                Animated.timing(balanceAnimValue, {
+                    toValue: 1.05,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(balanceAnimValue, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    tension: 150,
+                    friction: 8,
+                }),
+            ]).start();
+        }
+    }, [summary?.myBalance?.balance]);
+
+    // 🎬 Créer une animation pour une nouvelle carte
+    const createCardAnimation = (expenseId: string) => {
+        if (!cardAnimations.current[expenseId]) {
+            cardAnimations.current[expenseId] = new Animated.Value(0);
+
+            Animated.spring(cardAnimations.current[expenseId], {
+                toValue: 1,
+                useNativeDriver: true,
+                tension: 120,
+                friction: 8,
+            }).start();
+        }
+    };
+
+    // Réinitialiser le formulaire quand l'utilisateur change
+    useEffect(() => {
+        if (user?.uid) {
+            setNewExpense((prev) => ({
+                ...prev,
+                paidBy: user.uid,
+                participants: [user.uid],
+            }));
+        }
+    }, [user?.uid]);
 
     const handleAddExpense = async () => {
         if (
@@ -117,11 +171,17 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                 newExpense.participants.includes(m.userId)
             );
 
+            const amount = parseFloat(newExpense.amount);
+            if (isNaN(amount) || amount <= 0) {
+                Alert.alert("Erreur", "Veuillez saisir un montant valide");
+                return;
+            }
+
             const expense: Omit<ExpenseItem, "id" | "createdAt" | "updatedAt"> =
                 {
                     tripId,
                     label: newExpense.label.trim(),
-                    amount: parseFloat(newExpense.amount),
+                    amount,
                     paidBy: newExpense.paidBy,
                     paidByName: paidByMember?.name || "Inconnu",
                     participants: newExpense.participants,
@@ -174,6 +234,17 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
+                            // 🎬 Animation de suppression
+                            const animValue =
+                                cardAnimations.current[expense.id];
+                            if (animValue) {
+                                Animated.timing(animValue, {
+                                    toValue: 0,
+                                    duration: 300,
+                                    useNativeDriver: true,
+                                }).start();
+                            }
+
                             await firebaseService.deleteExpense(
                                 tripId,
                                 expense.id,
@@ -181,6 +252,7 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                             );
                             Alert.alert("Succès", "Dépense supprimée");
                         } catch (error) {
+                            console.error("Erreur suppression dépense:", error);
                             Alert.alert(
                                 "Erreur",
                                 "Impossible de supprimer la dépense"
@@ -201,69 +273,283 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
         }));
     };
 
-    const renderExpenseItem = ({ item }: { item: ExpenseItem }) => {
+    // 🎨 COMPOSANT : Carte de résumé moderne avec animations
+    const ModernSummaryCard = ({
+        title,
+        amount,
+        type,
+        icon,
+    }: {
+        title: string;
+        amount: number;
+        type: "total" | "positive" | "negative";
+        icon: string;
+    }) => {
+        const getCardStyle = () => {
+            switch (type) {
+                case "positive":
+                    return {
+                        backgroundColor: FINTECH_COLORS.light_green_bg,
+                        borderColor: FINTECH_COLORS.primary_green,
+                    };
+                case "negative":
+                    return {
+                        backgroundColor: FINTECH_COLORS.soft_red,
+                        borderColor: FINTECH_COLORS.soft_red_text,
+                    };
+                default:
+                    return {
+                        backgroundColor: FINTECH_COLORS.light_turquoise_bg,
+                        borderColor: FINTECH_COLORS.primary_turquoise,
+                    };
+            }
+        };
+
+        const getAmountColor = () => {
+            switch (type) {
+                case "positive":
+                    return FINTECH_COLORS.primary_green;
+                case "negative":
+                    return FINTECH_COLORS.soft_red_text;
+                default:
+                    return FINTECH_COLORS.dark_gray;
+            }
+        };
+
+        const getIconColor = () => {
+            switch (type) {
+                case "positive":
+                    return FINTECH_COLORS.primary_green;
+                case "negative":
+                    return FINTECH_COLORS.soft_red_text;
+                default:
+                    return FINTECH_COLORS.primary_turquoise;
+            }
+        };
+
+        return (
+            <Animated.View
+                style={[
+                    styles.modernSummaryCard,
+                    getCardStyle(),
+                    type === "positive" || type === "negative"
+                        ? { transform: [{ scale: balanceAnimValue }] }
+                        : {},
+                ]}
+            >
+                <View style={styles.summaryCardHeader}>
+                    <View
+                        style={[
+                            styles.summaryIconContainer,
+                            { backgroundColor: getIconColor() + "20" },
+                        ]}
+                    >
+                        <Ionicons
+                            name={icon as any}
+                            size={20}
+                            color={getIconColor()}
+                        />
+                    </View>
+                    <Text style={styles.modernSummaryTitle}>{title}</Text>
+                </View>
+                <Text
+                    style={[
+                        styles.modernSummaryAmount,
+                        { color: getAmountColor() },
+                    ]}
+                >
+                    {type === "positive" && amount > 0 ? "+" : ""}
+                    {amount.toFixed(2)}€
+                </Text>
+            </Animated.View>
+        );
+    };
+
+    // 🎨 COMPOSANT : Carte de dépense moderne avec avatars
+    const ModernExpenseCard = ({ item }: { item: ExpenseItem }) => {
         const canDelete =
             item.createdBy === user?.uid || trip?.creatorId === user?.uid;
         const amountPerPerson = item.amount / item.participants.length;
 
+        // Créer l'animation pour cette carte
+        createCardAnimation(item.id);
+        const animValue =
+            cardAnimations.current[item.id] || new Animated.Value(1);
+
+        // 📅 Formatage de la date plus élégant
+        const formattedDate = new Intl.DateTimeFormat("fr-FR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        }).format(item.date);
+
         return (
-            <View style={styles.expenseCard}>
-                <View style={styles.expenseHeader}>
-                    <View style={styles.expenseInfo}>
-                        <Text style={styles.expenseLabel}>{item.label}</Text>
-                        <Text style={styles.expenseAmount}>
+            <Animated.View
+                style={[
+                    styles.modernExpenseCard,
+                    {
+                        transform: [
+                            { scale: animValue },
+                            {
+                                translateY: animValue.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [50, 0],
+                                }),
+                            },
+                        ],
+                        opacity: animValue,
+                    },
+                ]}
+            >
+                {/* Header avec titre et montant */}
+                <View style={styles.modernExpenseHeader}>
+                    <View style={styles.modernExpenseMainInfo}>
+                        <Text style={styles.modernExpenseTitle}>
+                            {item.label}
+                        </Text>
+                        <Text style={styles.modernExpenseAmount}>
                             {item.amount.toFixed(2)}€
                         </Text>
                     </View>
+
+                    {/* Bouton supprimer moderne */}
                     {canDelete && (
                         <TouchableOpacity
-                            style={styles.deleteButton}
+                            style={styles.modernDeleteButton}
                             onPress={() => handleDeleteExpense(item)}
+                            activeOpacity={0.7}
                         >
                             <Ionicons
                                 name="trash-outline"
-                                size={20}
-                                color="#FF6B6B"
+                                size={18}
+                                color={FINTECH_COLORS.soft_red_text}
                             />
                         </TouchableOpacity>
                     )}
                 </View>
 
-                <View style={styles.expenseDetails}>
-                    <Text style={styles.expenseDetailText}>
-                        Payé par:{" "}
-                        <Text style={styles.boldText}>{item.paidByName}</Text>
-                    </Text>
-                    <Text style={styles.expenseDetailText}>
-                        {amountPerPerson.toFixed(2)}€ par personne
-                    </Text>
-                    <Text style={styles.expenseDetailText}>
-                        Participants: {item.participantNames.join(", ")}
-                    </Text>
-                    <Text style={styles.expenseDate}>
-                        {item.date.toLocaleDateString("fr-FR")}
-                    </Text>
+                {/* Informations détaillées */}
+                <View style={styles.modernExpenseDetails}>
+                    {/* Ligne payé par */}
+                    <View style={styles.modernDetailRow}>
+                        <View style={styles.modernDetailIcon}>
+                            <Ionicons
+                                name="person"
+                                size={14}
+                                color={FINTECH_COLORS.primary_turquoise}
+                            />
+                        </View>
+                        <Text style={styles.modernDetailText}>
+                            Payé par{" "}
+                            <Text style={styles.modernDetailBold}>
+                                {item.paidByName}
+                            </Text>
+                        </Text>
+                    </View>
+
+                    {/* Ligne montant par personne */}
+                    <View style={styles.modernDetailRow}>
+                        <View style={styles.modernDetailIcon}>
+                            <Ionicons
+                                name="calculator"
+                                size={14}
+                                color={FINTECH_COLORS.primary_turquoise}
+                            />
+                        </View>
+                        <Text style={styles.modernDetailText}>
+                            <Text style={styles.modernDetailBold}>
+                                {amountPerPerson.toFixed(2)}€
+                            </Text>{" "}
+                            par personne
+                        </Text>
+                    </View>
+
+                    {/* Participants avec avatars simulés */}
+                    <View style={styles.modernDetailRow}>
+                        <View style={styles.modernDetailIcon}>
+                            <Ionicons
+                                name="people"
+                                size={14}
+                                color={FINTECH_COLORS.primary_turquoise}
+                            />
+                        </View>
+                        <View style={styles.participantsContainer}>
+                            <Text style={styles.modernDetailText}>
+                                {item.participantNames.slice(0, 2).join(", ")}
+                                {item.participantNames.length > 2 &&
+                                    ` +${
+                                        item.participantNames.length - 2
+                                    } autres`}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
-            </View>
+
+                {/* Footer avec date */}
+                <View style={styles.modernExpenseFooter}>
+                    <Text style={styles.modernExpenseDate}>
+                        {formattedDate}
+                    </Text>
+
+                    {/* Badge remboursé/non remboursé (suggestion d'amélioration future) */}
+                    <View style={[styles.statusBadge, styles.pendingBadge]}>
+                        <Text style={styles.statusBadgeText}>En attente</Text>
+                    </View>
+                </View>
+            </Animated.View>
         );
     };
 
+    // 🎨 COMPOSANT : Bouton remboursements moderne
+    const ModernReimbursementButton = () => (
+        <TouchableOpacity
+            style={styles.modernReimbursementButton}
+            onPress={() => setShowBalanceModal(true)}
+            activeOpacity={0.8}
+        >
+            <View style={styles.reimbursementButtonContent}>
+                <Ionicons
+                    name="swap-horizontal"
+                    size={20}
+                    color={FINTECH_COLORS.white}
+                />
+                <Text style={styles.modernReimbursementButtonText}>
+                    Voir les remboursements
+                </Text>
+            </View>
+        </TouchableOpacity>
+    );
+
     const renderDebtItem = ({ item }: { item: DebtCalculation }) => (
-        <View style={styles.debtCard}>
-            <Ionicons name="arrow-forward" size={20} color="#4DA1A9" />
-            <Text style={styles.debtText}>
-                <Text style={styles.boldText}>{item.fromName}</Text> doit{" "}
-                <Text style={styles.amountText}>{item.amount.toFixed(2)}€</Text>{" "}
-                à <Text style={styles.boldText}>{item.toName}</Text>
-            </Text>
+        <View style={styles.modernDebtCard}>
+            <View style={styles.debtIconContainer}>
+                <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={FINTECH_COLORS.primary_turquoise}
+                />
+            </View>
+            <View style={styles.debtContent}>
+                <Text style={styles.modernDebtText}>
+                    <Text style={styles.modernDebtName}>{item.fromName}</Text>{" "}
+                    doit{" "}
+                    <Text style={styles.modernDebtAmount}>
+                        {item.amount.toFixed(2)}€
+                    </Text>{" "}
+                    à <Text style={styles.modernDebtName}>{item.toName}</Text>
+                </Text>
+            </View>
         </View>
     );
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4DA1A9" />
-                <Text style={styles.loadingText}>
+            <View style={styles.modernLoadingContainer}>
+                <ActivityIndicator
+                    size="large"
+                    color={FINTECH_COLORS.primary_turquoise}
+                />
+                <Text style={styles.modernLoadingText}>
                     Chargement des dépenses...
                 </Text>
             </View>
@@ -272,112 +558,105 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
 
     if (error) {
         return (
-            <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
+            <View style={styles.modernErrorContainer}>
+                <View style={styles.errorIconContainer}>
+                    <Ionicons
+                        name="warning-outline"
+                        size={48}
+                        color={FINTECH_COLORS.soft_red_text}
+                    />
+                </View>
+                <Text style={styles.modernErrorText}>{error}</Text>
                 <TouchableOpacity
-                    style={styles.retryButton}
+                    style={styles.modernRetryButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Text style={styles.retryButtonText}>Retour</Text>
+                    <Text style={styles.modernRetryButtonText}>Retour</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.text.primary}
-                    />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Dépenses</Text>
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setShowAddModal(true)}
-                >
-                    <Ionicons name="add" size={24} color="#4DA1A9" />
-                </TouchableOpacity>
+        <SafeAreaView style={styles.modernContainer}>
+            {/* 🎨 Header moderne centré */}
+            <View style={styles.modernHeader}>
+                <Text style={styles.modernHeaderTitle}>Dépenses</Text>
             </View>
 
-            {/* Summary Cards */}
-            {summary && (
-                <View style={styles.summaryContainer}>
-                    <View style={styles.summaryCard}>
-                        <Text style={styles.summaryTitle}>
-                            Total des dépenses
-                        </Text>
-                        <Text style={styles.summaryAmount}>
-                            {summary.totalExpenses.toFixed(2)}€
-                        </Text>
-                    </View>
+            <ScrollView
+                style={styles.modernScrollView}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modernScrollContent}
+            >
+                {/* 📊 Section résumé avec cartes modernes */}
+                {summary && (
+                    <View style={styles.modernSummarySection}>
+                        {/* Total des dépenses */}
+                        <ModernSummaryCard
+                            title="Total des dépenses"
+                            amount={summary.totalExpenses}
+                            type="total"
+                            icon="wallet"
+                        />
 
-                    {summary.myBalance && (
-                        <View
-                            style={[
-                                styles.summaryCard,
-                                summary.myBalance.balance >= 0
-                                    ? styles.positiveBalance
-                                    : styles.negativeBalance,
-                            ]}
-                        >
-                            <Text style={styles.summaryTitle}>Mon solde</Text>
-                            <Text
-                                style={[
-                                    styles.summaryAmount,
+                        {/* Mon solde avec animation */}
+                        {summary.myBalance && (
+                            <ModernSummaryCard
+                                title="Mon solde"
+                                amount={summary.myBalance.balance}
+                                type={
                                     summary.myBalance.balance >= 0
-                                        ? { color: "#4CAF50" }
-                                        : { color: "#FF6B6B" },
-                                ]}
-                            >
-                                {summary.myBalance.balance >= 0 ? "+" : ""}
-                                {summary.myBalance.balance.toFixed(2)}€
+                                        ? "positive"
+                                        : "negative"
+                                }
+                                icon={
+                                    summary.myBalance.balance >= 0
+                                        ? "checkmark-circle"
+                                        : "warning"
+                                }
+                            />
+                        )}
+
+                        {/* Bouton remboursements */}
+                        <ModernReimbursementButton />
+                    </View>
+                )}
+
+                {/* 💳 Liste des dépenses avec design moderne */}
+                <View style={styles.modernExpensesSection}>
+                    <Text style={styles.modernSectionTitle}>
+                        Historique des dépenses
+                    </Text>
+
+                    {expenses?.expenses && expenses.expenses.length > 0 ? (
+                        expenses.expenses.map((expense) => (
+                            <ModernExpenseCard
+                                key={expense.id}
+                                item={expense}
+                            />
+                        ))
+                    ) : (
+                        <View style={styles.modernEmptyContainer}>
+                            <View style={styles.emptyIconContainer}>
+                                <Ionicons
+                                    name="wallet-outline"
+                                    size={64}
+                                    color={FINTECH_COLORS.medium_gray}
+                                />
+                            </View>
+                            <Text style={styles.modernEmptyTitle}>
+                                Aucune dépense pour le moment
+                            </Text>
+                            <Text style={styles.modernEmptySubtitle}>
+                                Ajoutez votre première dépense pour commencer !
                             </Text>
                         </View>
                     )}
-
-                    <TouchableOpacity
-                        style={styles.balanceButton}
-                        onPress={() => setShowBalanceModal(true)}
-                    >
-                        <Text style={styles.balanceButtonText}>
-                            Voir les remboursements
-                        </Text>
-                    </TouchableOpacity>
                 </View>
-            )}
+            </ScrollView>
 
-            {/* Expenses List */}
-            <FlatList
-                data={expenses?.expenses || []}
-                renderItem={renderExpenseItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContainer}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons
-                            name="wallet-outline"
-                            size={64}
-                            color="#CCC"
-                        />
-                        <Text style={styles.emptyText}>
-                            Aucune dépense pour le moment
-                        </Text>
-                        <Text style={styles.emptySubtext}>
-                            Ajoutez votre première dépense !
-                        </Text>
-                    </View>
-                }
-            />
-
-            {/* Add Expense Modal */}
+            {/* 📱 Modal d'ajout de dépense (structure existante conservée) */}
             <Modal
                 visible={showAddModal}
                 animationType="slide"
@@ -409,11 +688,14 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                                         label: text,
                                     }))
                                 }
-                                placeholder="Ex: Courses, Essence, Restaurant..."
+                                placeholder="Ex: Restaurant, Transport..."
+                                placeholderTextColor={
+                                    FINTECH_COLORS.medium_gray
+                                }
                             />
                         </View>
 
-                        {/* Amount */}
+                        {/* Montant */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Montant (€)</Text>
                             <TextInput
@@ -426,11 +708,14 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                                     }))
                                 }
                                 placeholder="0.00"
+                                placeholderTextColor={
+                                    FINTECH_COLORS.medium_gray
+                                }
                                 keyboardType="numeric"
                             />
                         </View>
 
-                        {/* Paid By */}
+                        {/* Payé par */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Payé par</Text>
                             {trip?.members.map((member) => (
@@ -462,7 +747,9 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                                         <Ionicons
                                             name="checkmark"
                                             size={20}
-                                            color="#4DA1A9"
+                                            color={
+                                                FINTECH_COLORS.primary_turquoise
+                                            }
                                         />
                                     )}
                                 </TouchableOpacity>
@@ -501,7 +788,9 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                                         <Ionicons
                                             name="checkmark"
                                             size={20}
-                                            color="#4DA1A9"
+                                            color={
+                                                FINTECH_COLORS.primary_turquoise
+                                            }
                                         />
                                     )}
                                 </TouchableOpacity>
@@ -511,7 +800,7 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                 </SafeAreaView>
             </Modal>
 
-            {/* Balance Modal */}
+            {/* 💰 Modal des remboursements */}
             <Modal
                 visible={showBalanceModal}
                 animationType="slide"
@@ -540,16 +829,18 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                                 scrollEnabled={false}
                             />
                         ) : (
-                            <View style={styles.emptyContainer}>
-                                <Ionicons
-                                    name="checkmark-circle"
-                                    size={64}
-                                    color="#4CAF50"
-                                />
-                                <Text style={styles.emptyText}>
-                                    Tout est réglé !
+                            <View style={styles.modernEmptyContainer}>
+                                <View style={styles.emptyIconContainer}>
+                                    <Ionicons
+                                        name="checkmark-circle-outline"
+                                        size={64}
+                                        color={FINTECH_COLORS.primary_green}
+                                    />
+                                </View>
+                                <Text style={styles.modernEmptyTitle}>
+                                    Tout est équilibré !
                                 </Text>
-                                <Text style={styles.emptySubtext}>
+                                <Text style={styles.modernEmptySubtitle}>
                                     Aucun remboursement nécessaire
                                 </Text>
                             </View>
@@ -557,201 +848,238 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
+
+            {/* 🎯 Bouton flottant d'ajout de dépense */}
+            <TouchableOpacity
+                style={styles.floatingAddButton}
+                onPress={() => setShowAddModal(true)}
+                activeOpacity={0.8}
+            >
+                <Ionicons name="add" size={28} color={FINTECH_COLORS.white} />
+            </TouchableOpacity>
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
+    // 🎨 STYLES MODERNES PRINCIPAUX
+    modernContainer: {
         flex: 1,
-        backgroundColor: "#F8F9FA",
+        backgroundColor: FINTECH_COLORS.light_gray,
     },
-    header: {
-        flexDirection: "row",
+    modernHeader: {
         alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: "#FFFFFF",
+        justifyContent: "center",
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: FINTECH_COLORS.white,
         borderBottomWidth: 1,
-        borderBottomColor: "#E2E8F0",
+        borderBottomColor: FINTECH_COLORS.border,
+        // Ombre légère pour profondeur
+        shadowColor: FINTECH_COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: Colors.text.primary,
-    },
-    addButton: {
-        width: 40,
-        height: 40,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    summaryContainer: {
-        padding: 16,
-        gap: 12,
-    },
-    summaryCard: {
-        backgroundColor: "#FFFFFF",
-        padding: 16,
-        borderRadius: 12,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#E2E8F0",
-    },
-    positiveBalance: {
-        borderColor: "#4CAF50",
-        backgroundColor: "#F8FFF8",
-    },
-    negativeBalance: {
-        borderColor: "#FF6B6B",
-        backgroundColor: "#FFF8F8",
-    },
-    summaryTitle: {
-        fontSize: 14,
-        color: "#666",
-        fontWeight: "500",
-    },
-    summaryAmount: {
-        fontSize: 18,
+    modernHeaderTitle: {
+        fontSize: 20,
         fontWeight: "700",
-        color: "#333",
+        color: FINTECH_COLORS.dark_gray,
     },
-    balanceButton: {
-        backgroundColor: "#4DA1A9",
-        padding: 12,
-        borderRadius: 8,
+    // 📱 SCROLL ET SECTIONS
+    modernScrollView: {
+        flex: 1,
+    },
+    modernScrollContent: {
+        paddingBottom: 20,
+    },
+    modernSummarySection: {
+        padding: 20,
+        gap: 16,
+    },
+
+    // 📊 CARTES DE RÉSUMÉ MODERNES
+    modernSummaryCard: {
+        backgroundColor: FINTECH_COLORS.white,
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 2,
+        // Ombre moderne avec profondeur
+        shadowColor: FINTECH_COLORS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    summaryCardHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        marginBottom: 12,
+    },
+    summaryIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: "center",
         alignItems: "center",
     },
-    balanceButtonText: {
-        color: "#FFFFFF",
+    modernSummaryTitle: {
+        fontSize: 16,
+        color: FINTECH_COLORS.medium_gray,
         fontWeight: "600",
     },
-    listContainer: {
-        padding: 16,
-        gap: 12,
+    modernSummaryAmount: {
+        fontSize: 28,
+        fontWeight: "800",
+        textAlign: "right",
     },
-    expenseCard: {
-        backgroundColor: "#FFFFFF",
-        padding: 16,
-        borderRadius: 12,
+    // 💳 SECTION DÉPENSES
+    modernExpensesSection: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        gap: 16,
+    },
+    modernSectionTitle: {
+        fontSize: 22,
+        fontWeight: "700",
+        color: FINTECH_COLORS.dark_gray,
+        marginBottom: 16,
+    },
+
+    // 🎨 CARTES DE DÉPENSES MODERNES
+    modernExpenseCard: {
+        backgroundColor: FINTECH_COLORS.white,
+        padding: 20,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: "#E2E8F0",
+        borderColor: FINTECH_COLORS.border,
+        marginBottom: 12,
+        // Ombre élégante
+        shadowColor: FINTECH_COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    expenseHeader: {
+    modernExpenseHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "flex-start",
-        marginBottom: 8,
+        marginBottom: 16,
     },
-    expenseInfo: {
+    modernExpenseMainInfo: {
         flex: 1,
     },
-    expenseLabel: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#333",
-        marginBottom: 4,
-    },
-    expenseAmount: {
+    modernExpenseTitle: {
         fontSize: 18,
         fontWeight: "700",
-        color: "#4DA1A9",
+        color: FINTECH_COLORS.dark_gray,
+        marginBottom: 8,
     },
-    deleteButton: {
-        padding: 4,
+    modernExpenseAmount: {
+        fontSize: 24,
+        fontWeight: "800",
+        color: FINTECH_COLORS.primary_turquoise,
     },
-    expenseDetails: {
-        gap: 4,
+    modernDeleteButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: FINTECH_COLORS.soft_red,
+        justifyContent: "center",
+        alignItems: "center",
     },
-    expenseDetailText: {
-        fontSize: 14,
-        color: "#666",
+    modernExpenseDetails: {
+        gap: 12,
+        marginBottom: 16,
     },
-    boldText: {
-        fontWeight: "600",
-        color: "#333",
-    },
-    expenseDate: {
-        fontSize: 12,
-        color: "#999",
-        marginTop: 4,
-    },
-    debtCard: {
-        backgroundColor: "#FFFFFF",
-        padding: 16,
-        borderRadius: 12,
+    // 📋 DÉTAILS DES DÉPENSES
+    modernDetailRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: "#E2E8F0",
+        paddingVertical: 4,
     },
-    debtText: {
+    modernDetailIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: FINTECH_COLORS.light_turquoise_bg,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modernDetailText: {
+        fontSize: 15,
+        color: FINTECH_COLORS.medium_gray,
         flex: 1,
-        fontSize: 14,
-        color: "#333",
     },
-    amountText: {
+    modernDetailBold: {
         fontWeight: "700",
-        color: "#4DA1A9",
+        color: FINTECH_COLORS.dark_gray,
     },
-    emptyContainer: {
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 60,
-    },
-    emptyText: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: "#666",
-        marginTop: 16,
-    },
-    emptySubtext: {
-        fontSize: 14,
-        color: "#999",
-        marginTop: 4,
-    },
-    loadingContainer: {
+    participantsContainer: {
         flex: 1,
+    },
+
+    // 🏷️ FOOTER ET BADGES
+    modernExpenseFooter: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: FINTECH_COLORS.border + "40",
+    },
+    modernExpenseDate: {
+        fontSize: 13,
+        color: FINTECH_COLORS.medium_gray,
+        fontWeight: "500",
+    },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    pendingBadge: {
+        backgroundColor: FINTECH_COLORS.primary_green + "20",
+    },
+    statusBadgeText: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: FINTECH_COLORS.primary_green,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
+    // 🎭 ÉTATS VIDES ET CHARGEMENT
+    modernEmptyContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 80,
+        paddingHorizontal: 40,
+    },
+    emptyIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: FINTECH_COLORS.light_gray,
         justifyContent: "center",
         alignItems: "center",
+        marginBottom: 24,
     },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-        color: "#666",
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 32,
-    },
-    errorText: {
-        fontSize: 16,
-        color: "#FF6B6B",
+    modernEmptyTitle: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: FINTECH_COLORS.medium_gray,
         textAlign: "center",
-        marginBottom: 16,
+        marginBottom: 8,
     },
-    retryButton: {
-        backgroundColor: "#4DA1A9",
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: "#FFFFFF",
-        fontWeight: "600",
+    modernEmptySubtitle: {
+        fontSize: 16,
+        color: FINTECH_COLORS.medium_gray,
+        textAlign: "center",
+        lineHeight: 24,
     },
     modalContainer: {
         flex: 1,
@@ -824,6 +1152,147 @@ const styles = StyleSheet.create({
     selectedMemberText: {
         color: "#4DA1A9",
         fontWeight: "600",
+    },
+    // 💰 BOUTON REMBOURSEMENTS MODERNE
+    modernReimbursementButton: {
+        backgroundColor: FINTECH_COLORS.primary_turquoise,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        alignItems: "center",
+        // Ombre pour profondeur
+        shadowColor: FINTECH_COLORS.primary_turquoise,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    reimbursementButtonContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    modernReimbursementButtonText: {
+        color: FINTECH_COLORS.white,
+        fontWeight: "700",
+        fontSize: 16,
+    },
+    // 💸 CARTES DE DETTES MODERNES
+    modernDebtCard: {
+        backgroundColor: FINTECH_COLORS.white,
+        padding: 20,
+        borderRadius: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: FINTECH_COLORS.border,
+        // Ombre légère
+        shadowColor: FINTECH_COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    debtIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: FINTECH_COLORS.light_turquoise_bg,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    debtContent: {
+        flex: 1,
+    },
+    modernDebtText: {
+        fontSize: 15,
+        color: FINTECH_COLORS.dark_gray,
+        lineHeight: 22,
+    },
+    modernDebtName: {
+        fontWeight: "700",
+        color: FINTECH_COLORS.dark_gray,
+    },
+    modernDebtAmount: {
+        fontWeight: "800",
+        color: FINTECH_COLORS.primary_turquoise,
+        fontSize: 16,
+    },
+
+    // ⏳ ÉTATS DE CHARGEMENT ET ERREUR
+    modernLoadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: FINTECH_COLORS.light_gray,
+    },
+    modernLoadingText: {
+        marginTop: 20,
+        fontSize: 18,
+        color: FINTECH_COLORS.medium_gray,
+    },
+    modernErrorContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 40,
+        backgroundColor: FINTECH_COLORS.light_gray,
+    },
+    errorIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: FINTECH_COLORS.soft_red,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 24,
+    },
+    modernErrorText: {
+        fontSize: 18,
+        color: FINTECH_COLORS.soft_red_text,
+        textAlign: "center",
+        marginBottom: 24,
+        lineHeight: 26,
+    },
+    modernRetryButton: {
+        backgroundColor: FINTECH_COLORS.primary_turquoise,
+        paddingHorizontal: 32,
+        paddingVertical: 14,
+        borderRadius: 16,
+        shadowColor: FINTECH_COLORS.primary_turquoise,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    modernRetryButtonText: {
+        color: FINTECH_COLORS.white,
+        fontWeight: "700",
+        fontSize: 16,
+    },
+
+    // 🎯 BOUTON FLOTTANT D'AJOUT
+    floatingAddButton: {
+        position: "absolute",
+        bottom: 30,
+        right: 20,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: FINTECH_COLORS.primary_turquoise,
+        justifyContent: "center",
+        alignItems: "center",
+        // Ombre moderne pour effet flottant
+        shadowColor: FINTECH_COLORS.primary_turquoise,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 12,
+        // Légère bordure pour plus de définition
+        borderWidth: 2,
+        borderColor: FINTECH_COLORS.white,
     },
 });
 

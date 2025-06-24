@@ -103,9 +103,11 @@ const AddChecklistItemScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsLoading(true);
 
         try {
-            // Créer le nouvel élément
+            // Créer le nouvel élément avec ID unique
             const newItem = {
-                id: `${tripId}_item_${Date.now()}`,
+                id: `${tripId}_item_${Date.now()}_${Math.random()
+                    .toString(36)
+                    .substr(2, 9)}`,
                 tripId: tripId,
                 title: itemName.trim(),
                 category: selectedCategory,

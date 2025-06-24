@@ -3,8 +3,7 @@
 export interface User {
     id: string;
     email: string;
-    firstName: string;
-    lastName: string;
+    displayName: string;
     avatar?: string;
     createdAt: Date;
 }
@@ -16,17 +15,22 @@ export interface Trip {
     startDate: Date;
     endDate: Date;
     description?: string;
-    creatorId: string;
-    members: TripMember[];
-    inviteCode: string;
+    type: "plage" | "montagne" | "citytrip" | "campagne";
     coverImage?: string;
+    creatorId: string;
+    creatorName: string;
+    inviteCode: string;
+    members: TripMember[];
+    memberIds?: string[];
     createdAt: Date;
     updatedAt: Date;
 }
 
 export interface TripMember {
     userId: string;
-    user: User;
+    name: string;
+    email: string;
+    avatar?: string;
     role: "creator" | "member";
     joinedAt: Date;
 }
@@ -49,16 +53,16 @@ export interface ChecklistItem {
 export interface ExpenseItem {
     id: string;
     tripId: string;
-    label: string; // "Courses", "Essence", etc.
-    amount: number; // Montant total
-    paidBy: string; // UID de celui qui a payé
-    paidByName: string; // Nom de celui qui a payé
-    participants: string[]; // UIDs des participants concernés
-    participantNames: string[]; // Noms des participants
-    date: Date; // Date de la dépense
-    createdBy: string; // UID du créateur
-    createdAt: Date; // Date de création
-    updatedAt?: Date; // Date de dernière modification
+    label: string;
+    amount: number;
+    paidBy: string;
+    paidByName: string;
+    participants: string[];
+    participantNames: string[];
+    date: Date;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt?: Date;
 }
 
 export interface TripExpenses {
@@ -72,17 +76,17 @@ export interface TripExpenses {
 export interface MemberBalance {
     userId: string;
     userName: string;
-    totalPaid: number; // Ce qu'il a payé
-    totalOwed: number; // Ce qu'il doit
-    balance: number; // Solde (positif = créditeur, négatif = débiteur)
+    totalPaid: number;
+    totalOwed: number;
+    balance: number;
 }
 
 export interface DebtCalculation {
-    from: string; // UID du débiteur
-    fromName: string; // Nom du débiteur
-    to: string; // UID du créditeur
-    toName: string; // Nom du créditeur
-    amount: number; // Montant à rembourser
+    from: string;
+    fromName: string;
+    to: string;
+    toName: string;
+    amount: number;
 }
 
 export interface ExpensesSummary {
@@ -115,37 +119,41 @@ export interface TripNotesCollection {
 // Types pour les activités
 export interface Activity {
     id: string;
-    tripId: string;
+    tripId?: string;
     title: string;
     description?: string;
+    location?: string;
+    link?: string;
     date: Date;
     startTime?: string;
     endTime?: string;
-    location?: string;
+    createdBy: string;
+    createdByName: string;
+    createdAt: Date;
+    votes: string[];
+    validated?: boolean;
+    status?: "pending" | "validated" | "in_progress" | "completed" | "past";
     address?: string;
     price?: number;
     currency?: string;
-    category:
+    category?:
         | "visite"
         | "restaurant"
         | "transport"
         | "hébergement"
         | "activité"
         | "autre";
-    status: "planifiée" | "confirmée" | "annulée" | "terminée";
-    createdBy: string;
     assignedTo?: string[];
     notes?: string;
     attachments?: string[];
-    createdAt: Date;
-    updatedAt: Date;
+    updatedAt?: Date;
 }
 
 export interface ChatMessage {
     id: string;
     tripId: string;
     userId: string;
-    user: User;
+    userName: string;
     content: string;
     type: "text" | "image" | "system";
     createdAt: Date;
@@ -155,9 +163,10 @@ export interface Gallery {
     id: string;
     tripId: string;
     userId: string;
-    user: User;
+    userName: string;
     imageUrl: string;
     caption?: string;
+    uploadedBy?: string;
     createdAt: Date;
 }
 
@@ -198,11 +207,11 @@ export type RootStackParamList = {
 
     // Trip Features
     Checklist: { tripId: string };
-    Chat: { tripId: string };
     Gallery: { tripId: string };
     Activities: { tripId: string };
     Expenses: { tripId: string };
     Notes: { tripId: string };
+    Chat: { tripId: string };
 
     // Activity Management - À implémenter avec les maquettes
     AddActivity: { tripId: string; editActivity?: any };
@@ -247,8 +256,7 @@ export interface LoginResponse {
 export interface RegisterRequest {
     email: string;
     password: string;
-    firstName: string;
-    lastName: string;
+    displayName: string;
 }
 
 export interface LoginRequest {

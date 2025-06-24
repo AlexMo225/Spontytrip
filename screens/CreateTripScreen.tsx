@@ -275,15 +275,28 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleCreateTrip = async () => {
-        // Validation basique
-        if (!tripName.trim()) {
+        // Validations renforcées
+        const trimmedTripName = tripName.trim();
+        const trimmedDestination = destination.trim();
+
+        if (!trimmedTripName) {
             Alert.alert("Erreur", "Veuillez saisir un nom de séjour");
             return;
         }
-        if (!destination.trim()) {
+
+        if (trimmedTripName.length < 3) {
+            Alert.alert(
+                "Erreur",
+                "Le nom du séjour doit contenir au moins 3 caractères"
+            );
+            return;
+        }
+
+        if (!trimmedDestination) {
             Alert.alert("Erreur", "Veuillez choisir une destination");
             return;
         }
+
         if (!selectedDates.startDate) {
             Alert.alert(
                 "Erreur",
@@ -291,60 +304,111 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
             );
             return;
         }
+
+        // Validation des dates
+        const startDate = new Date(selectedDates.startDate);
+        const endDate = selectedDates.endDate
+            ? new Date(selectedDates.endDate)
+            : new Date(selectedDates.startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time for date comparison
+
+        if (startDate < today) {
+            Alert.alert(
+                "Erreur",
+                "La date de début ne peut pas être dans le passé"
+            );
+            return;
+        }
+
+        if (endDate < startDate) {
+            Alert.alert(
+                "Erreur",
+                "La date de fin ne peut pas être antérieure à la date de début"
+            );
+            return;
+        }
+
+        // Validation du type de voyage
         if (!tripType) {
             Alert.alert("Erreur", "Veuillez choisir un type de voyage");
+            return;
+        }
+
+        // Validation utilisateur
+        if (!user) {
+            Alert.alert(
+                "Erreur",
+                "Vous devez être connecté pour créer un voyage"
+            );
             return;
         }
 
         try {
             // Créer le voyage avec Firebase
             const tripData = {
-                title: tripName.trim(),
-                destination: destination.trim(),
-                startDate: new Date(selectedDates.startDate),
-                endDate: selectedDates.endDate
-                    ? new Date(selectedDates.endDate)
-                    : new Date(selectedDates.startDate),
+                title: trimmedTripName,
+                destination: trimmedDestination,
+                startDate,
+                endDate,
                 type: tripType,
                 coverImage: coverImage || undefined,
             };
 
             const tripId = await createTrip(tripData);
 
-            if (tripId) {
-                setCreatedTripId(tripId);
+            if (!tripId) {
+                throw new Error("Échec de la création du voyage");
+            }
 
-                // Récupérer le voyage créé pour obtenir le vrai code d'invitation
+            setCreatedTripId(tripId);
+
+            // Récupérer le voyage créé pour obtenir le vrai code d'invitation
+            try {
                 const firebaseService = (
                     await import("../services/firebaseService")
                 ).default;
                 const createdTrip = await firebaseService.getTripById(tripId);
 
-                if (createdTrip) {
+                if (createdTrip && createdTrip.inviteCode) {
                     setInvitationCode(createdTrip.inviteCode);
                     // Afficher la popup d'invitation
                     setShowInvitationModal(true);
                 } else {
-                    // Fallback si on ne peut pas récupérer le voyage
-                    Alert.alert("Succès", "Voyage créé avec succès !", [
-                        {
-                            text: "OK",
-                            onPress: () => {
-                                navigation.reset({
-                                    index: 0,
-                                    routes: [{ name: "MainApp" }],
-                                });
-                            },
-                        },
-                    ]);
+                    // Fallback avec code généré
+                    const fallbackCode = `TRIP${Date.now()
+                        .toString()
+                        .slice(-6)}`;
+                    setInvitationCode(fallbackCode);
+                    setShowInvitationModal(true);
                 }
+            } catch (fetchError) {
+                console.error("Erreur récupération voyage créé:", fetchError);
+                // Navigation directe en cas d'erreur de récupération
+                Alert.alert("Succès", "Voyage créé avec succès !", [
+                    {
+                        text: "OK",
+                        onPress: () => {
+                            navigation.reset({
+                                index: 1,
+                                routes: [
+                                    { name: "MainApp" },
+                                    { name: "TripDetails", params: { tripId } },
+                                ],
+                            });
+                        },
+                    },
+                ]);
             }
         } catch (err) {
             console.error("Erreur création voyage:", err);
-            Alert.alert(
-                "Erreur",
-                error || "Impossible de créer le voyage. Veuillez réessayer."
-            );
+            const errorMessage =
+                error ||
+                (err instanceof Error
+                    ? err.message
+                    : "Impossible de créer le voyage");
+
+            Alert.alert("Erreur", `${errorMessage}. Veuillez réessayer.`);
         }
     };
 
