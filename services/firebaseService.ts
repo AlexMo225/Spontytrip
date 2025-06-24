@@ -106,6 +106,7 @@ export interface FirestoreTrip {
     creatorName: string;
     inviteCode: string;
     members: TripMember[];
+    memberIds?: string[]; // Array simple des UIDs pour les règles Firebase
     createdAt: Date;
     updatedAt: Date;
 }
@@ -244,6 +245,8 @@ class FirebaseService {
         tripData: Omit<FirestoreTrip, "id" | "createdAt" | "updatedAt">
     ): Promise<string> {
         try {
+            console.log("🚀 Création d'un nouveau voyage:", tripData.title);
+
             // Nettoyer les valeurs undefined pour Firebase
             const cleanedData = Object.fromEntries(
                 Object.entries(tripData).filter(
@@ -251,11 +254,28 @@ class FirebaseService {
                 )
             );
 
+            // CRITIQUE: Ajouter memberIds pour les règles Firebase
+            const memberIds = [tripData.creatorId];
+
+            // Ajouter les IDs des membres existants (si fournis)
+            if (tripData.members && Array.isArray(tripData.members)) {
+                tripData.members.forEach((member) => {
+                    if (member.userId && !memberIds.includes(member.userId)) {
+                        memberIds.push(member.userId);
+                    }
+                });
+            }
+
+            console.log("✅ memberIds créés:", memberIds);
+
             const docRef = await this.db.collection("trips").add({
                 ...cleanedData,
+                memberIds: memberIds, // AJOUT CRITIQUE pour les règles Firebase
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
+
+            console.log("✅ Voyage créé avec ID:", docRef.id);
 
             // Créer les sous-collections vides
             await this.initializeTripSubcollections(
@@ -265,9 +285,10 @@ class FirebaseService {
                 tripData.creatorName
             );
 
+            console.log("✅ Sous-collections initialisées");
             return docRef.id;
         } catch (error) {
-            console.error("Erreur création voyage:", error);
+            console.error("❌ Erreur création voyage:", error);
             throw new Error("Impossible de créer le voyage");
         }
     }
@@ -433,13 +454,63 @@ class FirebaseService {
 
     async joinTrip(tripId: string, member: TripMember): Promise<void> {
         try {
+            console.log(`🚀 Tentative de rejoindre le voyage ${tripId}`);
+            console.log(`👤 Membre à ajouter:`, {
+                userId: member.userId,
+                name: member.name,
+                email: member.email,
+                role: member.role,
+            });
+
             const tripRef = this.db.collection("trips").doc(tripId);
+
+            // Vérifier d'abord que le voyage existe
+            const tripDoc = await tripRef.get();
+            if (!tripDoc.exists) {
+                throw new Error("Voyage introuvable");
+            }
+
+            const tripData = tripDoc.data();
+            console.log(`📊 Voyage trouvé:`, {
+                title: tripData?.title,
+                creatorId: tripData?.creatorId,
+                currentMemberIds: tripData?.memberIds || [],
+                currentMembersCount: tripData?.members?.length || 0,
+            });
+
+            // Vérifier si l'utilisateur n'est pas déjà membre
+            const currentMemberIds = tripData?.memberIds || [];
+            if (currentMemberIds.includes(member.userId)) {
+                throw new Error("Vous êtes déjà membre de ce voyage");
+            }
+
+            console.log(`✅ Ajout du membre autorisé, mise à jour...`);
+
             await tripRef.update({
                 members: firebase.firestore.FieldValue.arrayUnion(member),
+                memberIds: firebase.firestore.FieldValue.arrayUnion(
+                    member.userId
+                ),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
+
+            console.log(`✅ Membre ajouté avec succès au voyage ${tripId}`);
         } catch (error) {
-            console.error("Erreur rejoindre voyage:", error);
+            console.error("❌ Erreur rejoindre voyage:", error);
+
+            // Messages d'erreur plus spécifiques
+            if (error instanceof Error) {
+                if (error.message.includes("insufficient permissions")) {
+                    throw new Error(
+                        "Permissions insuffisantes pour rejoindre ce voyage"
+                    );
+                } else if (error.message.includes("déjà membre")) {
+                    throw new Error(error.message);
+                } else if (error.message.includes("introuvable")) {
+                    throw new Error("Voyage introuvable");
+                }
+            }
+
             throw new Error("Impossible de rejoindre le voyage");
         }
     }
@@ -452,20 +523,58 @@ class FirebaseService {
         tripId: string,
         callback: (checklist: TripChecklist | null) => void
     ): () => void {
+        console.log(`🔄 Subscription checklist pour voyage ${tripId}`);
+
         const unsubscribe = this.db
             .collection("checklists")
             .where("tripId", "==", tripId)
-            .onSnapshot((snapshot) => {
-                if (!snapshot.empty) {
-                    const doc = snapshot.docs[0];
-                    const convertedChecklist = convertFirestoreChecklist(
-                        doc.data()
-                    );
-                    callback(convertedChecklist);
-                } else {
+            .onSnapshot(
+                (snapshot) => {
+                    try {
+                        console.log(
+                            `📊 Snapshot checklist reçu - ${snapshot.size} documents`
+                        );
+
+                        if (!snapshot.empty) {
+                            const doc = snapshot.docs[0];
+                            const rawData = doc.data();
+
+                            console.log(`📝 Données brutes checklist:`, {
+                                tripId: rawData.tripId,
+                                itemsCount: rawData.items?.length || 0,
+                                updatedBy: rawData.updatedBy,
+                                items:
+                                    rawData.items?.map((item: any) => ({
+                                        id: item.id,
+                                        title: item.title,
+                                        category: item.category,
+                                    })) || [],
+                            });
+
+                            const convertedChecklist =
+                                convertFirestoreChecklist(rawData);
+
+                            console.log(
+                                `✅ Checklist convertie - ${convertedChecklist.items.length} items`
+                            );
+                            callback(convertedChecklist);
+                        } else {
+                            console.log("📭 Aucune checklist trouvée");
+                            callback(null);
+                        }
+                    } catch (error) {
+                        console.error(
+                            "❌ Erreur dans subscribeToChecklist:",
+                            error
+                        );
+                        callback(null);
+                    }
+                },
+                (error) => {
+                    console.error("❌ Erreur snapshot checklist:", error);
                     callback(null);
                 }
-            });
+            );
 
         return unsubscribe;
     }
@@ -476,6 +585,49 @@ class FirebaseService {
         userId: string
     ): Promise<void> {
         try {
+            console.log(`🔄 Mise à jour checklist pour voyage ${tripId}`);
+            console.log(`📝 ${items.length} items à traiter`);
+
+            // Nettoyer les items pour supprimer les valeurs undefined
+            const cleanedItems = items.map((item) => {
+                const cleanedItem: any = {
+                    id: item.id,
+                    tripId: item.tripId,
+                    title: item.title,
+                    category: item.category,
+                    isCompleted: item.isCompleted,
+                    createdBy: item.createdBy,
+                    createdAt: item.createdAt,
+                };
+
+                // Ajouter seulement les champs définis (non undefined)
+                if (
+                    item.description !== undefined &&
+                    item.description !== null
+                ) {
+                    cleanedItem.description = item.description;
+                }
+                if (item.assignedTo !== undefined && item.assignedTo !== null) {
+                    cleanedItem.assignedTo = item.assignedTo;
+                }
+                if (
+                    item.completedBy !== undefined &&
+                    item.completedBy !== null
+                ) {
+                    cleanedItem.completedBy = item.completedBy;
+                }
+                if (
+                    item.completedAt !== undefined &&
+                    item.completedAt !== null
+                ) {
+                    cleanedItem.completedAt = item.completedAt;
+                }
+
+                return cleanedItem as ChecklistItem;
+            });
+
+            console.log("✅ Items nettoyés:", cleanedItems.length);
+
             const querySnapshot = await this.db
                 .collection("checklists")
                 .where("tripId", "==", tripId)
@@ -484,14 +636,23 @@ class FirebaseService {
 
             if (!querySnapshot.empty) {
                 const docRef = querySnapshot.docs[0].ref;
-                await docRef.update({
-                    items,
+
+                // Préparer les données pour Firebase (aucune valeur undefined)
+                const updateData = {
+                    items: cleanedItems,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedBy: userId,
-                });
+                };
+
+                console.log("🚀 Envoi vers Firebase...");
+                await docRef.update(updateData);
+                console.log("✅ Checklist mise à jour avec succès");
+            } else {
+                console.log("⚠️ Aucune checklist trouvée pour ce voyage");
+                throw new Error("Checklist introuvable pour ce voyage");
             }
         } catch (error) {
-            console.error("Erreur mise à jour checklist:", error);
+            console.error("❌ Erreur mise à jour checklist:", error);
             throw new Error("Impossible de mettre à jour la checklist");
         }
     }

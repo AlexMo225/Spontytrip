@@ -1,11 +1,205 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Règles temporaires pour le développement - TRÈS PERMISSIVES
-    // À sécuriser avant la production !
     
+    // ===============================
+    // FONCTIONS HELPER SÉCURISÉES
+    // ===============================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserId() {
+      return request.auth.uid;
+    }
+    
+    // Vérifier si l'utilisateur est membre d'un voyage (pour collections globales)
+    function isTripMember(tripId) {
+      return exists(/databases/$(database)/documents/trips/$(tripId)) &&
+             getUserId() in get(/databases/$(database)/documents/trips/$(tripId)).data.memberIds;
+    }
+    
+    // Vérifier si l'utilisateur est créateur d'un voyage
+    function isTripCreator(tripId) {
+      return exists(/databases/$(database)/documents/trips/$(tripId)) &&
+             getUserId() == get(/databases/$(database)/documents/trips/$(tripId)).data.creatorId;
+    }
+    
+    // Vérifier si l'utilisateur est membre OU créateur
+    function canAccessTrip(tripId) {
+      return isTripMember(tripId) || isTripCreator(tripId);
+    }
+    
+    // ===============================
+    // PROFILS UTILISATEURS
+    // ===============================
+    
+    match /users/{userId} {
+      // Lecture : utilisateur authentifié peut lire tous les profils
+      allow read: if isAuthenticated();
+      // Écriture : uniquement son propre profil
+      allow write: if isAuthenticated() && getUserId() == userId;
+    }
+
+    // ===============================
+    // COLLECTION PRINCIPALE : TRIPS
+    // ===============================
+    
+    match /trips/{tripId} {
+      // Lecture : utilisateur authentifié (filtrage côté client pour performance)
+      allow read: if isAuthenticated();
+
+      // Création : utilisateur authentifié qui se met comme créateur et membre
+      allow create: if isAuthenticated() &&
+        getUserId() == request.resource.data.creatorId &&
+        getUserId() in request.resource.data.memberIds;
+
+      // Modification : créateur OU ajout de membre (pour joinTrip)
+      allow update: if isAuthenticated() && (
+        // Le créateur peut tout modifier
+        resource.data.creatorId == getUserId() ||
+        // OU un utilisateur peut se joindre au voyage (ajouter son ID aux membres)
+        (
+          // Vérifier que seuls les champs members et memberIds sont modifiés
+          request.resource.data.keys().hasOnly(['title', 'destination', 'startDate', 'endDate', 'description', 'type', 'coverImage', 'creatorId', 'creatorName', 'inviteCode', 'members', 'memberIds', 'createdAt', 'updatedAt']) &&
+          // Le créateur et les autres champs critiques ne changent pas
+          request.resource.data.creatorId == resource.data.creatorId &&
+          request.resource.data.inviteCode == resource.data.inviteCode &&
+          // L'utilisateur s'ajoute aux memberIds
+          getUserId() in request.resource.data.memberIds &&
+          !(getUserId() in resource.data.get('memberIds', []))
+        )
+      );
+
+      // Suppression : créateur uniquement
+      allow delete: if isAuthenticated() && 
+        resource.data.creatorId == getUserId();
+
+      // ===============================
+      // SOUS-COLLECTIONS DE TRIPS
+      // ===============================
+      
+      // Notes collaboratives de chaque voyage
+      match /notes/{noteId} {
+        allow read, write: if isAuthenticated() && canAccessTrip(tripId);
+      }
+      
+      // Messages de chat de chaque voyage
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() && canAccessTrip(tripId);
+      }
+      
+      // Galerie photos de chaque voyage
+      match /gallery/{galleryId} {
+        allow read, write: if isAuthenticated() && canAccessTrip(tripId);
+      }
+    }
+
+    // ===============================
+    // COLLECTIONS GLOBALES SÉCURISÉES
+    // ===============================
+
+    // Checklists : accès seulement aux membres du voyage
+    match /checklists/{checklistId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId);
+      allow update, delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+    }
+
+    // Dépenses : accès seulement aux membres du voyage
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId);
+      allow update, delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+    }
+
+    // Notes globales (ancien système) : accès seulement aux membres du voyage
+    match /notes/{noteId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId);
+      allow update, delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+    }
+
+    // Activités : accès seulement aux membres du voyage
+    match /activities/{activityId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId);
+      allow update, delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+    }
+
+    // Messages globaux : accès seulement aux membres du voyage
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId);
+      allow update, delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+    }
+
+    // Galerie globale : accès seulement aux membres du voyage
+    match /gallery/{galleryId} {
+      allow read: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.tripId != null && 
+        canAccessTrip(request.resource.data.tripId);
+      allow update, delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        canAccessTrip(resource.data.tripId);
+    }
+
+    // ===============================
+    // INVITATIONS
+    // ===============================
+    
+    match /invitations/{invitationId} {
+      // Lecture : tous les utilisateurs authentifiés (pour rejoindre)
+      allow read: if isAuthenticated();
+      // Création : utilisateur authentifié
+      allow create: if isAuthenticated() && 
+        getUserId() == request.resource.data.createdBy;
+      // Modification/Suppression : créateur uniquement
+      allow update, delete: if isAuthenticated() && 
+        getUserId() == resource.data.createdBy;
+    }
+
+    // ===============================
+    // SÉCURITÉ PAR DÉFAUT
+    // ===============================
+    
+    // Interdiction par défaut pour tout le reste
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
-} 
+}

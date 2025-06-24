@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import firebaseService, {
     FirestoreTrip,
@@ -31,18 +31,21 @@ export const useTripSync = (tripId: string): TripSyncData => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Utiliser useRef pour stocker les unsubscribe functions
+    const unsubscribeRefs = useRef<{
+        checklist?: () => void;
+        expenses?: () => void;
+        notes?: () => void;
+        tripNotes?: () => void;
+        activities?: () => void;
+        trip?: () => void;
+    }>({});
+
     useEffect(() => {
         if (!tripId || !user) {
             setLoading(false);
             return;
         }
-
-        let unsubscribeChecklist: (() => void) | null = null;
-        let unsubscribeExpenses: (() => void) | null = null;
-        let unsubscribeNotes: (() => void) | null = null;
-        let unsubscribeTripNotes: (() => void) | null = null;
-        let unsubscribeActivities: (() => void) | null = null;
-        let unsubscribeTrip: (() => void) | null = null;
 
         const initializeSync = async () => {
             try {
@@ -70,50 +73,47 @@ export const useTripSync = (tripId: string): TripSyncData => {
                 setTrip(tripData);
 
                 // 3. S'abonner aux mises à jour temps réel
-                unsubscribeChecklist = firebaseService.subscribeToChecklist(
-                    tripId,
-                    (checklistData) => {
-                        setChecklist(checklistData);
-                    }
-                );
+                unsubscribeRefs.current.checklist =
+                    firebaseService.subscribeToChecklist(
+                        tripId,
+                        (checklistData) => {
+                            setChecklist(checklistData);
+                        }
+                    );
 
-                unsubscribeExpenses = firebaseService.subscribeToExpenses(
-                    tripId,
-                    (expensesData) => {
-                        setExpenses(expensesData);
-                    }
-                );
+                unsubscribeRefs.current.expenses =
+                    firebaseService.subscribeToExpenses(
+                        tripId,
+                        (expensesData) => {
+                            setExpenses(expensesData);
+                        }
+                    );
 
-                unsubscribeNotes = firebaseService.subscribeToNotes(
-                    tripId,
-                    (notesData) => {
+                unsubscribeRefs.current.notes =
+                    firebaseService.subscribeToNotes(tripId, (notesData) => {
                         setNotes(notesData);
-                    }
-                );
+                    });
 
-                unsubscribeTripNotes = firebaseService.subscribeToTripNotes(
-                    tripId,
-                    (tripNotesData) => {
-                        setTripNotes(tripNotesData);
-                    }
-                );
+                unsubscribeRefs.current.tripNotes =
+                    firebaseService.subscribeToTripNotes(
+                        tripId,
+                        (tripNotesData) => {
+                            setTripNotes(tripNotesData);
+                        }
+                    );
 
-                unsubscribeActivities = firebaseService.subscribeToActivities(
-                    tripId,
-                    (activitiesData) => {
-                        setActivities(activitiesData);
-                    }
-                );
+                unsubscribeRefs.current.activities =
+                    firebaseService.subscribeToActivities(
+                        tripId,
+                        (activitiesData) => {
+                            setActivities(activitiesData);
+                        }
+                    );
 
-                unsubscribeTrip = firebaseService.subscribeToTrip(
+                unsubscribeRefs.current.trip = firebaseService.subscribeToTrip(
                     tripId,
                     (updatedTrip: FirestoreTrip | null) => {
                         if (updatedTrip) {
-                            // console.log("�� Mise à jour voyage reçue:", {
-                            //     tripId: updatedTrip.id,
-                            //     coverImage: updatedTrip.coverImage,
-                            //     updatedAt: updatedTrip.updatedAt
-                            // });
                             setTrip(updatedTrip);
                         }
                     }
@@ -129,14 +129,14 @@ export const useTripSync = (tripId: string): TripSyncData => {
 
         initializeSync();
 
-        // Cleanup
+        // Cleanup function sécurisée
         return () => {
-            unsubscribeChecklist?.();
-            unsubscribeExpenses?.();
-            unsubscribeNotes?.();
-            unsubscribeTripNotes?.();
-            unsubscribeActivities?.();
-            unsubscribeTrip?.();
+            Object.values(unsubscribeRefs.current).forEach((unsubscribe) => {
+                if (unsubscribe && typeof unsubscribe === "function") {
+                    unsubscribe();
+                }
+            });
+            unsubscribeRefs.current = {};
         };
     }, [tripId, user]);
 
@@ -160,7 +160,11 @@ export const useUserTrips = () => {
     const [error, setError] = useState<string | null>(null);
 
     const fetchTrips = async () => {
-        if (!user) return;
+        if (!user) {
+            setTrips([]);
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);
@@ -171,7 +175,27 @@ export const useUserTrips = () => {
             setTrips(userTrips);
         } catch (err) {
             console.error("❌ Erreur récupération voyages:", err);
+
+            // Gestion spécifique des erreurs de permissions
+            if (
+                err instanceof Error &&
+                err.message?.includes("insufficient permissions")
+            ) {
+                setError(
+                    "Problème de permissions Firebase. Tentative de correction..."
+                );
+                // Réessayer une fois après un délai
+                setTimeout(() => {
+                    console.log(
+                        "🔄 Nouvelle tentative après erreur de permissions"
+                    );
+                    fetchTrips();
+                }, 2000);
+                return;
+            }
+
             setError("Impossible de récupérer vos voyages");
+            setTrips([]); // Réinitialiser les voyages en cas d'erreur
         } finally {
             setLoading(false);
         }
@@ -204,20 +228,10 @@ export const useUserTrips = () => {
             }
         });
 
-        // DÉSACTIVÉ TEMPORAIREMENT - Refresh automatique qui cause la boucle
-        // const interval = setInterval(() => {
-        //     console.log("🔄 Refresh automatique des voyages");
-        //     fetchTrips();
-        // }, 30000);
-
-        return () => {
-            unsubscribe();
-            // clearInterval(interval);
-        };
+        return unsubscribe;
     }, [user]);
 
     const refreshTrips = async () => {
-        console.log("🔄 Refresh manuel des voyages");
         await fetchTrips();
     };
 
