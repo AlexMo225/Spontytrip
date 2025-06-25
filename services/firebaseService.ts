@@ -527,7 +527,8 @@ class FirebaseService {
 
     subscribeToChecklist(
         tripId: string,
-        callback: (checklist: TripChecklist | null) => void
+        callback: (checklist: TripChecklist | null) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         console.log(`🔄 Subscription checklist pour voyage ${tripId}`);
 
@@ -577,7 +578,27 @@ class FirebaseService {
                     }
                 },
                 (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
                     console.error("❌ Erreur snapshot checklist:", error);
+
+                    // Si c'est une erreur de permissions et que le voyage n'existe plus, arrêter le listener
+                    if (
+                        error.code === "permission-denied" ||
+                        error.code === "not-found"
+                    ) {
+                        console.log(
+                            "🛑 Arrêt du listener checklist - voyage probablement supprimé"
+                        );
+                        callback(null);
+                        return;
+                    }
+
                     callback(null);
                 }
             );
@@ -793,38 +814,67 @@ class FirebaseService {
 
     subscribeToExpenses(
         tripId: string,
-        callback: (expenses: TripExpenses | null) => void
+        callback: (expenses: TripExpenses | null) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         const unsubscribe = this.db
             .collection("expenses")
             .where("tripId", "==", tripId)
-            .onSnapshot((snapshot) => {
-                if (!snapshot.empty) {
-                    const doc = snapshot.docs[0];
-                    const data = doc.data() as TripExpenses;
-                    // Convertir les timestamps
-                    const convertedData = {
-                        ...data,
-                        updatedAt: convertFirebaseTimestamp(data.updatedAt),
-                        expenses:
-                            data.expenses?.map((expense) => ({
-                                ...expense,
-                                date: convertFirebaseTimestamp(expense.date),
-                                createdAt: convertFirebaseTimestamp(
-                                    expense.createdAt
-                                ),
-                                updatedAt: expense.updatedAt
-                                    ? convertFirebaseTimestamp(
-                                          expense.updatedAt
-                                      )
-                                    : undefined,
-                            })) || [],
-                    };
-                    callback(convertedData);
-                } else {
+            .onSnapshot(
+                (snapshot) => {
+                    if (!snapshot.empty) {
+                        const doc = snapshot.docs[0];
+                        const data = doc.data() as TripExpenses;
+                        // Convertir les timestamps
+                        const convertedData = {
+                            ...data,
+                            updatedAt: convertFirebaseTimestamp(data.updatedAt),
+                            expenses:
+                                data.expenses?.map((expense) => ({
+                                    ...expense,
+                                    date: convertFirebaseTimestamp(
+                                        expense.date
+                                    ),
+                                    createdAt: convertFirebaseTimestamp(
+                                        expense.createdAt
+                                    ),
+                                    updatedAt: expense.updatedAt
+                                        ? convertFirebaseTimestamp(
+                                              expense.updatedAt
+                                          )
+                                        : undefined,
+                                })) || [],
+                        };
+                        callback(convertedData);
+                    } else {
+                        callback(null);
+                    }
+                },
+                (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
+                    console.error("❌ Erreur snapshot expenses:", error);
+
+                    // Si c'est une erreur de permissions et que le voyage n'existe plus, arrêter le listener
+                    if (
+                        error.code === "permission-denied" ||
+                        error.code === "not-found"
+                    ) {
+                        console.log(
+                            "🛑 Arrêt du listener expenses - voyage probablement supprimé"
+                        );
+                        callback(null);
+                        return;
+                    }
+
                     callback(null);
                 }
-            });
+            );
 
         return unsubscribe;
     }
@@ -836,31 +886,58 @@ class FirebaseService {
     // Souscrire aux notes d'un voyage (nouvelle structure)
     subscribeToTripNotes(
         tripId: string,
-        callback: (notes: TripNote[]) => void
+        callback: (notes: TripNote[]) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         const unsubscribe = this.db
             .collection("trips")
             .doc(tripId)
             .collection("notes")
             .orderBy("updatedAt", "desc")
-            .onSnapshot((snapshot) => {
-                const notes: TripNote[] = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    notes.push({
-                        id: doc.id,
-                        tripId: tripId,
-                        content: data.content,
-                        createdBy: data.createdBy,
-                        createdByName: data.createdByName,
-                        createdAt: convertFirebaseTimestamp(data.createdAt),
-                        updatedAt: convertFirebaseTimestamp(data.updatedAt),
-                        authorAvatar: data.authorAvatar,
-                        isImportant: data.isImportant || false,
+            .onSnapshot(
+                (snapshot) => {
+                    const notes: TripNote[] = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        notes.push({
+                            id: doc.id,
+                            tripId: tripId,
+                            content: data.content,
+                            createdBy: data.createdBy,
+                            createdByName: data.createdByName,
+                            createdAt: convertFirebaseTimestamp(data.createdAt),
+                            updatedAt: convertFirebaseTimestamp(data.updatedAt),
+                            authorAvatar: data.authorAvatar,
+                            isImportant: data.isImportant || false,
+                        });
                     });
-                });
-                callback(notes);
-            });
+                    callback(notes);
+                },
+                (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
+                    console.error("❌ Erreur snapshot trip notes:", error);
+
+                    // Si c'est une erreur de permissions et que le voyage n'existe plus, arrêter le listener
+                    if (
+                        error.code === "permission-denied" ||
+                        error.code === "not-found"
+                    ) {
+                        console.log(
+                            "🛑 Arrêt du listener trip notes - voyage probablement supprimé"
+                        );
+                        callback([]);
+                        return;
+                    }
+
+                    callback([]);
+                }
+            );
 
         return unsubscribe;
     }
@@ -1000,26 +1077,40 @@ class FirebaseService {
     // Ancienne fonction pour compatibilité (système de notes unique)
     subscribeToNotes(
         tripId: string,
-        callback: (notes: TripNotes | null) => void
+        callback: (notes: TripNotes | null) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         const unsubscribe = this.db
             .collection("notes")
             .where("tripId", "==", tripId)
-            .onSnapshot((snapshot) => {
-                if (!snapshot.empty) {
-                    const doc = snapshot.docs[0];
-                    const data = doc.data();
-                    callback({
-                        tripId: data.tripId,
-                        content: data.content,
-                        updatedAt: convertFirebaseTimestamp(data.updatedAt),
-                        updatedBy: data.updatedBy,
-                        updatedByName: data.updatedByName,
-                    } as TripNotes);
-                } else {
+            .onSnapshot(
+                (snapshot) => {
+                    if (!snapshot.empty) {
+                        const doc = snapshot.docs[0];
+                        const data = doc.data();
+                        callback({
+                            tripId: data.tripId,
+                            content: data.content,
+                            updatedAt: convertFirebaseTimestamp(data.updatedAt),
+                            updatedBy: data.updatedBy,
+                            updatedByName: data.updatedByName,
+                        } as TripNotes);
+                    } else {
+                        callback(null);
+                    }
+                },
+                (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
+                    console.error("❌ Erreur snapshot notes:", error);
                     callback(null);
                 }
-            });
+            );
 
         return unsubscribe;
     }
@@ -1059,21 +1150,49 @@ class FirebaseService {
 
     subscribeToActivities(
         tripId: string,
-        callback: (activities: TripActivities | null) => void
+        callback: (activities: TripActivities | null) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         const unsubscribe = this.db
             .collection("activities")
             .where("tripId", "==", tripId)
-            .onSnapshot((snapshot) => {
-                if (!snapshot.empty) {
-                    const doc = snapshot.docs[0];
-                    const rawData = doc.data();
-                    const convertedData = convertFirestoreActivities(rawData);
-                    callback(convertedData);
-                } else {
+            .onSnapshot(
+                (snapshot) => {
+                    if (!snapshot.empty) {
+                        const doc = snapshot.docs[0];
+                        const rawData = doc.data();
+                        const convertedData =
+                            convertFirestoreActivities(rawData);
+                        callback(convertedData);
+                    } else {
+                        callback(null);
+                    }
+                },
+                (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
+                    console.error("❌ Erreur snapshot activities:", error);
+
+                    // Si c'est une erreur de permissions et que le voyage n'existe plus, arrêter le listener
+                    if (
+                        error.code === "permission-denied" ||
+                        error.code === "not-found"
+                    ) {
+                        console.log(
+                            "🛑 Arrêt du listener activities - voyage probablement supprimé"
+                        );
+                        callback(null);
+                        return;
+                    }
+
                     callback(null);
                 }
-            });
+            );
 
         return unsubscribe;
     }
@@ -1432,6 +1551,17 @@ class FirebaseService {
                 userId
             );
 
+            // CRITIQUE: Nettoyer immédiatement tous les listeners de ce voyage
+            try {
+                const { forceCleanupTripListeners } = await import(
+                    "../hooks/useTripSync"
+                );
+                forceCleanupTripListeners(tripId);
+                console.log("🧹 Listeners nettoyés immédiatement");
+            } catch (cleanupError) {
+                console.warn("⚠️ Erreur nettoyage listeners:", cleanupError);
+            }
+
             // Vérifier d'abord les permissions
             const trip = await this.getTripById(tripId);
             if (!trip) {
@@ -1658,6 +1788,19 @@ class FirebaseService {
             console.log("✅ Voyage principal supprimé");
 
             console.log("🎉 Voyage supprimé avec succès:", tripId);
+
+            // Émettre un événement pour informer les autres composants
+            try {
+                const { tripRefreshEmitter } = await import(
+                    "../hooks/useTripSync"
+                );
+                tripRefreshEmitter.emitTripDeleted(tripId, userId, "Créateur");
+            } catch (emitError) {
+                console.warn(
+                    "⚠️ Erreur émission événement suppression:",
+                    emitError
+                );
+            }
         } catch (error) {
             console.error("❌ Erreur suppression voyage:", error);
             throw error;
@@ -1701,39 +1844,78 @@ class FirebaseService {
 
     subscribeToTrip(
         tripId: string,
-        callback: (trip: FirestoreTrip | null) => void
+        callback: (trip: FirestoreTrip | null) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         const unsubscribe = this.db
             .collection("trips")
             .doc(tripId)
-            .onSnapshot((doc) => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    if (data) {
-                        // Convertir manuellement au lieu d'utiliser convertFirestoreTrip
-                        const convertedTrip: FirestoreTrip = {
-                            id: doc.id,
-                            ...data,
-                            startDate: convertFirebaseTimestamp(data.startDate),
-                            endDate: convertFirebaseTimestamp(data.endDate),
-                            createdAt: convertFirebaseTimestamp(data.createdAt),
-                            updatedAt: convertFirebaseTimestamp(data.updatedAt),
-                            members:
-                                data.members?.map((member: TripMember) => ({
-                                    ...member,
-                                    joinedAt: convertFirebaseTimestamp(
-                                        member.joinedAt
-                                    ),
-                                })) || [],
-                        } as FirestoreTrip;
-                        callback(convertedTrip);
+            .onSnapshot(
+                (doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if (data) {
+                            // Convertir manuellement au lieu d'utiliser convertFirestoreTrip
+                            const convertedTrip: FirestoreTrip = {
+                                id: doc.id,
+                                ...data,
+                                startDate: convertFirebaseTimestamp(
+                                    data.startDate
+                                ),
+                                endDate: convertFirebaseTimestamp(data.endDate),
+                                createdAt: convertFirebaseTimestamp(
+                                    data.createdAt
+                                ),
+                                updatedAt: convertFirebaseTimestamp(
+                                    data.updatedAt
+                                ),
+                                members:
+                                    data.members?.map((member: TripMember) => ({
+                                        ...member,
+                                        joinedAt: convertFirebaseTimestamp(
+                                            member.joinedAt
+                                        ),
+                                    })) || [],
+                            } as FirestoreTrip;
+                            callback(convertedTrip);
+                        } else {
+                            console.log(
+                                "⚠️ Document voyage existe mais sans données"
+                            );
+                            callback(null);
+                        }
                     } else {
+                        console.log(
+                            "⚠️ Document voyage n'existe plus - suppression détectée"
+                        );
                         callback(null);
                     }
-                } else {
+                },
+                (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
+                    console.error("❌ Erreur snapshot trip:", error);
+
+                    // Si c'est une erreur de permissions, le voyage a probablement été supprimé
+                    if (
+                        error.code === "permission-denied" ||
+                        error.code === "not-found"
+                    ) {
+                        console.log(
+                            "🛑 Erreur permissions voyage - probablement supprimé"
+                        );
+                        callback(null);
+                        return;
+                    }
+
                     callback(null);
                 }
-            });
+            );
 
         return unsubscribe;
     }
@@ -2090,18 +2272,47 @@ class FirebaseService {
     ): { description: string; icon: string; color: string } {
         switch (action) {
             case "checklist_add":
-                return {
-                    description: `${userName} a ajouté "${actionData.title}" à la checklist`,
-                    icon: "checkmark-circle",
-                    color: "#7ED957",
-                };
+                // Gestion des différents types d'actions checklist
+                if (actionData.action === "assigned") {
+                    return {
+                        description: `${userName} a assigné "${actionData.title}" à ${actionData.assignedTo}`,
+                        icon: "person-add",
+                        color: "#3B82F6",
+                    };
+                } else if (actionData.action === "unassigned") {
+                    return {
+                        description: `${userName} a désassigné "${actionData.title}"`,
+                        icon: "person-remove",
+                        color: "#F59E0B",
+                    };
+                } else if (actionData.action === "auto_assigned") {
+                    return {
+                        description: `🤖 ${userName} a réparti automatiquement ${actionData.taskCount} tâches entre ${actionData.memberCount} membres`,
+                        icon: "shuffle",
+                        color: "#8B5CF6",
+                    };
+                } else {
+                    return {
+                        description: `${userName} a ajouté "${actionData.title}" à la checklist`,
+                        icon: "add-circle",
+                        color: "#7ED957",
+                    };
+                }
 
             case "checklist_complete":
-                return {
-                    description: `${userName} a terminé "${actionData.title}"`,
-                    icon: "checkmark-done",
-                    color: "#10B981",
-                };
+                if (actionData.action === "all_completed") {
+                    return {
+                        description: `🎉 ${userName} a terminé la dernière tâche ! CHECKLIST COMPLÈTE ! 🚀`,
+                        icon: "trophy",
+                        color: "#FFD93D",
+                    };
+                } else {
+                    return {
+                        description: `✅ ${userName} a coché "${actionData.title}"`,
+                        icon: "checkmark-done-circle",
+                        color: "#10B981",
+                    };
+                }
 
             case "expense_add":
                 return {
@@ -2170,8 +2381,8 @@ class FirebaseService {
 
             case "checklist_delete":
                 return {
-                    description: `${userName} a supprimé "${actionData.title}" de la checklist`,
-                    icon: "trash",
+                    description: `🗑️ ${userName} a supprimé "${actionData.title}" de la checklist`,
+                    icon: "trash-bin",
                     color: "#EF4444",
                 };
 
@@ -2201,7 +2412,8 @@ class FirebaseService {
     // S'abonner au feed d'activités d'un voyage
     subscribeToActivityFeed(
         tripId: string,
-        callback: (feed: ActivityLogEntry[]) => void
+        callback: (feed: ActivityLogEntry[]) => void,
+        errorHandler?: (error: any) => void
     ): () => void {
         const unsubscribe = this.db
             .collection("activity-feed")
@@ -2224,6 +2436,13 @@ class FirebaseService {
                     callback(activities);
                 },
                 (error) => {
+                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    if (errorHandler) {
+                        errorHandler(error);
+                        return;
+                    }
+
+                    // Comportement par défaut (pour compatibilité)
                     console.error("❌ Erreur écoute activity feed:", error);
 
                     // Si c'est un problème de permissions ou collection inexistante,

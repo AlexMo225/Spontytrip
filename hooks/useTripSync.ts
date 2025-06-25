@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import firebaseService, {
     FirestoreTrip,
@@ -9,6 +9,61 @@ import firebaseService, {
     TripNotes,
 } from "../services/firebaseService";
 import type { ActivityLogEntry } from "../types";
+
+// Store global pour gérer les listeners actifs de tous les voyages
+class TripListenersManager {
+    private static instance: TripListenersManager;
+    private activeListeners: Map<string, { [key: string]: () => void }> =
+        new Map();
+
+    static getInstance(): TripListenersManager {
+        if (!TripListenersManager.instance) {
+            TripListenersManager.instance = new TripListenersManager();
+        }
+        return TripListenersManager.instance;
+    }
+
+    // Enregistrer les listeners d'un voyage
+    registerListeners(
+        tripId: string,
+        listeners: { [key: string]: () => void }
+    ) {
+        this.activeListeners.set(tripId, listeners);
+        console.log(
+            `📋 Listeners enregistrés pour voyage ${tripId}:`,
+            Object.keys(listeners)
+        );
+    }
+
+    // Nettoyer immédiatement tous les listeners d'un voyage
+    cleanupTrip(tripId: string) {
+        const listeners = this.activeListeners.get(tripId);
+        if (listeners) {
+            console.log(
+                `🧹 Nettoyage forcé des listeners pour voyage ${tripId}`
+            );
+            Object.entries(listeners).forEach(([name, unsubscribe]) => {
+                try {
+                    unsubscribe();
+                    console.log(`✅ Listener ${name} nettoyé`);
+                } catch (error) {
+                    console.warn(
+                        `⚠️ Erreur nettoyage listener ${name}:`,
+                        error
+                    );
+                }
+            });
+            this.activeListeners.delete(tripId);
+        }
+    }
+
+    // Supprimer les listeners (lors du unmount normal)
+    removeListeners(tripId: string) {
+        this.activeListeners.delete(tripId);
+    }
+}
+
+const tripListenersManager = TripListenersManager.getInstance();
 
 export interface TripSyncData {
     trip: FirestoreTrip | null;
@@ -34,6 +89,10 @@ export const useTripSync = (tripId: string): TripSyncData => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Flag pour éviter les erreurs multiples
+    const deletionDetectedRef = useRef(false);
+    const cleanupExecutedRef = useRef(false);
+
     // Utiliser useRef pour stocker les unsubscribe functions
     const unsubscribeRefs = useRef<{
         checklist?: () => void;
@@ -44,6 +103,68 @@ export const useTripSync = (tripId: string): TripSyncData => {
         activityFeed?: () => void;
         trip?: () => void;
     }>({});
+
+    // Fonction de nettoyage centralisée pour éviter la duplication
+    const executeCleanup = useCallback(
+        (reason: string) => {
+            if (cleanupExecutedRef.current) {
+                console.log("🛑 Nettoyage déjà exécuté, ignoré");
+                return;
+            }
+
+            cleanupExecutedRef.current = true;
+            console.log(`🧹 Exécution du nettoyage: ${reason}`);
+
+            // Nettoyer via le gestionnaire global
+            tripListenersManager.cleanupTrip(tripId);
+
+            // Nettoyer aussi localement par sécurité
+            Object.values(unsubscribeRefs.current).forEach((unsubscribe) => {
+                if (unsubscribe && typeof unsubscribe === "function") {
+                    try {
+                        unsubscribe();
+                    } catch (error) {
+                        // Supprimer les logs d'erreur pour éviter l'affichage
+                    }
+                }
+            });
+            unsubscribeRefs.current = {};
+
+            // Réinitialiser l'état silencieusement
+            setTrip(null);
+            setChecklist(null);
+            setExpenses(null);
+            setNotes(null);
+            setTripNotes([]);
+            setActivities(null);
+            setActivityFeed([]);
+            setError("Voyage supprimé");
+        },
+        [tripId]
+    );
+
+    // Fonction de détection de suppression pour tous les listeners
+    const createPermissionErrorHandler = useCallback(
+        (listenerName: string) => {
+            return (error: any) => {
+                // Vérifier si c'est une erreur de permissions et si on n'a pas déjà détecté la suppression
+                if (
+                    !deletionDetectedRef.current &&
+                    (error.code === "permission-denied" ||
+                        error.code === "not-found" ||
+                        error.message?.includes("permissions"))
+                ) {
+                    deletionDetectedRef.current = true;
+                    console.log(
+                        `🚨 Suppression détectée via ${listenerName} - nettoyage immédiat`
+                    );
+                    executeCleanup(`Permission denied - ${listenerName}`);
+                }
+                // Ne pas afficher l'erreur - retourner silencieusement
+            };
+        },
+        [executeCleanup]
+    );
 
     useEffect(() => {
         if (!tripId || !user) {
@@ -76,13 +197,14 @@ export const useTripSync = (tripId: string): TripSyncData => {
 
                 setTrip(tripData);
 
-                // 3. S'abonner aux mises à jour temps réel
+                // 3. S'abonner aux mises à jour temps réel avec gestion d'erreurs robuste
                 unsubscribeRefs.current.checklist =
                     firebaseService.subscribeToChecklist(
                         tripId,
                         (checklistData) => {
                             setChecklist(checklistData);
-                        }
+                        },
+                        createPermissionErrorHandler("checklist")
                     );
 
                 unsubscribeRefs.current.expenses =
@@ -90,20 +212,26 @@ export const useTripSync = (tripId: string): TripSyncData => {
                         tripId,
                         (expensesData) => {
                             setExpenses(expensesData);
-                        }
+                        },
+                        createPermissionErrorHandler("expenses")
                     );
 
                 unsubscribeRefs.current.notes =
-                    firebaseService.subscribeToNotes(tripId, (notesData) => {
-                        setNotes(notesData);
-                    });
+                    firebaseService.subscribeToNotes(
+                        tripId,
+                        (notesData) => {
+                            setNotes(notesData);
+                        },
+                        createPermissionErrorHandler("notes")
+                    );
 
                 unsubscribeRefs.current.tripNotes =
                     firebaseService.subscribeToTripNotes(
                         tripId,
                         (tripNotesData) => {
                             setTripNotes(tripNotesData);
-                        }
+                        },
+                        createPermissionErrorHandler("tripNotes")
                     );
 
                 unsubscribeRefs.current.activities =
@@ -111,7 +239,8 @@ export const useTripSync = (tripId: string): TripSyncData => {
                         tripId,
                         (activitiesData) => {
                             setActivities(activitiesData);
-                        }
+                        },
+                        createPermissionErrorHandler("activities")
                     );
 
                 // 4. S'abonner au feed d'activités récentes
@@ -120,16 +249,63 @@ export const useTripSync = (tripId: string): TripSyncData => {
                         tripId,
                         (feedData) => {
                             setActivityFeed(feedData);
-                        }
+                        },
+                        createPermissionErrorHandler("activityFeed")
                     );
 
+                // 5. S'abonner au voyage principal avec gestion des suppressions
                 unsubscribeRefs.current.trip = firebaseService.subscribeToTrip(
                     tripId,
                     (updatedTrip: FirestoreTrip | null) => {
                         if (updatedTrip) {
                             setTrip(updatedTrip);
+                        } else {
+                            // Le voyage a été supprimé - nettoyer immédiatement
+                            console.log(
+                                "⚠️ Voyage supprimé détecté, nettoyage des listeners..."
+                            );
+
+                            // Nettoyer tous les listeners
+                            Object.values(unsubscribeRefs.current).forEach(
+                                (unsubscribe) => {
+                                    if (
+                                        unsubscribe &&
+                                        typeof unsubscribe === "function"
+                                    ) {
+                                        try {
+                                            unsubscribe();
+                                        } catch (error) {
+                                            console.warn(
+                                                "Erreur nettoyage listener:",
+                                                error
+                                            );
+                                        }
+                                    }
+                                }
+                            );
+                            unsubscribeRefs.current = {};
+
+                            // Nettoyer aussi dans le gestionnaire global
+                            tripListenersManager.removeListeners(tripId);
+
+                            // Réinitialiser l'état
+                            setTrip(null);
+                            setChecklist(null);
+                            setExpenses(null);
+                            setNotes(null);
+                            setTripNotes([]);
+                            setActivities(null);
+                            setActivityFeed([]);
+                            setError("Voyage supprimé");
                         }
-                    }
+                    },
+                    createPermissionErrorHandler("trip")
+                );
+
+                // Enregistrer tous les listeners dans le gestionnaire global
+                tripListenersManager.registerListeners(
+                    tripId,
+                    unsubscribeRefs.current
                 );
 
                 setLoading(false);
@@ -144,14 +320,24 @@ export const useTripSync = (tripId: string): TripSyncData => {
 
         // Cleanup function sécurisée
         return () => {
+            console.log("🧹 Nettoyage des listeners pour voyage:", tripId);
+
+            // Nettoyer via le gestionnaire global d'abord
+            tripListenersManager.removeListeners(tripId);
+
+            // Nettoyer aussi localement par sécurité
             Object.values(unsubscribeRefs.current).forEach((unsubscribe) => {
                 if (unsubscribe && typeof unsubscribe === "function") {
-                    unsubscribe();
+                    try {
+                        unsubscribe();
+                    } catch (error) {
+                        console.warn("Erreur nettoyage listener:", error);
+                    }
                 }
             });
             unsubscribeRefs.current = {};
         };
-    }, [tripId, user]);
+    }, [tripId, user, createPermissionErrorHandler]);
 
     return {
         trip,
@@ -447,3 +633,12 @@ const tripRefreshEmitter = new TripRefreshEmitter();
 
 // Exporter l'emitter pour l'utiliser dans d'autres composants
 export { tripRefreshEmitter };
+
+// Exporter le gestionnaire de listeners pour le nettoyage externe
+export { tripListenersManager };
+
+// Fonction utilitaire pour nettoyer immédiatement les listeners d'un voyage
+export const forceCleanupTripListeners = (tripId: string) => {
+    console.log(`🚨 Nettoyage forcé des listeners pour voyage ${tripId}`);
+    tripListenersManager.cleanupTrip(tripId);
+};

@@ -95,3 +95,58 @@ export const CategoryColors = {
     documents: "#BAE1FF",
     other: "#BAFFC9",
 } as const;
+
+// 🎨 Couleurs FUN pour la répartition des tâches
+export const TaskAssignmentColors = {
+    // Couleurs d'avatar pour les membres (rotation automatique)
+    memberAvatars: [
+        "#FF6B9D", // Rose dynamique
+        "#6B73FF", // Bleu électrique
+        "#9FE2BF", // Vert mint
+        "#FFB3BA", // Rose pastel
+        "#BAE1FF", // Bleu ciel
+        "#FFFFBA", // Jaune soleil
+        "#E2CCFF", // Lavande
+        "#BAFFC9", // Vert lime
+        "#FF9F40", // Orange vibrant
+        "#9C88FF", // Violet cosmic
+    ],
+
+    // Couleurs de progression/gamification
+    progress: {
+        empty: "#F0F2F5", // Gris clair
+        low: "#FFB3BA", // Rose léger
+        medium: "#FFFFBA", // Jaune motivant
+        high: "#BAFFC9", // Vert succès
+        complete: "#10B981", // Vert victoire
+    },
+
+    // Couleurs de statut des tâches
+    taskStatus: {
+        pending: "#F59E0B", // Orange en attente
+        accepted: "#3B82F6", // Bleu accepté
+        inProgress: "#8B5CF6", // Violet en cours
+        completed: "#10B981", // Vert terminé
+        overdue: "#EF4444", // Rouge en retard
+    },
+
+    // Couleurs fun pour les badges/récompenses
+    badges: {
+        gold: "#F59E0B", // Or - Top contributeur
+        silver: "#6B7280", // Argent - Bon participaent
+        bronze: "#D97706", // Bronze - Débutant
+        rainbow: "#9C88FF", // Arc-en-ciel - Polyvalent
+        fire: "#FF6B9D", // Feu - Rapide
+        star: "#FFFFBA", // Étoile - Régulier
+    },
+
+    // Dégradés fun pour les cartes de répartition
+    cardGradients: {
+        summer: ["#FFB3BA", "#FFFFBA"], // Été
+        ocean: ["#BAE1FF", "#9FE2BF"], // Océan
+        sunset: ["#FF6B9D", "#E2CCFF"], // Coucher de soleil
+        forest: ["#BAFFC9", "#9FE2BF"], // Forêt
+        cosmic: ["#E2CCFF", "#9C88FF"], // Cosmique
+        energy: ["#6B73FF", "#9FE2BF"], // Énergie
+    },
+} as const;
