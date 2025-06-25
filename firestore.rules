@@ -187,8 +187,12 @@ service cloud.firestore {
         request.resource.data.tripId != null && 
         canAccessTrip(request.resource.data.tripId) &&
         getUserId() == request.resource.data.userId;
-      // Pas de modification ni suppression pour préserver l'historique
-      allow update, delete: if false;
+      // Modification interdite pour préserver l'historique
+      allow update: if false;
+      // Suppression : seulement le créateur du voyage peut supprimer (pour deleteTrip)
+      allow delete: if isAuthenticated() && 
+        resource.data.tripId != null && 
+        isTripCreator(resource.data.tripId);
     }
 
     // ===============================
