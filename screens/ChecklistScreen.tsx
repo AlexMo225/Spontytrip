@@ -7,6 +7,7 @@ import {
     Alert,
     FlatList,
     Modal,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -14,7 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Avatar from "../components/Avatar";
-import { Colors } from "../constants/Colors";
+import ChecklistCelebration from "../components/ChecklistCelebration";
+import { Colors, TaskAssignmentColors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
 import { useTripSync } from "../hooks/useTripSync";
 import { TripMember } from "../services/firebaseService";
@@ -31,6 +33,8 @@ interface Props {
     route: ChecklistScreenRouteProp;
 }
 
+type TabType = "list" | "assignment" | "myTasks";
+
 const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     const { user } = useAuth();
     const { tripId } = route.params;
@@ -38,29 +42,207 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     const [localItems, setLocalItems] = useState<ChecklistItem[]>([]);
     const [assignModalVisible, setAssignModalVisible] = useState(false);
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<TabType>("list");
+    const [showCelebration, setShowCelebration] = useState(false);
+    const [wasCompleted, setWasCompleted] = useState(false);
 
-    // Synchroniser les items locaux avec Firebase
     useEffect(() => {
         if (checklist?.items) {
             setLocalItems(checklist.items);
         }
     }, [checklist]);
 
+    // 🎉 Détection de la complétion à 100% pour déclencher l'animation
+    useEffect(() => {
+        if (localItems.length > 0) {
+            const completedItems = localItems.filter(
+                (item) => item.isCompleted
+            );
+            const isNowCompleted = completedItems.length === localItems.length;
+
+            // Si on passe de pas complété à complété, déclencher l'animation
+            if (isNowCompleted && !wasCompleted) {
+                setShowCelebration(true);
+
+                // 🔥 LOG POUR LE FEED LIVE - Checklist terminée !
+                if (user) {
+                    const logCelebration = async () => {
+                        try {
+                            const firebaseService = (
+                                await import("../services/firebaseService")
+                            ).default;
+                            await firebaseService.logActivity(
+                                tripId,
+                                user.uid,
+                                user.displayName || user.email || "Utilisateur",
+                                "checklist_complete",
+                                {
+                                    title: "🎉 CHECKLIST TERMINÉE ! Toutes les tâches sont cochées !",
+                                    action: "all_completed",
+                                    totalTasks: localItems.length,
+                                }
+                            );
+                        } catch (error) {
+                            console.error("Erreur log célébration:", error);
+                        }
+                    };
+                    logCelebration();
+                }
+            }
+
+            setWasCompleted(isNowCompleted);
+        }
+    }, [localItems, wasCompleted, user, tripId]);
+
+    useEffect(() => {
+        if (
+            (error === "Voyage introuvable" ||
+                error === "Accès non autorisé à ce voyage" ||
+                error === "Voyage supprimé") &&
+            !loading
+        ) {
+            const timer = setTimeout(() => {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainApp" }],
+                });
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [error, navigation, loading]);
+
     const isCreator = trip?.creatorId === user?.uid;
 
-    // Fonction utilitaire pour nettoyer les données Firebase
-    const cleanFirebaseData = (items: any[]) => {
-        return items.map((item) => {
-            const cleanItem: any = {};
+    const getMemberColor = (memberId: string) => {
+        if (!trip?.members) return TaskAssignmentColors.memberAvatars[0];
+        const memberIndex = trip.members.findIndex(
+            (m) => m.userId === memberId
+        );
+        return TaskAssignmentColors.memberAvatars[
+            memberIndex % TaskAssignmentColors.memberAvatars.length
+        ];
+    };
 
-            // Copier tous les champs définis
-            Object.keys(item).forEach((key) => {
-                if (item[key] !== undefined) {
-                    cleanItem[key] = item[key];
-                }
-            });
+    const autoAssignTasks = async () => {
+        if (!trip?.members || trip.members.length === 0) {
+            Alert.alert("Erreur", "Aucun membre dans ce voyage");
+            return;
+        }
 
-            return cleanItem;
+        const unassignedTasks = localItems.filter((item) => !item.assignedTo);
+        if (unassignedTasks.length === 0) {
+            Alert.alert("Info", "Toutes les tâches sont déjà assignées ! 🎉");
+            return;
+        }
+
+        Alert.alert(
+            "🎲 Répartition automatique",
+            `Répartir ${unassignedTasks.length} tâches entre ${trip.members.length} membres ?`,
+            [
+                { text: "Annuler", style: "cancel" },
+                {
+                    text: "🚀 Go !",
+                    onPress: async () => {
+                        try {
+                            const members = trip.members;
+                            const tasksPerMember = Math.floor(
+                                unassignedTasks.length / members.length
+                            );
+                            const extraTasks =
+                                unassignedTasks.length % members.length;
+
+                            let taskIndex = 0;
+                            const updatedItems = [...localItems];
+
+                            members.forEach((member, memberIndex) => {
+                                const tasksToAssign =
+                                    tasksPerMember +
+                                    (memberIndex < extraTasks ? 1 : 0);
+
+                                for (
+                                    let i = 0;
+                                    i < tasksToAssign &&
+                                    taskIndex < unassignedTasks.length;
+                                    i++
+                                ) {
+                                    const taskToUpdate = updatedItems.find(
+                                        (item) =>
+                                            item.id ===
+                                            unassignedTasks[taskIndex].id
+                                    );
+                                    if (taskToUpdate) {
+                                        taskToUpdate.assignedTo = member.userId;
+                                    }
+                                    taskIndex++;
+                                }
+                            });
+
+                            const firebaseService = (
+                                await import("../services/firebaseService")
+                            ).default;
+                            await firebaseService.updateChecklist(
+                                tripId,
+                                updatedItems,
+                                user?.uid || ""
+                            );
+
+                            // 🔥 LOG POUR LE FEED LIVE - Auto-assignation
+                            if (user) {
+                                await firebaseService.logActivity(
+                                    tripId,
+                                    user.uid,
+                                    user.displayName ||
+                                        user.email ||
+                                        "Utilisateur",
+                                    "checklist_add",
+                                    {
+                                        title: `Répartition automatique de ${unassignedTasks.length} tâches`,
+                                        action: "auto_assigned",
+                                        taskCount: unassignedTasks.length,
+                                        memberCount: trip.members.length,
+                                    }
+                                );
+                            }
+
+                            Alert.alert(
+                                "🎉 Succès !",
+                                "Tâches réparties équitablement !"
+                            );
+                        } catch (error) {
+                            Alert.alert(
+                                "Erreur",
+                                "Impossible de répartir les tâches"
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const getTasksByMember = () => {
+        if (!trip?.members) return [];
+
+        return trip.members.map((member) => {
+            const memberTasks = localItems.filter(
+                (item) => item.assignedTo === member.userId
+            );
+            const completedTasks = memberTasks.filter(
+                (item) => item.isCompleted
+            );
+            const progressPercentage =
+                memberTasks.length > 0
+                    ? (completedTasks.length / memberTasks.length) * 100
+                    : 0;
+
+            return {
+                member,
+                tasks: memberTasks,
+                completedTasks: completedTasks.length,
+                totalTasks: memberTasks.length,
+                progressPercentage,
+                color: getMemberColor(member.userId),
+            };
         });
     };
 
@@ -73,14 +255,13 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!canToggle) {
             Alert.alert(
                 "Permission refusée",
-                "Seul le créateur du voyage ou la personne assignée peut modifier cet élément."
+                "Seul le créateur ou la personne assignée peut modifier cet élément."
             );
             return;
         }
 
         const newCompletedState = !item.isCompleted;
 
-        // Optimistic update avec Date actuelle pour l'affichage
         setLocalItems((prev) =>
             prev.map((i) =>
                 i.id === itemId
@@ -99,40 +280,34 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
         );
 
         try {
-            // Mettre à jour dans Firebase avec données nettoyées
             const firebaseService = (
                 await import("../services/firebaseService")
             ).default;
-
             const updatedItems = localItems.map((i) => {
                 if (i.id === itemId) {
                     const updatedItem: any = {
                         ...i,
                         isCompleted: newCompletedState,
                     };
-
                     if (newCompletedState) {
                         updatedItem.completedBy = user?.uid;
                         updatedItem.completedAt = new Date();
                     } else {
-                        // Supprimer les champs au lieu de les mettre à undefined
                         delete updatedItem.completedBy;
                         delete updatedItem.completedAt;
                     }
-
                     return updatedItem;
                 }
                 return i;
             });
 
-            const cleanedItems = cleanFirebaseData(updatedItems);
             await firebaseService.updateChecklist(
                 tripId,
-                cleanedItems,
+                updatedItems,
                 user?.uid || ""
             );
 
-            // Logger l'activité si l'item est complété
+            // 🔥 LOG POUR LE FEED LIVE - Complétion/Décomplétion de tâche
             if (newCompletedState && user) {
                 await firebaseService.logActivity(
                     tripId,
@@ -143,39 +318,16 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 );
             }
         } catch (error) {
-            console.error("Erreur toggle item:", error);
-            // Rollback en cas d'erreur
             if (checklist?.items) {
                 setLocalItems(checklist.items);
             }
         }
     };
 
-    const handleAssignItem = (itemId: string) => {
-        const item = localItems.find((i) => i.id === itemId);
-        if (!item) return;
-
-        // Vérifier les permissions
-        const canAssign = isCreator || !item.assignedTo;
-        const canUnassign = isCreator || item.assignedTo === user?.uid;
-
-        if (!canAssign && !canUnassign) {
-            Alert.alert(
-                "Permission refusée",
-                "Vous ne pouvez pas modifier l'assignation de cet élément."
-            );
-            return;
-        }
-
-        setSelectedItemId(itemId);
-        setAssignModalVisible(true);
-    };
-
     const handleAssignToMember = async (memberId: string | null) => {
         if (!selectedItemId) return;
 
         try {
-            // Optimistic update
             setLocalItems((prev) =>
                 prev.map((i) =>
                     i.id === selectedItemId
@@ -184,81 +336,69 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 )
             );
 
-            // Mettre à jour dans Firebase avec données nettoyées
             const firebaseService = (
                 await import("../services/firebaseService")
             ).default;
             const updatedItems = localItems.map((i) => {
                 if (i.id === selectedItemId) {
                     const updatedItem: any = { ...i };
-
                     if (memberId) {
                         updatedItem.assignedTo = memberId;
                     } else {
-                        // Supprimer le champ au lieu de le mettre à null
                         delete updatedItem.assignedTo;
                     }
-
                     return updatedItem;
                 }
                 return i;
             });
 
-            const cleanedItems = cleanFirebaseData(updatedItems);
             await firebaseService.updateChecklist(
                 tripId,
-                cleanedItems,
+                updatedItems,
                 user?.uid || ""
             );
+
+            // 🔥 LOG POUR LE FEED LIVE - Assignation/Désassignation de tâche
+            if (user) {
+                const item = localItems.find((i) => i.id === selectedItemId);
+                if (item) {
+                    if (memberId) {
+                        // Assignation
+                        const assignedMember = trip?.members.find(
+                            (m) => m.userId === memberId
+                        );
+                        const assignedName = assignedMember?.name || "Membre";
+                        await firebaseService.logActivity(
+                            tripId,
+                            user.uid,
+                            user.displayName || user.email || "Utilisateur",
+                            "checklist_add", // On utilise checklist_add pour l'assignation
+                            {
+                                title: item.title,
+                                assignedTo: assignedName,
+                                action: "assigned",
+                            }
+                        );
+                    } else {
+                        // Désassignation
+                        await firebaseService.logActivity(
+                            tripId,
+                            user.uid,
+                            user.displayName || user.email || "Utilisateur",
+                            "checklist_add", // On utilise checklist_add pour la désassignation
+                            {
+                                title: item.title,
+                                action: "unassigned",
+                            }
+                        );
+                    }
+                }
+            }
 
             setAssignModalVisible(false);
             setSelectedItemId(null);
-
-            // Message de confirmation
-            const actionText = memberId ? "assigné" : "désassigné";
-            Alert.alert("Succès", `Élément ${actionText} avec succès`);
         } catch (error) {
-            console.error("Erreur assignation:", error);
             Alert.alert("Erreur", "Impossible d'assigner l'élément");
-            // Rollback en cas d'erreur
-            if (checklist?.items) {
-                setLocalItems(checklist.items);
-            }
-        }
-    };
-
-    const handleQuickUnassign = async (itemId: string) => {
-        try {
-            // Optimistic update
-            setLocalItems((prev) =>
-                prev.map((i) =>
-                    i.id === itemId ? { ...i, assignedTo: undefined } : i
-                )
-            );
-
-            // Mettre à jour dans Firebase avec données nettoyées
-            const firebaseService = (
-                await import("../services/firebaseService")
-            ).default;
-            const updatedItems = localItems.map((i) => {
-                if (i.id === itemId) {
-                    const updatedItem: any = { ...i };
-                    delete updatedItem.assignedTo;
-                    return updatedItem;
-                }
-                return i;
-            });
-
-            const cleanedItems = cleanFirebaseData(updatedItems);
-            await firebaseService.updateChecklist(
-                tripId,
-                cleanedItems,
-                user?.uid || ""
-            );
-        } catch (error) {
-            console.error("Erreur désassignation:", error);
-            Alert.alert("Erreur", "Impossible de désassigner l'élément");
-            // Rollback en cas d'erreur
             if (checklist?.items) {
                 setLocalItems(checklist.items);
             }
@@ -266,130 +406,59 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleDeleteItem = async (itemId: string) => {
-        if (!isCreator) {
-            Alert.alert(
-                "Permission refusée",
-                "Seul le créateur du voyage peut supprimer des éléments."
-            );
-            return;
-        }
+        Alert.alert("Supprimer l'élément", "Êtes-vous sûr ?", [
+            { text: "Annuler", style: "cancel" },
+            {
+                text: "Supprimer",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        const itemToDelete = localItems.find(
+                            (item) => item.id === itemId
+                        );
+                        const updatedItems = localItems.filter(
+                            (item) => item.id !== itemId
+                        );
+                        setLocalItems(updatedItems);
 
-        Alert.alert(
-            "Supprimer l'élément",
-            "Êtes-vous sûr de vouloir supprimer cet élément ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        // Optimistic update
-                        setLocalItems((prev) =>
-                            prev.filter((i) => i.id !== itemId)
+                        const firebaseService = (
+                            await import("../services/firebaseService")
+                        ).default;
+                        await firebaseService.updateChecklist(
+                            tripId,
+                            updatedItems,
+                            user?.uid || ""
                         );
 
-                        try {
-                            // Trouver l'élément pour récupérer son titre
-                            const itemToDelete = localItems.find(
-                                (i) => i.id === itemId
-                            );
-
-                            // Supprimer dans Firebase
-                            const firebaseService = (
-                                await import("../services/firebaseService")
-                            ).default;
-                            const updatedItems = localItems.filter(
-                                (i) => i.id !== itemId
-                            );
-                            await firebaseService.updateChecklist(
+                        // 🔥 LOG POUR LE FEED LIVE - Suppression de tâche
+                        if (user && itemToDelete) {
+                            await firebaseService.logActivity(
                                 tripId,
-                                updatedItems,
-                                user?.uid || ""
+                                user.uid,
+                                user.displayName || user.email || "Utilisateur",
+                                "checklist_delete",
+                                { title: itemToDelete.title }
                             );
-
-                            // Logger l'activité de suppression
-                            if (itemToDelete) {
-                                try {
-                                    await firebaseService.retryLogActivity(
-                                        tripId,
-                                        user?.uid || "",
-                                        user?.displayName ||
-                                            user?.email ||
-                                            "Utilisateur",
-                                        "checklist_delete",
-                                        { title: itemToDelete.title }
-                                    );
-                                } catch (logError) {
-                                    console.error(
-                                        "Erreur logging suppression checklist:",
-                                        logError
-                                    );
-                                }
-                            }
-                        } catch (error) {
-                            console.error("Erreur suppression item:", error);
-                            // Rollback en cas d'erreur
-                            if (checklist?.items) {
-                                setLocalItems(checklist.items);
-                            }
                         }
-                    },
+                    } catch (error) {
+                        if (checklist?.items) {
+                            setLocalItems(checklist.items);
+                        }
+                    }
                 },
-            ]
-        );
+            },
+        ]);
     };
 
     const getItemsByCategory = () => {
         const categories = [
-            {
-                id: "essentials",
-                name: "Essentiels",
-                icon: "bag",
-                color: "#7ED957",
-            },
-            {
-                id: "documents",
-                name: "Documents",
-                icon: "document-text",
-                color: "#4DA1A9",
-            },
-            {
-                id: "clothes",
-                name: "Vêtements",
-                icon: "shirt",
-                color: "#32CD32",
-            },
-            {
-                id: "toiletries",
-                name: "Toilette",
-                icon: "water",
-                color: "#FFD93D",
-            },
-            {
-                id: "electronics",
-                name: "Électronique",
-                icon: "phone-portrait",
-                color: "#FF6B6B",
-            },
-            {
-                id: "beach",
-                name: "Plage & Soleil",
-                icon: "sunny",
-                color: "#FF9500",
-            },
-            { id: "health", name: "Santé", icon: "medical", color: "#9B59B6" },
-            {
-                id: "activities",
-                name: "Activités",
-                icon: "camera",
-                color: "#FF8C00",
-            },
-            {
-                id: "other",
-                name: "Autre",
-                icon: "ellipsis-horizontal",
-                color: "#95A5A6",
-            },
+            { id: "transport", name: "🚗 Transport", color: "#6B73FF" },
+            { id: "accommodation", name: "🏨 Hébergement", color: "#9FE2BF" },
+            { id: "activities", name: "🎯 Activités", color: "#FF6B9D" },
+            { id: "food", name: "🍽️ Nourriture", color: "#FFFFBA" },
+            { id: "shopping", name: "🛍️ Shopping", color: "#E2CCFF" },
+            { id: "documents", name: "📄 Documents", color: "#BAE1FF" },
+            { id: "other", name: "📦 Autre", color: "#BAFFC9" },
         ];
 
         return categories
@@ -415,246 +484,439 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     const getAssignmentStats = () => {
         const assigned = localItems.filter((item) => item.assignedTo).length;
         const unassigned = localItems.length - assigned;
-        const myCompleted = localItems.filter(
-            (item) => item.assignedTo === user?.uid && item.isCompleted
-        ).length;
-
-        return { assigned, unassigned, myCompleted };
+        return { assigned, unassigned };
     };
 
-    const renderItem = ({ item }: { item: ChecklistItem }) => {
-        const canToggle =
-            isCreator || !item.assignedTo || item.assignedTo === user?.uid;
-        const assignedMember = trip?.members.find(
-            (m: TripMember) => m.userId === item.assignedTo
-        );
-        const canAssign = isCreator || !item.assignedTo;
-        const canUnassign = isCreator || item.assignedTo === user?.uid;
+    // Composants de rendu
+    const TabBar = () => (
+        <View style={styles.tabBar}>
+            <TouchableOpacity
+                style={[styles.tab, activeTab === "list" && styles.activeTab]}
+                onPress={() => setActiveTab("list")}
+            >
+                <Ionicons
+                    name="list"
+                    size={18}
+                    color={
+                        activeTab === "list"
+                            ? Colors.white
+                            : Colors.text.secondary
+                    }
+                />
+                <Text
+                    style={[
+                        styles.tabText,
+                        activeTab === "list" && styles.activeTabText,
+                    ]}
+                >
+                    Liste
+                </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[
+                    styles.tab,
+                    activeTab === "assignment" && styles.activeTab,
+                ]}
+                onPress={() => setActiveTab("assignment")}
+            >
+                <Ionicons
+                    name="people"
+                    size={18}
+                    color={
+                        activeTab === "assignment"
+                            ? Colors.white
+                            : Colors.text.secondary
+                    }
+                />
+                <Text
+                    style={[
+                        styles.tabText,
+                        activeTab === "assignment" && styles.activeTabText,
+                    ]}
+                >
+                    Répartition
+                </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[
+                    styles.tab,
+                    activeTab === "myTasks" && styles.activeTab,
+                ]}
+                onPress={() => setActiveTab("myTasks")}
+            >
+                <Ionicons
+                    name="person"
+                    size={18}
+                    color={
+                        activeTab === "myTasks"
+                            ? Colors.white
+                            : Colors.text.secondary
+                    }
+                />
+                <Text
+                    style={[
+                        styles.tabText,
+                        activeTab === "myTasks" && styles.activeTabText,
+                    ]}
+                >
+                    Mes Tâches
+                </Text>
+            </TouchableOpacity>
+        </View>
+    );
+
+    const AssignmentView = () => {
+        const tasksByMember = getTasksByMember();
+        const unassignedTasks = localItems.filter((item) => !item.assignedTo);
 
         return (
-            <View style={styles.itemContainer}>
-                <TouchableOpacity
-                    style={[
-                        styles.checkbox,
-                        item.isCompleted && styles.checkboxChecked,
-                        !canToggle && styles.checkboxDisabled,
-                    ]}
-                    onPress={() => canToggle && handleToggleItem(item.id)}
-                    disabled={!canToggle}
-                >
-                    {item.isCompleted && (
-                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                    )}
-                </TouchableOpacity>
-
-                <View style={styles.itemContent}>
-                    <Text
-                        style={[
-                            styles.itemTitle,
-                            item.isCompleted && styles.itemTitleChecked,
-                        ]}
-                    >
-                        {item.title}
+            <ScrollView
+                style={styles.assignmentContainer}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.assignmentHeader}>
+                    <Text style={styles.assignmentTitle}>
+                        🎯 Répartition des Tâches
                     </Text>
-
-                    {/* Indicateur de qui a coché et quand */}
-                    {item.isCompleted && item.completedBy && (
-                        <View style={styles.completedInfo}>
-                            <Ionicons
-                                name="checkmark-circle"
-                                size={12}
-                                color="#7ED957"
-                            />
-                            <Text style={styles.completedText}>
-                                Coché par{" "}
-                                {item.completedBy === user?.uid
-                                    ? "vous"
-                                    : trip?.members.find(
-                                          (m: TripMember) =>
-                                              m.userId === item.completedBy
-                                      )?.name ||
-                                      trip?.members.find(
-                                          (m: TripMember) =>
-                                              m.userId === item.completedBy
-                                      )?.email ||
-                                      "un membre"}
-                                {item.completedAt &&
-                                    (() => {
-                                        try {
-                                            let date: Date;
-
-                                            // Gérer les différents formats de date
-                                            if (
-                                                item.completedAt instanceof Date
-                                            ) {
-                                                date = item.completedAt;
-                                            } else if (
-                                                typeof item.completedAt ===
-                                                "string"
-                                            ) {
-                                                date = new Date(
-                                                    item.completedAt
-                                                );
-                                            } else if (
-                                                typeof item.completedAt ===
-                                                "number"
-                                            ) {
-                                                date = new Date(
-                                                    item.completedAt
-                                                );
-                                            } else if (
-                                                item.completedAt &&
-                                                typeof item.completedAt ===
-                                                    "object" &&
-                                                "toDate" in item.completedAt
-                                            ) {
-                                                // Timestamp Firestore
-                                                date = (
-                                                    item.completedAt as any
-                                                ).toDate();
-                                            } else {
-                                                return "";
-                                            }
-
-                                            // Vérifier que la date est valide
-                                            if (isNaN(date.getTime())) {
-                                                return "";
-                                            }
-
-                                            return ` le ${date.toLocaleDateString(
-                                                "fr-FR",
-                                                {
-                                                    day: "2-digit",
-                                                    month: "2-digit",
-                                                }
-                                            )} à ${date.toLocaleTimeString(
-                                                "fr-FR",
-                                                {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                }
-                                            )}`;
-                                        } catch (error) {
-                                            console.log(
-                                                "Erreur formatage date:",
-                                                error
-                                            );
-                                            return "";
-                                        }
-                                    })()}
-                            </Text>
-                        </View>
-                    )}
-
-                    {/* Assignation Section */}
-                    <View style={styles.assignmentSection}>
-                        {assignedMember ? (
-                            <View style={styles.assignedContainer}>
-                                <Avatar
-                                    size={20}
-                                    imageUrl={assignedMember.avatar}
-                                    style={styles.assignedAvatar}
-                                />
-                                <Text style={styles.assignedText}>
-                                    {assignedMember.userId === user?.uid
-                                        ? "Vous"
-                                        : assignedMember.name ||
-                                          assignedMember.email ||
-                                          "Membre"}
-                                </Text>
-
-                                {/* Bouton de désassignation */}
-                                {canUnassign && (
-                                    <TouchableOpacity
-                                        style={styles.unassignButton}
-                                        onPress={() =>
-                                            handleQuickUnassign(item.id)
-                                        }
-                                    >
-                                        <Ionicons
-                                            name="close-circle"
-                                            size={16}
-                                            color="#6B7280"
-                                        />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        ) : (
-                            /* Bouton d'assignation pour éléments non assignés */
-                            canAssign && (
-                                <TouchableOpacity
-                                    style={styles.assignButton}
-                                    onPress={() => handleAssignItem(item.id)}
-                                >
-                                    <Ionicons
-                                        name="person-add-outline"
-                                        size={16}
-                                        color="#7ED957"
-                                    />
-                                    <Text style={styles.assignButtonText}>
-                                        S'assigner
-                                    </Text>
-                                </TouchableOpacity>
-                            )
-                        )}
-                    </View>
-                </View>
-
-                {/* Actions du créateur */}
-                <View style={styles.itemActions}>
-                    {/* Bouton de réassignation pour le créateur */}
-                    {isCreator && assignedMember && (
-                        <TouchableOpacity
-                            style={styles.reassignButton}
-                            onPress={() => handleAssignItem(item.id)}
-                        >
-                            <Ionicons
-                                name="swap-horizontal"
-                                size={16}
-                                color="#4DA1A9"
-                            />
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Bouton de suppression pour le créateur */}
                     {isCreator && (
                         <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteItem(item.id)}
+                            style={styles.autoAssignButton}
+                            onPress={autoAssignTasks}
                         >
                             <Ionicons
-                                name="trash-outline"
+                                name="shuffle"
                                 size={16}
-                                color="#FF6B6B"
+                                color={Colors.white}
                             />
+                            <Text style={styles.autoAssignText}>Auto</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {tasksByMember.map((item) => (
+                    <View
+                        key={item.member.userId}
+                        style={[
+                            styles.memberCard,
+                            { borderLeftColor: item.color },
+                        ]}
+                    >
+                        <View style={styles.memberHeader}>
+                            <Avatar
+                                size={40}
+                                imageUrl={item.member.avatar}
+                                backgroundColor={item.color}
+                            />
+                            <View style={styles.memberDetails}>
+                                <Text style={styles.memberName}>
+                                    {item.member.name}
+                                </Text>
+                                <Text style={styles.memberStats}>
+                                    {item.completedTasks}/{item.totalTasks}{" "}
+                                    tâches
+                                </Text>
+                            </View>
+                            <Text style={styles.progressPercentage}>
+                                {Math.round(item.progressPercentage)}%
+                            </Text>
+                        </View>
+
+                        <View style={styles.progressBar}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    {
+                                        width: `${item.progressPercentage}%`,
+                                        backgroundColor:
+                                            item.progressPercentage === 100
+                                                ? TaskAssignmentColors.progress
+                                                      .complete
+                                                : item.progressPercentage >= 75
+                                                ? TaskAssignmentColors.progress
+                                                      .high
+                                                : item.progressPercentage >= 50
+                                                ? TaskAssignmentColors.progress
+                                                      .medium
+                                                : TaskAssignmentColors.progress
+                                                      .low,
+                                    },
+                                ]}
+                            />
+                        </View>
+
+                        {item.tasks.length > 0 && (
+                            <View style={styles.tasksList}>
+                                {item.tasks.slice(0, 3).map((task) => (
+                                    <View
+                                        key={task.id}
+                                        style={styles.taskPreview}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                task.isCompleted
+                                                    ? "checkmark-circle"
+                                                    : "ellipse-outline"
+                                            }
+                                            size={16}
+                                            color={
+                                                task.isCompleted
+                                                    ? TaskAssignmentColors
+                                                          .taskStatus.completed
+                                                    : TaskAssignmentColors
+                                                          .taskStatus.pending
+                                            }
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.taskPreviewText,
+                                                task.isCompleted &&
+                                                    styles.completedTaskText,
+                                            ]}
+                                        >
+                                            {task.title}
+                                        </Text>
+                                    </View>
+                                ))}
+                                {item.tasks.length > 3 && (
+                                    <Text style={styles.moreTasksText}>
+                                        +{item.tasks.length - 3} autres
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+
+                        {item.tasks.length === 0 && (
+                            <Text style={styles.noTasksText}>
+                                Aucune tâche assignée
+                            </Text>
+                        )}
+                    </View>
+                ))}
+
+                {unassignedTasks.length > 0 && (
+                    <View style={styles.unassignedContainer}>
+                        <Text style={styles.unassignedTitle}>
+                            📋 Tâches non assignées ({unassignedTasks.length})
+                        </Text>
+                        {unassignedTasks.map((task) => (
+                            <View key={task.id} style={styles.unassignedTask}>
+                                <Text style={styles.unassignedTaskText}>
+                                    {task.title}
+                                </Text>
+                                <TouchableOpacity
+                                    style={styles.assignButton}
+                                    onPress={() => {
+                                        setSelectedItemId(task.id);
+                                        setAssignModalVisible(true);
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="person-add"
+                                        size={16}
+                                        color={Colors.primary}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </ScrollView>
+        );
+    };
+
+    const MyTasksView = () => {
+        const myTasks = getMyTasks();
+        const completedTasks = myTasks.filter((item) => item.isCompleted);
+        const progressPercentage =
+            myTasks.length > 0
+                ? (completedTasks.length / myTasks.length) * 100
+                : 0;
+
+        return (
+            <View style={styles.myTasksContainer}>
+                <View style={styles.myTasksHeader}>
+                    <Text style={styles.myTasksTitle}>🎯 Mes Tâches</Text>
+                    <Text style={styles.myTasksStats}>
+                        {completedTasks.length}/{myTasks.length} terminées (
+                        {Math.round(progressPercentage)}%)
+                    </Text>
+                </View>
+
+                {myTasks.length === 0 ? (
+                    <View style={styles.noMyTasksContainer}>
+                        <Ionicons
+                            name="checkmark-done-circle-outline"
+                            size={80}
+                            color={Colors.text.muted}
+                        />
+                        <Text style={styles.noMyTasksTitle}>
+                            Aucune tâche assignée
+                        </Text>
+                        <Text style={styles.noMyTasksSubtitle}>
+                            Demandez au créateur du voyage de vous en assigner !
+                            😊
+                        </Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={myTasks}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={false}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={[
+                                    styles.myTaskItem,
+                                    item.isCompleted &&
+                                        styles.completedTaskItem,
+                                ]}
+                                onPress={() => handleToggleItem(item.id)}
+                            >
+                                <Ionicons
+                                    name={
+                                        item.isCompleted
+                                            ? "checkmark-circle"
+                                            : "ellipse-outline"
+                                    }
+                                    size={24}
+                                    color={
+                                        item.isCompleted
+                                            ? TaskAssignmentColors.taskStatus
+                                                  .completed
+                                            : TaskAssignmentColors.taskStatus
+                                                  .pending
+                                    }
+                                />
+                                <Text
+                                    style={[
+                                        styles.myTaskText,
+                                        item.isCompleted &&
+                                            styles.completedTaskText,
+                                    ]}
+                                >
+                                    {item.title}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                )}
+            </View>
+        );
+    };
+
+    const renderItem = ({ item }: { item: ChecklistItem }) => (
+        <View style={styles.item}>
+            <TouchableOpacity
+                style={styles.itemCheckbox}
+                onPress={() => handleToggleItem(item.id)}
+            >
+                <Ionicons
+                    name={
+                        item.isCompleted
+                            ? "checkmark-circle"
+                            : "ellipse-outline"
+                    }
+                    size={24}
+                    color={item.isCompleted ? "#10B981" : "#D1D5DB"}
+                />
+            </TouchableOpacity>
+
+            <View style={styles.itemContent}>
+                <Text
+                    style={[
+                        styles.itemTitle,
+                        item.isCompleted && styles.itemTitleChecked,
+                    ]}
+                >
+                    {item.title}
+                </Text>
+
+                <View style={styles.assignmentSection}>
+                    {item.assignedTo ? (
+                        <View style={styles.assignedContainer}>
+                            <Avatar
+                                size={20}
+                                imageUrl={
+                                    trip?.members.find(
+                                        (m) => m.userId === item.assignedTo
+                                    )?.avatar
+                                }
+                                backgroundColor={getMemberColor(
+                                    item.assignedTo
+                                )}
+                            />
+                            <Text style={styles.assignedText}>
+                                {item.assignedTo === user?.uid
+                                    ? "Vous"
+                                    : trip?.members.find(
+                                          (m) => m.userId === item.assignedTo
+                                      )?.name || "Membre"}
+                            </Text>
+                            {(isCreator || item.assignedTo === user?.uid) && (
+                                <TouchableOpacity
+                                    style={styles.unassignButton}
+                                    onPress={() => {
+                                        setSelectedItemId(item.id);
+                                        setAssignModalVisible(true);
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="create-outline"
+                                        size={16}
+                                        color="#EF4444"
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.assignButtonInline}
+                            onPress={() => {
+                                setSelectedItemId(item.id);
+                                setAssignModalVisible(true);
+                            }}
+                        >
+                            <Ionicons
+                                name="person-add-outline"
+                                size={16}
+                                color="#7ED957"
+                            />
+                            <Text style={styles.assignButtonText}>
+                                Assigner
+                            </Text>
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
-        );
-    };
+
+            <View style={styles.itemActions}>
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteItem(item.id)}
+                >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
 
     const renderCategorySection = ({ item: category }: any) => (
         <View style={styles.categorySection}>
-            <View style={styles.categoryHeader}>
-                <View
-                    style={[
-                        styles.categoryIcon,
-                        { backgroundColor: `${category.color}20` },
-                    ]}
-                >
-                    <Ionicons
-                        name={category.icon}
-                        size={20}
-                        color={category.color}
-                    />
-                </View>
-                <Text style={styles.categoryTitle}>{category.name}</Text>
+            <View
+                style={[
+                    styles.categoryHeader,
+                    { backgroundColor: category.color + "20" },
+                ]}
+            >
+                <Text style={[styles.categoryTitle, { color: category.color }]}>
+                    {category.name}
+                </Text>
                 <Text style={styles.categoryCount}>
-                    ({category.items.length})
+                    {category.items.length} élément
+                    {category.items.length > 1 ? "s" : ""}
                 </Text>
             </View>
-
             <FlatList
                 data={category.items}
                 renderItem={renderItem}
@@ -664,51 +926,68 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
     );
 
-    if (loading) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#7ED957" />
-                    <Text style={styles.loadingText}>
-                        Chargement de la checklist...
-                    </Text>
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    if (error || !trip) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.errorContainer}>
-                    <Ionicons
-                        name="alert-circle-outline"
-                        size={64}
-                        color="#FF6B6B"
+    const renderActiveTab = () => {
+        switch (activeTab) {
+            case "assignment":
+                return <AssignmentView />;
+            case "myTasks":
+                return <MyTasksView />;
+            case "list":
+            default:
+                const categorizedItems = getItemsByCategory();
+                return categorizedItems.length > 0 ? (
+                    <FlatList
+                        data={categorizedItems}
+                        renderItem={renderCategorySection}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.listContainer}
+                        showsVerticalScrollIndicator={false}
                     />
-                    <Text style={styles.errorTitle}>Erreur</Text>
-                    <Text style={styles.errorText}>
-                        {error || "Impossible de charger la checklist"}
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Text style={styles.retryButtonText}>Retour</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        );
-    }
+                ) : (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons
+                            name="checkbox-outline"
+                            size={64}
+                            color="#E5E5E5"
+                        />
+                        <Text style={styles.emptyTitle}>Aucun élément</Text>
+                        <Text style={styles.emptyText}>
+                            Commencez par ajouter des éléments à votre checklist
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.emptyButton}
+                            onPress={() =>
+                                navigation.navigate("AddChecklistItem", {
+                                    tripId,
+                                })
+                            }
+                        >
+                            <Text style={styles.emptyButtonText}>
+                                Ajouter un élément
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                );
+        }
+    };
 
-    const categorizedItems = getItemsByCategory();
     const progress = calculateProgress();
     const myTasks = getMyTasks();
     const assignmentStats = getAssignmentStats();
 
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                    <Text style={styles.loadingText}>Chargement...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -720,18 +999,17 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                         color={Colors.textPrimary}
                     />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Checklist</Text>
+                <Text style={styles.headerTitle}>✅ Checklist</Text>
                 <TouchableOpacity
                     style={styles.addButton}
                     onPress={() =>
                         navigation.navigate("AddChecklistItem", { tripId })
                     }
                 >
-                    <Ionicons name="add" size={24} color="#7ED957" />
+                    <Ionicons name="add" size={24} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
 
-            {/* Stats */}
             <View style={styles.statsContainer}>
                 <View style={styles.statCard}>
                     <Text style={styles.statNumber}>{progress}%</Text>
@@ -755,50 +1033,24 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
             </View>
 
-            {/* Progress Bar */}
             <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
+                <View style={styles.progressBarContainer}>
                     <View
-                        style={[styles.progressFill, { width: `${progress}%` }]}
+                        style={[
+                            styles.progressFillMain,
+                            { width: `${progress}%` },
+                        ]}
                     />
                 </View>
-                <Text style={styles.progressText}>{progress}% terminé</Text>
+                <Text style={styles.progressText}>
+                    {progress}% terminé {progress === 100 ? "🎉" : "💪"}
+                </Text>
             </View>
 
-            {/* Items List */}
-            {categorizedItems.length > 0 ? (
-                <FlatList
-                    data={categorizedItems}
-                    renderItem={renderCategorySection}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContainer}
-                    showsVerticalScrollIndicator={false}
-                />
-            ) : (
-                <View style={styles.emptyContainer}>
-                    <Ionicons
-                        name="checkbox-outline"
-                        size={64}
-                        color="#E5E5E5"
-                    />
-                    <Text style={styles.emptyTitle}>Aucun élément</Text>
-                    <Text style={styles.emptyText}>
-                        Commencez par ajouter des éléments à votre checklist
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.emptyButton}
-                        onPress={() =>
-                            navigation.navigate("AddChecklistItem", { tripId })
-                        }
-                    >
-                        <Text style={styles.emptyButtonText}>
-                            Ajouter un élément
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
+            <TabBar />
 
-            {/* Assign Modal */}
+            <View style={styles.tabContent}>{renderActiveTab()}</View>
+
             <Modal
                 visible={assignModalVisible}
                 animationType="slide"
@@ -824,74 +1076,58 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                         </View>
 
                         <View style={styles.membersList}>
-                            {/* Option "Personne" pour désassigner */}
                             <TouchableOpacity
-                                style={[
-                                    styles.memberOption,
-                                    styles.unassignOption,
-                                ]}
+                                style={styles.memberOption}
                                 onPress={() => handleAssignToMember(null)}
                             >
-                                <View style={styles.unassignIcon}>
-                                    <Ionicons
-                                        name="person-remove-outline"
-                                        size={20}
-                                        color="#6B7280"
-                                    />
-                                </View>
+                                <Ionicons
+                                    name="person-remove-outline"
+                                    size={20}
+                                    color="#6B7280"
+                                />
                                 <Text style={styles.unassignText}>
                                     Personne (désassigner)
                                 </Text>
                             </TouchableOpacity>
 
-                            {/* Liste des membres */}
-                            {trip?.members.map((member: TripMember) => {
-                                const isCurrentlyAssigned =
-                                    localItems.find(
-                                        (item) => item.id === selectedItemId
-                                    )?.assignedTo === member.userId;
-
-                                return (
-                                    <TouchableOpacity
-                                        key={member.userId}
-                                        style={[
-                                            styles.memberOption,
-                                            isCurrentlyAssigned &&
-                                                styles.memberOptionSelected,
-                                        ]}
-                                        onPress={() =>
-                                            handleAssignToMember(member.userId)
-                                        }
-                                    >
-                                        <Avatar
-                                            size={32}
-                                            imageUrl={member.avatar}
-                                            style={styles.memberModalAvatar}
-                                        />
-                                        <View style={styles.memberInfo}>
-                                            <Text style={styles.memberName}>
-                                                {member.userId === user?.uid
-                                                    ? "Vous"
-                                                    : member.name || "Membre"}
-                                            </Text>
-                                            <Text style={styles.memberEmail}>
-                                                {member.email}
-                                            </Text>
-                                        </View>
-                                        {isCurrentlyAssigned && (
-                                            <Ionicons
-                                                name="checkmark-circle"
-                                                size={20}
-                                                color="#7ED957"
-                                            />
+                            {trip?.members.map((member: TripMember) => (
+                                <TouchableOpacity
+                                    key={member.userId}
+                                    style={styles.memberOption}
+                                    onPress={() =>
+                                        handleAssignToMember(member.userId)
+                                    }
+                                >
+                                    <Avatar
+                                        size={32}
+                                        imageUrl={member.avatar}
+                                        backgroundColor={getMemberColor(
+                                            member.userId
                                         )}
-                                    </TouchableOpacity>
-                                );
-                            })}
+                                    />
+                                    <View style={styles.memberInfo}>
+                                        <Text style={styles.memberName}>
+                                            {member.userId === user?.uid
+                                                ? "Vous"
+                                                : member.name}
+                                        </Text>
+                                        <Text style={styles.memberEmail}>
+                                            {member.email}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
                         </View>
                     </View>
                 </View>
             </Modal>
+
+            {/* 🎉 Animation de célébration synchronisée */}
+            <ChecklistCelebration
+                visible={showCelebration}
+                onHide={() => setShowCelebration(false)}
+                tripTitle={trip?.title}
+            />
         </SafeAreaView>
     );
 };
@@ -899,69 +1135,50 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#F8F9FA",
+        backgroundColor: Colors.backgroundColors.primary,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#F8F9FA",
     },
     loadingText: {
         marginTop: 16,
         fontSize: 16,
-        color: "#637887",
-        fontFamily: "Inter_400Regular",
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 32,
-        backgroundColor: "#F8F9FA",
-    },
-    errorTitle: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "#FF6B6B",
-        marginTop: 16,
-        marginBottom: 8,
-        fontFamily: "Inter_600SemiBold",
-    },
-    errorText: {
-        fontSize: 16,
-        color: "#637887",
-        textAlign: "center",
-        marginBottom: 24,
-        fontFamily: "Inter_400Regular",
-    },
-    retryButton: {
-        backgroundColor: "#7ED957",
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    retryButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-        fontFamily: "Inter_600SemiBold",
+        color: Colors.text.secondary,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        backgroundColor: "#F8F9FA",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: Colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: Colors.border,
     },
     backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "#FFFFFF",
-        justifyContent: "center",
+        padding: 8,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: Colors.text.primary,
+    },
+    addButton: {
+        padding: 8,
+    },
+    statsContainer: {
+        flexDirection: "row",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 8,
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        padding: 12,
         alignItems: "center",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -969,145 +1186,333 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: "600",
-        color: "#1F2937",
-        flex: 1,
-        textAlign: "center",
-        marginHorizontal: 16,
-        fontFamily: "Inter_600SemiBold",
-    },
-    addButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "#7ED957",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    statsContainer: {
-        flexDirection: "row",
-        paddingHorizontal: 20,
-        paddingVertical: 20,
-        gap: 12,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 12,
-        padding: 16,
-        alignItems: "center",
-        marginHorizontal: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
     statNumber: {
-        fontSize: 28,
+        fontSize: 20,
         fontWeight: "700",
-        color: "#1F2937",
+        color: Colors.text.primary,
         marginBottom: 4,
-        fontFamily: "Inter_700Bold",
     },
     statLabel: {
-        fontSize: 14,
-        color: "#6B7280",
-        fontFamily: "Inter_400Regular",
+        fontSize: 12,
+        color: Colors.text.secondary,
+        textAlign: "center",
     },
     progressContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 24,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
-    progressBar: {
+    progressBarContainer: {
         height: 8,
-        backgroundColor: "#E5E7EB",
+        backgroundColor: Colors.backgroundColors.secondary,
         borderRadius: 4,
         overflow: "hidden",
         marginBottom: 8,
     },
-    progressFill: {
+    progressFillMain: {
         height: "100%",
-        backgroundColor: "#7ED957",
+        backgroundColor: Colors.primary,
         borderRadius: 4,
     },
     progressText: {
         fontSize: 14,
-        color: "#6B7280",
+        fontWeight: "600",
+        color: Colors.text.secondary,
         textAlign: "center",
-        fontFamily: "Inter_500Medium",
+    },
+    tabBar: {
+        flexDirection: "row",
+        backgroundColor: Colors.white,
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 12,
+        padding: 4,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    tab: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+    },
+    activeTab: {
+        backgroundColor: Colors.primary,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: "500",
+        marginLeft: 6,
+        color: Colors.text.secondary,
+    },
+    activeTabText: {
+        color: Colors.white,
+        fontWeight: "600",
+    },
+    tabContent: {
+        flex: 1,
+        paddingHorizontal: 16,
+    },
+    assignmentContainer: {
+        flex: 1,
+    },
+    assignmentHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    assignmentTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        color: Colors.text.primary,
+    },
+    autoAssignButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 16,
+    },
+    autoAssignText: {
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: "600",
+        marginLeft: 6,
+    },
+    memberCard: {
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        borderLeftWidth: 4,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    memberHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    memberDetails: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    memberName: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: Colors.text.primary,
+        marginBottom: 2,
+    },
+    memberStats: {
+        fontSize: 13,
+        color: Colors.text.secondary,
+    },
+    progressPercentage: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: Colors.text.primary,
+    },
+    progressBar: {
+        height: 6,
+        backgroundColor: Colors.backgroundColors.secondary,
+        borderRadius: 3,
+        overflow: "hidden",
+        marginBottom: 12,
+    },
+    progressFill: {
+        height: "100%",
+        borderRadius: 3,
+    },
+    tasksList: {
+        gap: 4,
+    },
+    taskPreview: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        backgroundColor: Colors.backgroundColors.secondary,
+        borderRadius: 6,
+    },
+    taskPreviewText: {
+        fontSize: 13,
+        color: Colors.text.primary,
+        marginLeft: 8,
+        flex: 1,
+    },
+    completedTaskText: {
+        textDecorationLine: "line-through",
+        color: Colors.text.muted,
+    },
+    moreTasksText: {
+        fontSize: 12,
+        color: Colors.text.muted,
+        fontStyle: "italic",
+        textAlign: "center",
+        marginTop: 4,
+    },
+    noTasksText: {
+        fontSize: 13,
+        color: Colors.text.muted,
+        fontStyle: "italic",
+        textAlign: "center",
+        paddingVertical: 8,
+    },
+    unassignedContainer: {
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 16,
+        borderLeftWidth: 4,
+        borderLeftColor: TaskAssignmentColors.taskStatus.pending,
+    },
+    unassignedTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: Colors.text.primary,
+        marginBottom: 12,
+    },
+    unassignedTask: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: Colors.backgroundColors.secondary,
+        borderRadius: 8,
+        marginBottom: 8,
+    },
+    unassignedTaskText: {
+        fontSize: 14,
+        color: Colors.text.primary,
+        flex: 1,
+        marginRight: 12,
+    },
+    assignButton: {
+        padding: 8,
+        borderRadius: 6,
+        backgroundColor: Colors.backgroundColors.primary,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+    },
+    myTasksContainer: {
+        flex: 1,
+    },
+    myTasksHeader: {
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    myTasksTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        color: Colors.text.primary,
+        marginBottom: 4,
+    },
+    myTasksStats: {
+        fontSize: 14,
+        color: Colors.text.secondary,
+    },
+    noMyTasksContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 40,
+    },
+    noMyTasksTitle: {
+        fontSize: 20,
+        fontWeight: "600",
+        color: Colors.text.primary,
+        marginTop: 20,
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    noMyTasksSubtitle: {
+        fontSize: 14,
+        color: Colors.text.secondary,
+        textAlign: "center",
+        lineHeight: 20,
+    },
+    myTaskItem: {
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        borderLeftWidth: 4,
+        borderLeftColor: TaskAssignmentColors.taskStatus.pending,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    completedTaskItem: {
+        borderLeftColor: TaskAssignmentColors.taskStatus.completed,
+        backgroundColor: Colors.backgroundColors.secondary,
+    },
+    myTaskText: {
+        fontSize: 15,
+        color: Colors.text.primary,
+        marginLeft: 12,
+        flex: 1,
+        fontWeight: "500",
     },
     listContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 100,
+        paddingBottom: 20,
     },
     categorySection: {
-        marginBottom: 32,
+        marginBottom: 20,
     },
     categoryHeader: {
         flexDirection: "row",
+        justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 16,
-        paddingHorizontal: 4,
-    },
-    categoryIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 8,
+        marginBottom: 8,
     },
     categoryTitle: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "600",
-        color: "#1F2937",
-        flex: 1,
-        fontFamily: "Inter_600SemiBold",
     },
     categoryCount: {
-        fontSize: 14,
-        color: "#6B7280",
-        fontFamily: "Inter_500Medium",
+        fontSize: 12,
+        color: Colors.text.secondary,
     },
-    itemContainer: {
+    item: {
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 8,
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        marginBottom: 12,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
         elevation: 1,
     },
-    checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 8,
-        borderWidth: 2,
-        borderColor: "#D1D5DB",
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 16,
-    },
-    checkboxChecked: {
-        backgroundColor: "#7ED957",
-        borderColor: "#7ED957",
-    },
-    checkboxDisabled: {
-        backgroundColor: Colors.lightGray,
-        borderWidth: 0,
+    itemCheckbox: {
+        marginRight: 12,
     },
     itemContent: {
         flex: 1,
@@ -1115,13 +1520,12 @@ const styles = StyleSheet.create({
     itemTitle: {
         fontSize: 16,
         fontWeight: "500",
-        color: "#1F2937",
+        color: Colors.text.primary,
         marginBottom: 4,
-        fontFamily: "Inter_500Medium",
     },
     itemTitleChecked: {
         textDecorationLine: "line-through",
-        color: "#9CA3AF",
+        color: Colors.text.muted,
     },
     assignmentSection: {
         flexDirection: "row",
@@ -1132,98 +1536,69 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
     },
-    assignedAvatar: {
-        marginRight: 8,
-    },
     assignedText: {
         fontSize: 14,
-        color: "#6B7280",
-        fontFamily: "Inter_400Regular",
+        color: Colors.text.secondary,
+        marginLeft: 8,
     },
     unassignButton: {
         marginLeft: 8,
         padding: 4,
-        borderRadius: 8,
-        backgroundColor: "#FEF2F2",
-        justifyContent: "center",
-        alignItems: "center",
+        borderRadius: 4,
     },
-    assignButton: {
+    assignButtonInline: {
         flexDirection: "row",
         alignItems: "center",
-        padding: 8,
+        padding: 6,
         borderWidth: 1,
         borderColor: "#7ED957",
-        borderRadius: 8,
+        borderRadius: 6,
         backgroundColor: "#F0FDF4",
     },
     assignButtonText: {
         color: "#7ED957",
         fontSize: 12,
         fontWeight: "500",
-        fontFamily: "Inter_500Medium",
         marginLeft: 4,
     },
     itemActions: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginLeft: "auto",
-    },
-    reassignButton: {
-        marginRight: 8,
-        padding: 4,
-        borderRadius: 8,
-        backgroundColor: "#FEF2F2",
-        justifyContent: "center",
-        alignItems: "center",
+        marginLeft: 8,
     },
     deleteButton: {
-        padding: 4,
-        borderRadius: 8,
-        backgroundColor: "#FEF2F2",
-        justifyContent: "center",
-        alignItems: "center",
+        padding: 8,
+        borderRadius: 6,
     },
     emptyContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
         paddingHorizontal: 40,
-        paddingBottom: 100,
     },
     emptyTitle: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: "600",
-        color: "#6B7280",
-        marginTop: 24,
-        marginBottom: 12,
+        color: Colors.text.secondary,
+        marginTop: 16,
+        marginBottom: 8,
         textAlign: "center",
-        fontFamily: "Inter_600SemiBold",
     },
     emptyText: {
-        fontSize: 16,
-        color: "#9CA3AF",
+        fontSize: 14,
+        color: Colors.text.muted,
         textAlign: "center",
-        lineHeight: 24,
-        marginBottom: 32,
-        fontFamily: "Inter_400Regular",
+        lineHeight: 20,
+        marginBottom: 24,
     },
     emptyButton: {
-        backgroundColor: "#7ED957",
-        paddingHorizontal: 32,
-        paddingVertical: 16,
-        borderRadius: 16,
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
     },
     emptyButtonText: {
-        color: "#FFFFFF",
+        color: Colors.white,
         fontSize: 16,
         fontWeight: "600",
-        fontFamily: "Inter_600SemiBold",
     },
     modalContainer: {
         flex: 1,
@@ -1232,87 +1607,59 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0, 0, 0, 0.5)",
     },
     modalContent: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         padding: 20,
-        borderRadius: 20,
-        width: "80%",
-        alignItems: "center",
+        borderRadius: 16,
+        width: "85%",
+        maxHeight: "80%",
     },
     modalHeader: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        width: "100%",
         marginBottom: 20,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: "#1F2937",
-        fontFamily: "Inter_600SemiBold",
+        fontSize: 18,
+        fontWeight: "600",
+        color: Colors.text.primary,
     },
     modalCloseButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#E5E7EB",
-        justifyContent: "center",
-        alignItems: "center",
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: Colors.backgroundColors.secondary,
     },
     membersList: {
-        width: "100%",
+        gap: 8,
     },
     memberOption: {
         flexDirection: "row",
         alignItems: "center",
-        padding: 10,
+        padding: 12,
         borderWidth: 1,
-        borderColor: "#E5E7EB",
+        borderColor: Colors.border,
         borderRadius: 8,
-        marginBottom: 10,
-    },
-    memberOptionSelected: {
-        backgroundColor: "#FEF2F2",
-    },
-    unassignOption: {
-        backgroundColor: "#FEF2F2",
-    },
-    unassignIcon: {
-        marginRight: 10,
+        backgroundColor: Colors.backgroundColors.primary,
     },
     unassignText: {
         fontSize: 16,
         fontWeight: "500",
-        color: "#6B7280",
-        fontFamily: "Inter_500Medium",
-    },
-    memberModalAvatar: {
-        marginRight: 10,
+        color: Colors.text.secondary,
+        marginLeft: 12,
     },
     memberInfo: {
         flex: 1,
+        marginLeft: 12,
     },
     memberName: {
         fontSize: 16,
         fontWeight: "500",
-        color: "#1F2937",
-        fontFamily: "Inter_500Medium",
+        color: Colors.text.primary,
+        marginBottom: 2,
     },
     memberEmail: {
-        fontSize: 14,
-        color: "#6B7280",
-        fontFamily: "Inter_400Regular",
-    },
-    completedInfo: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 4,
-    },
-    completedText: {
-        fontSize: 12,
-        color: "#6B7280",
-        fontFamily: "Inter_400Regular",
-        marginLeft: 4,
+        fontSize: 13,
+        color: Colors.text.secondary,
     },
 });
 

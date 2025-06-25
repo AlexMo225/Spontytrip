@@ -54,6 +54,29 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const scaleAnim = useRef(new Animated.Value(0)).current;
 
+    // Redirection automatique silencieuse si le voyage est supprimé
+    React.useEffect(() => {
+        if (
+            (error === "Voyage introuvable" ||
+                error === "Accès non autorisé à ce voyage" ||
+                error === "Voyage supprimé") &&
+            !loading
+        ) {
+            console.log(
+                "🚨 NotesScreen - Redirection automatique - voyage supprimé"
+            );
+
+            const timer = setTimeout(() => {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainApp" }],
+                });
+            }, 300);
+
+            return () => clearTimeout(timer);
+        }
+    }, [error, navigation, loading]);
+
     // Fonction pour afficher un message de succès
     const showSuccessMessage = (message: string) => {
         if (Platform.OS === "android") {

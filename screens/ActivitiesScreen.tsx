@@ -1156,6 +1156,29 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
         );
     };
 
+    // Redirection automatique silencieuse si le voyage est supprimé
+    React.useEffect(() => {
+        if (
+            (error === "Voyage introuvable" ||
+                error === "Accès non autorisé à ce voyage" ||
+                error === "Voyage supprimé") &&
+            !loading
+        ) {
+            console.log(
+                "🚨 ActivitiesScreen - Redirection automatique - voyage supprimé"
+            );
+
+            const timer = setTimeout(() => {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainApp" }],
+                });
+            }, 300);
+
+            return () => clearTimeout(timer);
+        }
+    }, [error, navigation, loading]);
+
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>

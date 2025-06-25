@@ -75,6 +75,24 @@ const FeedDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         ]).start();
     }, []);
 
+    // Redirection automatique silencieuse si le voyage est supprimé
+    useEffect(() => {
+        if (!trip && !loading) {
+            console.log(
+                "🚨 FeedDetailsScreen - Redirection automatique - voyage supprimé"
+            );
+
+            const timer = setTimeout(() => {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainApp" }],
+                });
+            }, 300);
+
+            return () => clearTimeout(timer);
+        }
+    }, [trip, navigation, loading]);
+
     const handleRefresh = async () => {
         setRefreshing(true);
         // La synchronisation se fait automatiquement via useTripSync

@@ -166,6 +166,28 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
+                            // ÉTAPE 1: Nettoyer immédiatement les listeners pour éviter les erreurs
+                            console.log(
+                                "🛑 Nettoyage préventif des listeners..."
+                            );
+                            try {
+                                const { forceCleanupTripListeners } =
+                                    await import("../hooks/useTripSync");
+                                forceCleanupTripListeners(tripId);
+                            } catch (cleanupError) {
+                                console.warn(
+                                    "⚠️ Erreur nettoyage préventif:",
+                                    cleanupError
+                                );
+                            }
+
+                            // ÉTAPE 2: Naviguer immédiatement pour éviter les erreurs d'affichage
+                            navigation.reset({
+                                index: 0,
+                                routes: [{ name: "MainApp" }],
+                            });
+
+                            // ÉTAPE 3: Supprimer le voyage en arrière-plan
                             const firebaseService = (
                                 await import("../services/firebaseService")
                             ).default;
@@ -174,24 +196,10 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                                 user?.uid || ""
                             );
 
-                            Alert.alert(
-                                "Voyage supprimé",
-                                "Le voyage a été supprimé avec succès",
-                                [
-                                    {
-                                        text: "OK",
-                                        onPress: () => {
-                                            // Retour à l'écran principal avec reset de navigation
-                                            navigation.reset({
-                                                index: 0,
-                                                routes: [{ name: "MainApp" }],
-                                            });
-                                        },
-                                    },
-                                ]
-                            );
+                            console.log("✅ Voyage supprimé en arrière-plan");
                         } catch (error) {
                             console.error("Erreur suppression voyage:", error);
+                            // Afficher l'erreur seulement si on est encore sur l'écran
                             Alert.alert(
                                 "Erreur",
                                 "Impossible de supprimer le voyage"
@@ -297,15 +305,22 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
     React.useEffect(() => {
         if (
             (error === "Voyage introuvable" ||
-                error === "Accès non autorisé à ce voyage") &&
+                error === "Accès non autorisé à ce voyage" ||
+                error === "Voyage supprimé") &&
             !loading
         ) {
+            console.log(
+                "🚨 Redirection automatique - voyage supprimé ou inaccessible"
+            );
+
+            // Redirection immédiate et silencieuse sans alerte
             const timer = setTimeout(() => {
                 navigation.reset({
                     index: 0,
                     routes: [{ name: "MainApp" }],
                 });
-            }, 2000);
+            }, 500); // Délai réduit pour une redirection plus rapide
+
             return () => clearTimeout(timer);
         }
     }, [error, navigation, loading]);

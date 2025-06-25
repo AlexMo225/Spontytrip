@@ -84,6 +84,29 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
         participants: [user?.uid || ""],
     });
 
+    // Redirection automatique silencieuse si le voyage est supprimé
+    React.useEffect(() => {
+        if (
+            (error === "Voyage introuvable" ||
+                error === "Accès non autorisé à ce voyage" ||
+                error === "Voyage supprimé") &&
+            !loading
+        ) {
+            console.log(
+                "🚨 ExpensesScreen - Redirection automatique - voyage supprimé"
+            );
+
+            const timer = setTimeout(() => {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainApp" }],
+                });
+            }, 300);
+
+            return () => clearTimeout(timer);
+        }
+    }, [error, navigation, loading]);
+
     // 📊 Calcul du résumé avec memoization optimisée
     const summary = useMemo<ExpensesSummary | null>(() => {
         if (!expenses || !trip || !user) {
