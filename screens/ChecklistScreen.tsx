@@ -6,6 +6,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Image,
     Modal,
     ScrollView,
     StyleSheet,
@@ -14,7 +15,6 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Avatar from "../components/Avatar";
 import ChecklistCelebration from "../components/ChecklistCelebration";
 import { Colors, TaskAssignmentColors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
@@ -604,11 +604,25 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                         ]}
                     >
                         <View style={styles.memberHeader}>
-                            <Avatar
-                                size={40}
-                                imageUrl={item.member.avatar}
-                                backgroundColor={item.color}
-                            />
+                            <View
+                                style={[
+                                    styles.avatarContainer,
+                                    { backgroundColor: item.color },
+                                ]}
+                            >
+                                {item.member.avatar ? (
+                                    <Image
+                                        source={{ uri: item.member.avatar }}
+                                        style={styles.avatarImage}
+                                    />
+                                ) : (
+                                    <Text style={styles.avatarText}>
+                                        {item.member.name
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                    </Text>
+                                )}
+                            </View>
                             <View style={styles.memberDetails}>
                                 <Text style={styles.memberName}>
                                     {item.member.name}
@@ -835,17 +849,40 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.assignmentSection}>
                     {item.assignedTo ? (
                         <View style={styles.assignedContainer}>
-                            <Avatar
-                                size={20}
-                                imageUrl={
-                                    trip?.members.find(
-                                        (m) => m.userId === item.assignedTo
-                                    )?.avatar
-                                }
-                                backgroundColor={getMemberColor(
-                                    item.assignedTo
+                            <View
+                                style={[
+                                    styles.avatarContainer,
+                                    {
+                                        backgroundColor: getMemberColor(
+                                            item.assignedTo
+                                        ),
+                                    },
+                                ]}
+                            >
+                                {trip?.members.find(
+                                    (m) => m.userId === item.assignedTo
+                                )?.avatar ? (
+                                    <Image
+                                        source={{
+                                            uri: trip?.members.find(
+                                                (m) =>
+                                                    m.userId === item.assignedTo
+                                            )?.avatar,
+                                        }}
+                                        style={styles.avatarImage}
+                                    />
+                                ) : (
+                                    <Text style={styles.avatarText}>
+                                        {trip?.members
+                                            .find(
+                                                (m) =>
+                                                    m.userId === item.assignedTo
+                                            )
+                                            ?.name?.charAt(0)
+                                            .toUpperCase() || "?"}
+                                    </Text>
                                 )}
-                            />
+                            </View>
                             <Text style={styles.assignedText}>
                                 {item.assignedTo === user?.uid
                                     ? "Vous"
@@ -1098,13 +1135,29 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                                         handleAssignToMember(member.userId)
                                     }
                                 >
-                                    <Avatar
-                                        size={32}
-                                        imageUrl={member.avatar}
-                                        backgroundColor={getMemberColor(
-                                            member.userId
+                                    <View
+                                        style={[
+                                            styles.avatarContainer,
+                                            {
+                                                backgroundColor: getMemberColor(
+                                                    member.userId
+                                                ),
+                                            },
+                                        ]}
+                                    >
+                                        {member.avatar ? (
+                                            <Image
+                                                source={{ uri: member.avatar }}
+                                                style={styles.avatarImage}
+                                            />
+                                        ) : (
+                                            <Text style={styles.avatarText}>
+                                                {member.name
+                                                    .charAt(0)
+                                                    .toUpperCase()}
+                                            </Text>
                                         )}
-                                    />
+                                    </View>
                                     <View style={styles.memberInfo}>
                                         <Text style={styles.memberName}>
                                             {member.userId === user?.uid
@@ -1302,6 +1355,23 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         marginBottom: 12,
+    },
+    avatarContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    avatarImage: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 20,
+    },
+    avatarText: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: Colors.text.primary,
     },
     memberDetails: {
         flex: 1,
@@ -1650,12 +1720,6 @@ const styles = StyleSheet.create({
     memberInfo: {
         flex: 1,
         marginLeft: 12,
-    },
-    memberName: {
-        fontSize: 16,
-        fontWeight: "500",
-        color: Colors.text.primary,
-        marginBottom: 2,
     },
     memberEmail: {
         fontSize: 13,

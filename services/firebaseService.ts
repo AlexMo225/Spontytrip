@@ -1572,222 +1572,51 @@ class FirebaseService {
                 throw new Error("Seul le créateur du voyage peut le supprimer");
             }
 
-            console.log(
-                "✅ Permissions vérifiées, début suppression des sous-collections..."
-            );
+            // Étape 1: Supprimer les collections globales et sous-collections
+            await this.cleanupOrphanedData(tripId);
 
-            // Étape 1: Supprimer les collections globales en parallèle (plus rapide)
-            const globalCollectionPromises = [];
-
-            // Supprimer les checklists
-            console.log("🔄 Suppression des checklists...");
-            const checklistsPromise = this.db
-                .collection("checklists")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Checklists supprimées"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression checklists:", error)
-                );
-            globalCollectionPromises.push(checklistsPromise);
-
-            // Supprimer les dépenses
-            console.log("🔄 Suppression des dépenses...");
-            const expensesPromise = this.db
-                .collection("expenses")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Dépenses supprimées"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression dépenses:", error)
-                );
-            globalCollectionPromises.push(expensesPromise);
-
-            // Supprimer les notes globales
-            console.log("🔄 Suppression des notes globales...");
-            const notesPromise = this.db
-                .collection("notes")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Notes globales supprimées"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression notes:", error)
-                );
-            globalCollectionPromises.push(notesPromise);
-
-            // Supprimer les activités
-            console.log("🔄 Suppression des activités...");
-            const activitiesPromise = this.db
-                .collection("activities")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Activités supprimées"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression activités:", error)
-                );
-            globalCollectionPromises.push(activitiesPromise);
-
-            // Supprimer les messages globaux
-            console.log("🔄 Suppression des messages globaux...");
-            const messagesPromise = this.db
-                .collection("messages")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Messages globaux supprimés"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression messages:", error)
-                );
-            globalCollectionPromises.push(messagesPromise);
-
-            // Supprimer la galerie globale
-            console.log("🔄 Suppression de la galerie globale...");
-            const galleryPromise = this.db
-                .collection("gallery")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Galerie globale supprimée"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression galerie:", error)
-                );
-            globalCollectionPromises.push(galleryPromise);
-
-            // Supprimer les logs d'activité (maintenant autorisé)
-            console.log("🔄 Suppression des logs d'activité...");
-            const activityFeedPromise = this.db
-                .collection("activity-feed")
-                .where("tripId", "==", tripId)
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Logs d'activité supprimés"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression logs:", error)
-                );
-            globalCollectionPromises.push(activityFeedPromise);
-
-            // Attendre que tous les collections globales soient supprimées
-            await Promise.allSettled(globalCollectionPromises);
-
-            // Étape 2: Supprimer les sous-collections du voyage
-            console.log("🔄 Suppression des sous-collections du voyage...");
-            const subCollectionPromises = [];
-
-            // Sous-collection notes
-            const tripNotesPromise = this.db
-                .collection("trips")
-                .doc(tripId)
-                .collection("notes")
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Notes du voyage supprimées"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression notes voyage:", error)
-                );
-            subCollectionPromises.push(tripNotesPromise);
-
-            // Sous-collection messages
-            const tripMessagesPromise = this.db
-                .collection("trips")
-                .doc(tripId)
-                .collection("messages")
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Messages du voyage supprimés"))
-                .catch((error) =>
+            // Étape 2: Supprimer l'image de couverture si elle existe
+            if (trip.coverImage) {
+                try {
+                    const { ImageService } = await import("./imageService");
+                    await ImageService.deleteTripCoverImage(trip.coverImage);
+                } catch (error) {
                     console.warn(
-                        "⚠️ Erreur suppression messages voyage:",
+                        "⚠️ Erreur suppression image de couverture:",
                         error
-                    )
+                    );
+                }
+            }
+
+            // Étape 3: Supprimer le voyage principal avec retry
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    await this.db.collection("trips").doc(tripId).delete();
+                    console.log("✅ Voyage principal supprimé");
+                    break;
+                } catch (error) {
+                    console.warn(
+                        `⚠️ Erreur suppression voyage (tentative ${attempt}):`,
+                        error
+                    );
+                    if (attempt === 3) throw error;
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, 1000 * attempt)
+                    );
+                }
+            }
+
+            // Vérification finale et nettoyage des données orphelines si nécessaire
+            const tripExists = await this.verifyTripExists(tripId);
+            if (!tripExists) {
+                console.log("✅ Vérification finale OK");
+            } else {
+                console.warn(
+                    "⚠️ Le voyage existe toujours, tentative de nettoyage forcé..."
                 );
-            subCollectionPromises.push(tripMessagesPromise);
-
-            // Sous-collection galerie
-            const tripGalleryPromise = this.db
-                .collection("trips")
-                .doc(tripId)
-                .collection("gallery")
-                .get()
-                .then((querySnapshot) => {
-                    const batch = this.db.batch();
-                    querySnapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                })
-                .then(() => console.log("✅ Galerie du voyage supprimée"))
-                .catch((error) =>
-                    console.warn("⚠️ Erreur suppression galerie voyage:", error)
-                );
-            subCollectionPromises.push(tripGalleryPromise);
-
-            // Attendre que toutes les sous-collections soient supprimées
-            await Promise.allSettled(subCollectionPromises);
-
-            // Étape 3: Supprimer le voyage principal
-            console.log("🔄 Suppression du voyage principal...");
-            await this.db.collection("trips").doc(tripId).delete();
-            console.log("✅ Voyage principal supprimé");
-
-            console.log("🎉 Voyage supprimé avec succès:", tripId);
+                await this.cleanupOrphanedData(tripId);
+                await this.db.collection("trips").doc(tripId).delete();
+            }
 
             // Émettre un événement pour informer les autres composants
             try {
@@ -1801,8 +1630,18 @@ class FirebaseService {
                     emitError
                 );
             }
+
+            console.log("🎉 Voyage supprimé avec succès:", tripId);
         } catch (error) {
             console.error("❌ Erreur suppression voyage:", error);
+
+            // Dernière tentative de nettoyage en cas d'erreur
+            try {
+                await this.cleanupOrphanedData(tripId);
+            } catch (cleanupError) {
+                console.error("❌ Erreur nettoyage final:", cleanupError);
+            }
+
             throw error;
         }
     }
@@ -2508,6 +2347,65 @@ class FirebaseService {
             }
         } catch (error) {
             console.error("❌ Erreur création activité test:", error);
+        }
+    }
+
+    async cleanupOrphanedData(tripId: string): Promise<void> {
+        try {
+            console.log(
+                `🧹 Début nettoyage données orphelines pour trip ${tripId}...`
+            );
+
+            const collections = [
+                "checklists",
+                "expenses",
+                "notes",
+                "activities",
+                "messages",
+                "gallery",
+                "activity-feed",
+            ];
+
+            for (const col of collections) {
+                try {
+                    const snapshot = await this.db
+                        .collection(col)
+                        .where("tripId", "==", tripId)
+                        .get();
+
+                    if (snapshot.empty) {
+                        console.log(`✅ Aucune donnée orpheline dans ${col}`);
+                        continue;
+                    }
+
+                    const batch = this.db.batch();
+                    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+                    await batch.commit();
+                    console.log(
+                        `🗑️ ${snapshot.size} documents orphelins supprimés dans ${col}`
+                    );
+                } catch (error) {
+                    console.warn(`⚠️ Erreur nettoyage ${col}:`, error);
+                }
+            }
+
+            console.log(
+                `✨ Nettoyage des données orphelines terminé pour trip ${tripId}`
+            );
+        } catch (error) {
+            console.error("❌ Erreur nettoyage données orphelines:", error);
+            throw error;
+        }
+    }
+
+    // Méthode pour vérifier si un voyage existe
+    async verifyTripExists(tripId: string): Promise<boolean> {
+        try {
+            const tripDoc = await this.db.collection("trips").doc(tripId).get();
+            return tripDoc.exists;
+        } catch (error) {
+            console.error("❌ Erreur vérification existence voyage:", error);
+            return false;
         }
     }
 }
