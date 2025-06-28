@@ -1,7 +1,6 @@
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -15,8 +14,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
-import { RootStackParamList } from "../types";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { AuthService } from "../services/authService";
+import { RootStackParamList } from "../types";
 
 type LoginScreenNavigationProp = StackNavigationProp<
     RootStackParamList,
@@ -32,9 +32,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
+    const modal = useModal();
+    const quickModals = useQuickModals();
+
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert("Erreur", "Veuillez remplir tous les champs");
+            quickModals.formError("tous les champs");
             return;
         }
 
@@ -42,22 +45,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         try {
             const result = await AuthService.signIn(email, password);
-            
+
             if (result.success) {
-                Alert.alert("Succès", "Connexion réussie !", [
-                    {
-                        text: "OK",
-                        onPress: () => {
-                            // La navigation sera gérée automatiquement par AuthNavigator
-                            // grâce au changement d'état d'authentification
-                        }
-                    }
-                ]);
+                modal.showSuccess(
+                    "Connexion réussie",
+                    "Bienvenue dans SpontyTrip !"
+                );
+                // La navigation sera gérée automatiquement par AuthNavigator
             } else {
-                Alert.alert("Erreur de connexion", result.error || "Email ou mot de passe incorrect");
+                modal.showError(
+                    "Connexion impossible",
+                    result.error || "Vérifiez votre email et mot de passe."
+                );
             }
         } catch (error) {
-            Alert.alert("Erreur", "Une erreur inattendue est survenue");
+            modal.showError("Erreur", "Une erreur inattendue est survenue");
         } finally {
             setIsLoading(false);
         }

@@ -3,7 +3,6 @@ import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -15,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
 
@@ -80,6 +80,8 @@ const categories: ChecklistCategory[] = [
 ];
 
 const AddChecklistItemScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { tripId } = route.params;
     const { checklist } = useTripSync(tripId);
@@ -91,12 +93,12 @@ const AddChecklistItemScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleSave = async () => {
         if (!itemName.trim()) {
-            Alert.alert("Erreur", "Veuillez entrer un nom pour l'élément");
+            modal.showError("Erreur", "Veuillez entrer un nom pour l'élément");
             return;
         }
 
         if (!user) {
-            Alert.alert("Erreur", "Utilisateur non connecté");
+            modal.showError("Erreur", "Utilisateur non connecté");
             return;
         }
 
@@ -147,7 +149,7 @@ const AddChecklistItemScreen: React.FC<Props> = ({ navigation, route }) => {
             navigation.goBack();
         } catch (error) {
             console.error("❌ Erreur ajout élément:", error);
-            Alert.alert("Erreur", "Impossible d'ajouter l'élément");
+            modal.showError("Erreur", "Impossible d'ajouter l'élément");
         } finally {
             setIsLoading(false);
         }

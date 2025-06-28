@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -9,9 +8,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { AuthService, AuthUser } from "../services/authService";
 
 const AuthTest: React.FC = () => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [displayName, setDisplayName] = useState("");
@@ -30,7 +32,7 @@ const AuthTest: React.FC = () => {
 
     const handleSignUp = async () => {
         if (!email || !password) {
-            Alert.alert("Erreur", "Veuillez remplir tous les champs");
+            quickModals.formError("remplir tous les champs");
             return;
         }
 
@@ -39,21 +41,21 @@ const AuthTest: React.FC = () => {
         setLoading(false);
 
         if (result.success) {
-            Alert.alert("Succès", "Compte créé avec succès !");
+            modal.showSuccess("Succès", "Compte créé avec succès !");
             setEmail("");
             setPassword("");
             setDisplayName("");
         } else {
-            Alert.alert(
-                "Erreur",
-                result.error || "Erreur lors de l'inscription"
+            modal.showError(
+                "Inscription impossible",
+                result.error || "Impossible de créer votre compte."
             );
         }
     };
 
     const handleSignIn = async () => {
         if (!email || !password) {
-            Alert.alert("Erreur", "Veuillez remplir email et mot de passe");
+            quickModals.formError("remplir email et mot de passe");
             return;
         }
 
@@ -62,13 +64,13 @@ const AuthTest: React.FC = () => {
         setLoading(false);
 
         if (result.success) {
-            Alert.alert("Succès", "Connexion réussie !");
+            modal.showSuccess("Succès", "Connexion réussie !");
             setEmail("");
             setPassword("");
         } else {
-            Alert.alert(
-                "Erreur",
-                result.error || "Erreur lors de la connexion"
+            modal.showError(
+                "Connexion impossible",
+                result.error || "Vérifiez votre email et mot de passe."
             );
         }
     };
@@ -79,18 +81,18 @@ const AuthTest: React.FC = () => {
         setLoading(false);
 
         if (result.success) {
-            Alert.alert("Succès", "Déconnexion réussie !");
+            modal.showSuccess("Succès", "Déconnexion réussie !");
         } else {
-            Alert.alert(
-                "Erreur",
-                result.error || "Erreur lors de la déconnexion"
+            modal.showError(
+                "Déconnexion impossible",
+                result.error || "Impossible de vous déconnecter."
             );
         }
     };
 
     const handleResetPassword = async () => {
         if (!email) {
-            Alert.alert("Erreur", "Veuillez entrer votre adresse email");
+            quickModals.formError("entrer votre adresse email");
             return;
         }
 
@@ -99,9 +101,13 @@ const AuthTest: React.FC = () => {
         setLoading(false);
 
         if (result.success) {
-            Alert.alert("Succès", "Email de réinitialisation envoyé !");
+            modal.showSuccess("Succès", "Email de réinitialisation envoyé !");
         } else {
-            Alert.alert("Erreur", result.error || "Erreur lors de l'envoi");
+            modal.showError(
+                "Envoi impossible",
+                result.error ||
+                    "Impossible d'envoyer l'email de réinitialisation."
+            );
         }
     };
 

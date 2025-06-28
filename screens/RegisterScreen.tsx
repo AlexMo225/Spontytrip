@@ -1,7 +1,6 @@
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -15,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { AuthService } from "../services/authService";
 import { RootStackParamList } from "../types";
 
@@ -35,6 +35,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
+    const modal = useModal();
+    const quickModals = useQuickModals();
+
     const handleRegister = async () => {
         if (
             !firstName ||
@@ -43,12 +46,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             !password ||
             !confirmPassword
         ) {
-            Alert.alert("Erreur", "Veuillez remplir tous les champs");
+            quickModals.formError("tous les champs");
             return;
         }
 
         if (firstName.length < 2) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Le prénom doit contenir au moins 2 caractères"
             );
@@ -56,23 +59,29 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         }
 
         if (lastName.length < 2) {
-            Alert.alert("Erreur", "Le nom doit contenir au moins 2 caractères");
+            modal.showError(
+                "Erreur",
+                "Le nom doit contenir au moins 2 caractères"
+            );
             return;
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            Alert.alert("Erreur", "Veuillez entrer une adresse email valide");
+            modal.showError(
+                "Erreur",
+                "Veuillez entrer une adresse email valide"
+            );
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert("Erreur", "Les mots de passe ne correspondent pas");
+            modal.showError("Erreur", "Les mots de passe ne correspondent pas");
             return;
         }
 
         if (password.length < 6) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Le mot de passe doit contenir au moins 6 caractères"
             );
@@ -90,28 +99,20 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             );
 
             if (result.success) {
-                Alert.alert(
-                    "Succès",
-                    `Bienvenue ${firstName} ! Votre compte a été créé avec succès.`,
-                    [
-                        {
-                            text: "OK",
-                            onPress: () => {
-                                // La navigation sera gérée automatiquement par AuthNavigator
-                                // grâce au changement d'état d'authentification
-                            },
-                        },
-                    ]
+                modal.showSuccess(
+                    "Compte créé",
+                    `Bienvenue ${firstName} ! Votre compte a été créé avec succès.`
                 );
+                // La navigation sera gérée automatiquement par AuthNavigator
             } else {
-                Alert.alert(
-                    "Erreur d'inscription",
+                modal.showError(
+                    "Inscription impossible",
                     result.error ||
-                        "Une erreur est survenue lors de la création du compte"
+                        "Impossible de créer votre compte. Vérifiez vos informations."
                 );
             }
         } catch (error) {
-            Alert.alert("Erreur", "Une erreur inattendue est survenue");
+            modal.showError("Erreur", "Une erreur inattendue est survenue");
         } finally {
             setIsLoading(false);
         }
@@ -290,8 +291,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                         disabled={isLoading}
                     >
                         <Text style={styles.loginText}>
-                            Déjà un compte ?{" "}
-                            <Text style={styles.loginLink}>Se connecter</Text>
+                            Vous avez un compte ?{" "}
+                            <Text style={styles.loginLink}>Connectez-vous</Text>
                         </Text>
                     </TouchableOpacity>
                 </View>

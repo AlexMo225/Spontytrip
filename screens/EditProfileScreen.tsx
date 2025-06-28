@@ -6,7 +6,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     KeyboardAvoidingView,
     Platform,
@@ -20,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Avatar from "../components/Avatar";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { RootStackParamList } from "../types";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -36,6 +36,8 @@ interface Props {
 }
 
 const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user, updateProfile, updateEmail } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -83,9 +85,16 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
             await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (!permissionResult.granted) {
-            Alert.alert(
-                "Permission requise",
-                "L'accès à la galerie photo est nécessaire pour changer votre photo de profil."
+            modal.showConfirm(
+                "Permission requise 📸",
+                "L'accès à la galerie photo est nécessaire pour changer votre photo de profil. Voulez-vous ouvrir les paramètres ?",
+                () => {
+                    // Ouvrir les paramètres de l'app (si disponible)
+                    console.log("Ouverture des paramètres demandée");
+                },
+                () => {},
+                "Paramètres",
+                "Plus tard"
             );
             return;
         }
@@ -172,24 +181,28 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
             // Attendre un peu pour s'assurer que la synchronisation est terminée
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            Alert.alert(
-                "Profil mis à jour",
-                "Vos modifications ont été enregistrées avec succès !",
-                [
-                    {
-                        text: "OK",
-                        onPress: () => {
-                            console.log(
-                                "🔄 Retour à l'écran précédent - synchronisation terminée"
-                            );
-                            navigation.goBack();
-                        },
-                    },
-                ]
+            modal.showConfirm(
+                "Profil mis à jour ! ✅",
+                "Vos modifications ont été enregistrées avec succès ! Voulez-vous retourner à l'accueil ?",
+                () => {
+                    // Naviguer vers l'accueil avec reset pour nettoyer la pile
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: "MainApp" }],
+                    });
+                },
+                () => {
+                    console.log(
+                        "🔄 Retour à l'écran précédent - synchronisation terminée"
+                    );
+                    navigation.goBack();
+                },
+                "Accueil",
+                "Continuer"
             );
         } catch (error) {
             console.error("❌ Erreur sauvegarde profil:", error);
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Une erreur s'est produite lors de la sauvegarde. Veuillez réessayer."
             );

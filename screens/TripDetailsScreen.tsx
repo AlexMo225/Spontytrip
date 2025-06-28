@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     Dimensions,
     Image,
@@ -21,6 +20,7 @@ import ActivityFeed from "../components/ActivityFeed";
 import Avatar from "../components/Avatar";
 import { Colors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
 
@@ -48,12 +48,14 @@ interface TripStats {
 
 const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
     const { user } = useAuth();
+    const modal = useModal();
     const { tripId } = route.params;
     const {
         trip,
         checklist,
         expenses,
         notes,
+        tripNotes,
         activities,
         activityFeed,
         loading,
@@ -91,6 +93,34 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const getActivitiesCount = (): number => {
         return activities?.activities?.length || 0;
+    };
+
+    const getNotesLastUpdate = (): string => {
+        if (!tripNotes || tripNotes.length === 0) {
+            return "Aucune note";
+        }
+
+        // Trouver la note la plus récente (soit par updatedAt ou createdAt)
+        const mostRecentNote = tripNotes.reduce((latest, note) => {
+            const noteDate =
+                note.updatedAt && note.updatedAt > note.createdAt
+                    ? note.updatedAt
+                    : note.createdAt;
+            const latestDate =
+                latest.updatedAt && latest.updatedAt > latest.createdAt
+                    ? latest.updatedAt
+                    : latest.createdAt;
+
+            return noteDate > latestDate ? note : latest;
+        });
+
+        const lastUpdateDate =
+            mostRecentNote.updatedAt &&
+            mostRecentNote.updatedAt > mostRecentNote.createdAt
+                ? mostRecentNote.updatedAt
+                : mostRecentNote.createdAt;
+
+        return formatLastUpdate(lastUpdateDate);
     };
 
     const getDaysUntilTrip = (): number => {
@@ -149,65 +179,54 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleDeleteTrip = () => {
         if (!isCreator) {
-            Alert.alert("Erreur", "Seul le créateur peut supprimer le voyage");
+            modal.showError(
+                "Erreur",
+                "Seul le créateur peut supprimer le voyage"
+            );
             return;
         }
 
-        Alert.alert(
+        modal.showDelete(
             "Supprimer le voyage",
             `Êtes-vous sûr de vouloir supprimer "${trip?.title}" ?\n\nCette action est irréversible et supprimera :\n• Toutes les checklists\n• Toutes les dépenses\n• Toutes les notes\n• Toutes les activités`,
-            [
-                {
-                    text: "Annuler",
-                    style: "cancel",
-                },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            // ÉTAPE 1: Nettoyer immédiatement les listeners pour éviter les erreurs
-                            console.log(
-                                "🛑 Nettoyage préventif des listeners..."
-                            );
-                            try {
-                                const { forceCleanupTripListeners } =
-                                    await import("../hooks/useTripSync");
-                                forceCleanupTripListeners(tripId);
-                            } catch (cleanupError) {
-                                console.warn(
-                                    "⚠️ Erreur nettoyage préventif:",
-                                    cleanupError
-                                );
-                            }
+            async () => {
+                try {
+                    // ÉTAPE 1: Nettoyer immédiatement les listeners pour éviter les erreurs
+                    console.log("🛑 Nettoyage préventif des listeners...");
+                    try {
+                        const { forceCleanupTripListeners } = await import(
+                            "../hooks/useTripSync"
+                        );
+                        forceCleanupTripListeners(tripId);
+                    } catch (cleanupError) {
+                        console.warn(
+                            "⚠️ Erreur nettoyage préventif:",
+                            cleanupError
+                        );
+                    }
 
-                            // ÉTAPE 2: Naviguer immédiatement pour éviter les erreurs d'affichage
-                            navigation.reset({
-                                index: 0,
-                                routes: [{ name: "MainApp" }],
-                            });
+                    // ÉTAPE 2: Naviguer immédiatement pour éviter les erreurs d'affichage
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: "MainApp" }],
+                    });
 
-                            // ÉTAPE 3: Supprimer le voyage en arrière-plan
-                            const firebaseService = (
-                                await import("../services/firebaseService")
-                            ).default;
-                            await firebaseService.deleteTrip(
-                                tripId,
-                                user?.uid || ""
-                            );
+                    // ÉTAPE 3: Supprimer le voyage en arrière-plan
+                    const firebaseService = (
+                        await import("../services/firebaseService")
+                    ).default;
+                    await firebaseService.deleteTrip(tripId, user?.uid || "");
 
-                            console.log("✅ Voyage supprimé en arrière-plan");
-                        } catch (error) {
-                            console.error("Erreur suppression voyage:", error);
-                            // Afficher l'erreur seulement si on est encore sur l'écran
-                            Alert.alert(
-                                "Erreur",
-                                "Impossible de supprimer le voyage"
-                            );
-                        }
-                    },
-                },
-            ]
+                    console.log("✅ Voyage supprimé en arrière-plan");
+                } catch (error) {
+                    console.error("Erreur suppression voyage:", error);
+                    // Afficher l'erreur seulement si on est encore sur l'écran
+                    modal.showError(
+                        "Erreur",
+                        "Impossible de supprimer le voyage"
+                    );
+                }
+            }
         );
     };
 
@@ -286,7 +305,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
             console.log("✅ Document Firestore mis à jour avec succès");
 
-            Alert.alert(
+            modal.showSuccess(
                 "Photo mise à jour",
                 imageUrl
                     ? "La photo de couverture a été mise à jour avec succès"
@@ -294,7 +313,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
             );
         } catch (error) {
             console.error("❌ Erreur mise à jour photo:", error);
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Impossible de mettre à jour la photo de couverture"
             );
@@ -434,7 +453,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         totalExpenses: getTotalExpenses(),
         myExpenses: getMyExpenses(),
         activitiesCount: getActivitiesCount(),
-        notesUpdated: formatLastUpdate(new Date(trip.updatedAt)),
+        notesUpdated: getNotesLastUpdate(),
         daysUntilTrip: getDaysUntilTrip(),
     };
 
@@ -565,15 +584,32 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                         />
                         <Text style={styles.statTitle}>Notes</Text>
                     </View>
-                    <Text style={styles.statLabel}>Dernière maj</Text>
-                    <Text style={styles.statSubtext}>
-                        {tripStats.notesUpdated}
-                    </Text>
+                    {tripNotes && tripNotes.length > 0 ? (
+                        <>
+                            <Text style={styles.statNumber}>
+                                {tripNotes.length}
+                            </Text>
+                            <Text style={styles.statSubtext}>
+                                Mis à jour {tripStats.notesUpdated}
+                            </Text>
+                        </>
+                    ) : (
+                        <>
+                            <Text style={styles.statLabel}>Aucune note</Text>
+                            <Text style={styles.statSubtext}>
+                                Commencez à noter !
+                            </Text>
+                        </>
+                    )}
                     <TouchableOpacity
                         style={styles.quickAction}
                         onPress={() => handleNavigateToFeature("Notes")}
                     >
-                        <Text style={styles.quickActionText}>Modifier</Text>
+                        <Text style={styles.quickActionText}>
+                            {tripNotes && tripNotes.length > 0
+                                ? "Modifier"
+                                : "Créer"}
+                        </Text>
                         <Ionicons
                             name="arrow-forward"
                             size={14}
@@ -922,20 +958,46 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {/* Mini preview notes */}
             <View style={styles.previewCard}>
-                <Text style={styles.previewTitle}>Dernières notes</Text>
-                <View style={styles.notesPreview}>
-                    <Text style={styles.noteContent}>
-                        ## 🗺️ Lieux d'intérêt{"\n"}- **Sagrada Familia** :
-                        réserver en ligne{"\n"}- **Park Güell** : y aller tôt le
-                        matin{"\n"}- **Barrio Gothic** : parfait pour déjeuner
-                        {"\n\n"}
-                        ## 📱 Contacts utiles{"\n"}- Hébergement : +34 xxx xxx
-                        xxx{"\n"}- Taxi recommandé : +34 yyy yyy yyy
-                    </Text>
-                </View>
-                <Text style={styles.previewFooter}>
-                    Modifiée par Clara il y a 2h
+                <Text style={styles.previewTitle}>
+                    {tripNotes && tripNotes.length > 0
+                        ? "Dernières notes"
+                        : "Notes"}
                 </Text>
+                <View style={styles.notesPreview}>
+                    {tripNotes && tripNotes.length > 0 ? (
+                        <>
+                            {tripNotes.slice(0, 2).map((note, index) => (
+                                <View
+                                    key={note.id}
+                                    style={{ marginBottom: index < 1 ? 12 : 0 }}
+                                >
+                                    <Text
+                                        style={styles.noteContent}
+                                        numberOfLines={3}
+                                    >
+                                        {note.content}
+                                    </Text>
+                                    <Text style={styles.noteAuthor}>
+                                        {note.createdBy === user?.uid
+                                            ? "Par vous"
+                                            : `Par ${note.createdByName}`}
+                                    </Text>
+                                </View>
+                            ))}
+                            {tripNotes.length > 2 && (
+                                <Text style={styles.moreNotesText}>
+                                    +{tripNotes.length - 2} autres note
+                                    {tripNotes.length - 2 > 1 ? "s" : ""}
+                                </Text>
+                            )}
+                        </>
+                    ) : (
+                        <Text style={styles.noNotesText}>
+                            Aucune note pour ce voyage.{"\n"}
+                            Commencez à partager vos idées avec votre équipe !
+                        </Text>
+                    )}
+                </View>
             </View>
         </View>
     );
@@ -1660,6 +1722,26 @@ const styles = StyleSheet.create({
     noteContent: {
         fontSize: 12,
         color: "#333",
+        lineHeight: 18,
+    },
+    noteAuthor: {
+        fontSize: 11,
+        color: "#666",
+        fontStyle: "italic",
+        marginTop: 4,
+    },
+    moreNotesText: {
+        fontSize: 11,
+        color: "#7ED957",
+        fontWeight: "600",
+        marginTop: 8,
+    },
+    noNotesText: {
+        fontSize: 12,
+        color: "#999",
+        fontStyle: "italic",
+        textAlign: "center",
+        lineHeight: 18,
     },
     loadingContainer: {
         flex: 1,

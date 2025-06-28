@@ -4,23 +4,21 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     FlatList,
     Keyboard,
     Modal,
-    Platform,
     RefreshControl,
     StyleSheet,
     Text,
     TextInput,
-    ToastAndroid,
     TouchableOpacity,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts } from "../constants/Fonts";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import firebaseService, { TripNote } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
@@ -37,6 +35,8 @@ interface Props {
 }
 
 const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { tripId } = route.params;
     const { trip, tripNotes, loading, error } = useTripSync(tripId);
@@ -77,12 +77,38 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
         }
     }, [error, navigation, loading]);
 
-    // Fonction pour afficher un message de succès
-    const showSuccessMessage = (message: string) => {
-        if (Platform.OS === "android") {
-            ToastAndroid.show(message, ToastAndroid.SHORT);
+    // Fonction pour afficher un message de succès intelligent (iOS et Android)
+    const showSuccessMessage = (message: string, isEdit: boolean = false) => {
+        if (isEdit) {
+            // Pour une modification : continuer ou voir toutes les notes
+            modal.showConfirm(
+                "✨ Note modifiée !",
+                message,
+                () => {
+                    // Rester pour continuer à modifier d'autres notes
+                    handleCreateNote();
+                },
+                () => {
+                    // Retour normal
+                },
+                "Ajouter une autre",
+                "Terminé"
+            );
         } else {
-            Alert.alert("Succès", message);
+            // Pour une création : ajouter une autre ou continuer
+            modal.showConfirm(
+                "📝 Note créée !",
+                message,
+                () => {
+                    // Réinitialiser pour ajouter une autre note
+                    handleCreateNote();
+                },
+                () => {
+                    // Continuer à consulter les notes
+                },
+                "Ajouter une autre",
+                "Voir mes notes"
+            );
         }
     };
 
@@ -149,9 +175,13 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleEditNote = (note: TripNote) => {
         if (!canEditNote(note)) {
-            Alert.alert(
-                "Accès refusé",
-                "Vous ne pouvez modifier que vos propres notes."
+            modal.showConfirm(
+                "Accès refusé 🔒",
+                `Cette note a été créée par ${note.createdByName}. Voulez-vous créer votre propre note ?`,
+                handleCreateNote,
+                () => {},
+                "Créer ma note",
+                "Compris"
             );
             return;
         }
@@ -172,67 +202,86 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleDeleteNote = (note: TripNote) => {
         if (!canEditNote(note)) {
-            Alert.alert(
-                "Accès refusé",
-                "Vous ne pouvez supprimer que vos propres notes."
+            modal.showConfirm(
+                "Accès refusé 🔒",
+                `Cette note appartient à ${note.createdByName}. Voulez-vous créer votre propre note ?`,
+                handleCreateNote,
+                () => {},
+                "Créer ma note",
+                "Compris"
             );
             return;
         }
 
-        Alert.alert(
+        modal.showDelete(
             "Supprimer cette note ?",
             `Êtes-vous sûr de vouloir supprimer définitivement cette note ?\n\n"${note.content.substring(
                 0,
                 50
             )}${note.content.length > 50 ? "..." : ""}"`,
-            [
-                {
-                    text: "Annuler",
-                    style: "cancel",
-                },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await firebaseService.deleteNote(tripId, note.id);
+            async () => {
+                try {
+                    await firebaseService.deleteNote(tripId, note.id);
 
-                            // Logger l'activité de suppression
-                            try {
-                                await firebaseService.retryLogActivity(
-                                    tripId,
-                                    user?.uid || "",
-                                    user?.displayName ||
-                                        user?.email ||
-                                        "Utilisateur",
-                                    "note_delete",
-                                    {}
-                                );
-                            } catch (logError) {
-                                console.error(
-                                    "Erreur logging suppression note:",
-                                    logError
-                                );
-                            }
+                    // Logger l'activité de suppression
+                    try {
+                        await firebaseService.retryLogActivity(
+                            tripId,
+                            user?.uid || "",
+                            user?.displayName || user?.email || "Utilisateur",
+                            "note_delete",
+                            {}
+                        );
+                    } catch (logError) {
+                        console.error(
+                            "Erreur logging suppression note:",
+                            logError
+                        );
+                    }
 
-                            showSuccessMessage("Note supprimée avec succès");
-                        } catch (error) {
-                            Alert.alert(
-                                "Erreur",
-                                "Impossible de supprimer la note"
-                            );
-                        }
-                    },
-                },
-            ]
+                    // Modal intelligente après suppression
+                    modal.showConfirm(
+                        "🗑️ Note supprimée !",
+                        "La note a été supprimée avec succès.",
+                        () => {
+                            // Créer une nouvelle note
+                            handleCreateNote();
+                        },
+                        () => {
+                            // Continuer normalement
+                        },
+                        "Ajouter une note",
+                        "Continuer"
+                    );
+                } catch (error) {
+                    modal.showConfirm(
+                        "❌ Erreur de suppression",
+                        "Impossible de supprimer la note. Voulez-vous réessayer ?",
+                        () => handleDeleteNote(note),
+                        () => {},
+                        "Réessayer",
+                        "Annuler"
+                    );
+                }
+            }
         );
     };
 
     const handleSaveNote = async () => {
         if (!noteContent.trim()) {
-            Alert.alert(
-                "Erreur",
-                "Le contenu de la note ne peut pas être vide"
+            modal.showConfirm(
+                "📝 Note vide",
+                "Votre note doit contenir du texte. Voulez-vous continuer à l'écrire ?",
+                () => {
+                    // Rester sur la modal pour continuer l'édition
+                    // Pas besoin de fermer, juste focus sur le champ
+                },
+                () => {
+                    // Fermer la modal
+                    handleCloseModal();
+                },
+                "Continuer",
+                "Annuler"
             );
             return;
         }
@@ -248,7 +297,7 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                     user?.uid || "",
                     isImportant
                 );
-                showSuccessMessage("Note modifiée avec succès");
+                showSuccessMessage("Note modifiée avec succès", true);
             } else {
                 // Création d'une nouvelle note
                 await firebaseService.createNote(
@@ -277,7 +326,20 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
 
             handleCloseModal();
         } catch (error) {
-            Alert.alert("Erreur", "Impossible de sauvegarder la note");
+            modal.showConfirm(
+                "💾 Erreur de sauvegarde",
+                "Impossible de sauvegarder la note. Voulez-vous réessayer ?",
+                () => {
+                    // Réessayer la sauvegarde
+                    handleSaveNote();
+                },
+                () => {
+                    // Garder le contenu et fermer
+                    handleCloseModal();
+                },
+                "Réessayer",
+                "Fermer"
+            );
         } finally {
             setSaving(false);
         }
@@ -432,20 +494,12 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="arrow-back" size={24} color="#374151" />
-                    </TouchableOpacity>
-                    <View style={styles.headerTitleContainer}>
-                        <Text style={styles.headerTitle}>Notes</Text>
-                        <Text style={styles.headerSubtitle}>
-                            {trip.title} • {tripNotes.length} note
-                            {tripNotes.length > 1 ? "s" : ""}
-                        </Text>
-                    </View>
+                <View style={styles.headerTitleContainer}>
+                    <Text style={styles.headerTitle}>Notes</Text>
+                    <Text style={styles.headerSubtitle}>
+                        {trip.title} • {tripNotes.length} note
+                        {tripNotes.length > 1 ? "s" : ""}
+                    </Text>
                 </View>
             </View>
 
@@ -673,31 +727,15 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
         paddingHorizontal: 20,
         paddingVertical: 16,
         backgroundColor: "#F8F9FA",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
-    headerLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "#FFFFFF",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
     headerTitleContainer: {
-        marginLeft: 16,
+        alignItems: "center",
     },
     headerTitle: {
         fontSize: 20,

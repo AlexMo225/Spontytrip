@@ -4,7 +4,6 @@ import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
-    Alert,
     Modal,
     Platform,
     ScrollView,
@@ -19,6 +18,7 @@ import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { TripActivity } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
@@ -74,6 +74,8 @@ const priorities = [
 ];
 
 const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { tripId, editActivity } = route.params;
     const isEditing = !!editActivity;
@@ -125,12 +127,12 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleSave = async () => {
         if (!activityName.trim()) {
-            Alert.alert("Erreur", "Veuillez entrer un nom pour l'activité");
+            modal.showError("Erreur", "Veuillez entrer un nom pour l'activité");
             return;
         }
 
         if (!isValidUrl(link)) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Le lien doit commencer par http:// ou https://"
             );
@@ -222,16 +224,53 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                 }
             }
 
-            Alert.alert(
-                "Succès",
-                isEditing
-                    ? "Activité modifiée avec succès"
-                    : "Activité ajoutée au voyage",
-                [{ text: "OK", onPress: () => navigation.goBack() }]
-            );
+            // Modal intelligente avec actions contextuelles
+            if (isEditing) {
+                // Pour une modification : voir l'activité ou retourner au planning
+                modal.showConfirm(
+                    "✨ Activité modifiée !",
+                    `"${activityName.trim()}" a été mise à jour avec succès.`,
+                    () => {
+                        // Remplacer cette page par le planning pour éviter les problèmes de pile
+                        navigation.replace("Activities", { tripId });
+                    },
+                    () => {
+                        // Retour simple
+                        navigation.goBack();
+                    },
+                    "Voir planning",
+                    "Retour"
+                );
+            } else {
+                // Pour une nouvelle activité : ajouter une autre ou voir le planning
+                modal.showConfirm(
+                    "🎯 Activité ajoutée !",
+                    `"${activityName.trim()}" a été ajoutée à votre voyage.`,
+                    () => {
+                        // Réinitialiser le formulaire pour ajouter une autre activité
+                        setActivityName("");
+                        setSelectedType("sightseeing");
+                        setLocation("");
+                        setLink("");
+                        setDescription("");
+                        setSelectedPriority("medium");
+                        setEstimatedDuration("");
+                        setEstimatedCost("");
+                        setSelectedDate(new Date());
+                        setStartTime("");
+                        setEndTime("");
+                    },
+                    () => {
+                        // Remplacer cette page par le planning pour éviter les problèmes de pile
+                        navigation.replace("Activities", { tripId });
+                    },
+                    "Ajouter une autre",
+                    "Voir planning"
+                );
+            }
         } catch (error) {
             console.error("Erreur sauvegarde activité:", error);
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 isEditing
                     ? "Impossible de modifier l'activité"

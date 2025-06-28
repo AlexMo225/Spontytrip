@@ -57,8 +57,7 @@ export default function AuthStackNavigator() {
                     name="Register"
                     component={RegisterScreen}
                     options={{
-                        title: "Créer un compte",
-                        headerShown: true,
+                        headerShown: false,
                     }}
                 />
                 <Stack.Screen

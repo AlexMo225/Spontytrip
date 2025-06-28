@@ -1,7 +1,6 @@
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -15,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { RootStackParamList } from "../types";
 
 type ForgotPasswordScreenNavigationProp = StackNavigationProp<
@@ -27,20 +27,22 @@ interface Props {
 }
 
 const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isEmailSent, setIsEmailSent] = useState(false);
 
     const handleResetPassword = async () => {
         if (!email) {
-            Alert.alert("Erreur", "Veuillez entrer votre adresse email");
+            quickModals.formError("entrer votre adresse email");
             return;
         }
 
         // Validation email basique
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            Alert.alert("Erreur", "Veuillez entrer une adresse email valide");
+            quickModals.formError("entrer une adresse email valide");
             return;
         }
 
@@ -319,4 +321,3 @@ const styles = StyleSheet.create({
 });
 
 export default ForgotPasswordScreen;
- 

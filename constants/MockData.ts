@@ -78,8 +78,7 @@ export const mockCities: CityDestination[] = [
 export const mockUser: User = {
     id: "1",
     email: "user@spontytrip.com",
-    firstName: "Alex",
-    lastName: "Martin",
+    displayName: "Alex Martin",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e",
     createdAt: new Date("2024-01-01"),
 };
@@ -92,11 +91,15 @@ export const mockTrips: Trip[] = [
         startDate: new Date("2024-07-15"),
         endDate: new Date("2024-07-17"),
         description: "Un week-end romantique dans la ville lumière",
+        type: "citytrip",
         creatorId: "1",
+        creatorName: "Alex Martin",
         members: [
             {
                 userId: "1",
-                user: mockUser,
+                name: "Alex Martin",
+                email: "user@spontytrip.com",
+                avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e",
                 role: "creator",
                 joinedAt: new Date("2024-06-01"),
             },
@@ -114,11 +117,15 @@ export const mockTrips: Trip[] = [
         startDate: new Date("2024-09-10"),
         endDate: new Date("2024-09-20"),
         description: "Découverte de la culture japonaise",
+        type: "citytrip",
         creatorId: "1",
+        creatorName: "Alex Martin",
         members: [
             {
                 userId: "1",
-                user: mockUser,
+                name: "Alex Martin",
+                email: "user@spontytrip.com",
+                avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e",
                 role: "creator",
                 joinedAt: new Date("2024-06-15"),
             },

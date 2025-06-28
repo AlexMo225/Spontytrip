@@ -5,7 +5,6 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import {
-    Alert,
     Dimensions,
     ScrollView,
     StyleSheet,
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Avatar from "../components/Avatar";
 import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { MainTabParamList, RootStackParamList } from "../types";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -31,6 +31,8 @@ interface Props {
 }
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
 
@@ -81,30 +83,24 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     const handleLogout = () => {
-        Alert.alert(
+        modal.showConfirm(
             "Déconnexion",
             "Êtes-vous sûr de vouloir vous déconnecter ?",
-            [
-                {
-                    text: "Annuler",
-                    style: "cancel",
-                },
-                {
-                    text: "Se déconnecter",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await signOut();
-                            // La navigation sera gérée automatiquement par AuthNavigator
-                        } catch (error) {
-                            Alert.alert(
-                                "Erreur",
-                                "Impossible de se déconnecter"
-                            );
-                        }
-                    },
-                },
-            ]
+            async () => {
+                // Action quand l'utilisateur confirme (Oui)
+                try {
+                    await signOut();
+                    // La navigation sera gérée automatiquement par AuthNavigator
+                } catch (error) {
+                    modal.showError("Erreur", "Impossible de se déconnecter");
+                }
+            },
+            () => {
+                // Action quand l'utilisateur annule (optionnel)
+                console.log("Déconnexion annulée");
+            },
+            "Oui, me déconnecter", // Texte du bouton de confirmation
+            "Annuler" // Texte du bouton d'annulation
         );
     };
 

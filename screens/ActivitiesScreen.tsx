@@ -5,7 +5,6 @@ import * as Linking from "expo-linking";
 import React, { useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     Clipboard,
     Modal,
@@ -19,6 +18,7 @@ import {
 import { Colors } from "../constants/Colors";
 import { Fonts } from "../constants/Fonts";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import firebaseService, { TripActivity } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
@@ -46,6 +46,8 @@ type ViewMode = "timeline" | "list";
 type FilterType = "all" | "validated" | "pending" | "past";
 
 const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { tripId } = route.params;
     const { trip, activities, loading, error } = useTripSync(tripId);
@@ -360,7 +362,10 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
             );
         } catch (error) {
             console.error("Erreur vote:", error);
-            Alert.alert("Erreur", "Impossible de voter pour cette activité");
+            modal.showError(
+                "Erreur",
+                "Impossible de voter pour cette activité"
+            );
 
             // 🔄 Rollback en cas d'erreur
             if (activities?.activities) {
@@ -394,7 +399,7 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
             );
         } catch (error) {
             console.error("Erreur validation:", error);
-            Alert.alert("Erreur", "Impossible de valider cette activité");
+            modal.showError("Erreur", "Impossible de valider cette activité");
         }
     };
 
@@ -856,72 +861,62 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleDeleteActivity = async (activityId: string) => {
-        Alert.alert(
+        modal.showDelete(
             "Supprimer l'activité",
             "Êtes-vous sûr de vouloir supprimer cette activité ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
+            async () => {
+                try {
+                    // Optimistic update
+                    setLocalActivities((prev) =>
+                        prev.filter((a) => a.id !== activityId)
+                    );
+
+                    // Trouver l'activité pour récupérer son titre
+                    const activityToDelete = localActivities.find(
+                        (a) => a.id === activityId
+                    );
+
+                    // Supprimer dans Firebase
+                    const updatedActivities = localActivities.filter(
+                        (a) => a.id !== activityId
+                    );
+                    await firebaseService.updateActivities(
+                        tripId,
+                        updatedActivities,
+                        user?.uid || ""
+                    );
+
+                    // Logger l'activité de suppression
+                    if (activityToDelete) {
                         try {
-                            // Optimistic update
-                            setLocalActivities((prev) =>
-                                prev.filter((a) => a.id !== activityId)
-                            );
-
-                            // Trouver l'activité pour récupérer son titre
-                            const activityToDelete = localActivities.find(
-                                (a) => a.id === activityId
-                            );
-
-                            // Supprimer dans Firebase
-                            const updatedActivities = localActivities.filter(
-                                (a) => a.id !== activityId
-                            );
-                            await firebaseService.updateActivities(
+                            await firebaseService.retryLogActivity(
                                 tripId,
-                                updatedActivities,
-                                user?.uid || ""
+                                user?.uid || "",
+                                user?.displayName ||
+                                    user?.email ||
+                                    "Utilisateur",
+                                "activity_delete",
+                                { title: activityToDelete.title }
                             );
-
-                            // Logger l'activité de suppression
-                            if (activityToDelete) {
-                                try {
-                                    await firebaseService.retryLogActivity(
-                                        tripId,
-                                        user?.uid || "",
-                                        user?.displayName ||
-                                            user?.email ||
-                                            "Utilisateur",
-                                        "activity_delete",
-                                        { title: activityToDelete.title }
-                                    );
-                                } catch (logError) {
-                                    console.error(
-                                        "Erreur logging suppression activité:",
-                                        logError
-                                    );
-                                }
-                            }
-                        } catch (error) {
+                        } catch (logError) {
                             console.error(
-                                "Erreur suppression activité:",
-                                error
-                            );
-                            // Rollback en cas d'erreur
-                            if (activities?.activities) {
-                                setLocalActivities(activities.activities);
-                            }
-                            Alert.alert(
-                                "Erreur",
-                                "Impossible de supprimer l'activité"
+                                "Erreur logging suppression activité:",
+                                logError
                             );
                         }
-                    },
-                },
-            ]
+                    }
+                } catch (error) {
+                    console.error("Erreur suppression activité:", error);
+                    // Rollback en cas d'erreur
+                    if (activities?.activities) {
+                        setLocalActivities(activities.activities);
+                    }
+                    modal.showError(
+                        "Erreur",
+                        "Impossible de supprimer l'activité"
+                    );
+                }
+            }
         );
     };
 
@@ -1481,9 +1476,16 @@ const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
                                                         Clipboard.setString(
                                                             selectedActivity.link!
                                                         );
-                                                        Alert.alert(
-                                                            "Copié !",
-                                                            "Le lien a été copié dans le presse-papiers"
+                                                        modal.showConfirm(
+                                                            "Lien copié ! 📋",
+                                                            "Le lien a été copié dans le presse-papiers. Voulez-vous l'ouvrir maintenant ?",
+                                                            () =>
+                                                                Linking.openURL(
+                                                                    selectedActivity.link!
+                                                                ),
+                                                            () => {},
+                                                            "Ouvrir",
+                                                            "Plus tard"
                                                         );
                                                     }}
                                                 >

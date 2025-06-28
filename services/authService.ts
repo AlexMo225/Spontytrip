@@ -31,15 +31,25 @@ const getErrorMessage = (error: any): string => {
         case "auth/weak-password":
             return "Le mot de passe doit contenir au moins 6 caractères.";
         case "auth/invalid-email":
-            return "Adresse email invalide.";
+            return "L'adresse email saisie n'est pas valide.";
         case "auth/user-not-found":
-            return "Aucun compte trouvé avec cette adresse email.";
+            return "Aucun compte n'existe avec cette adresse email.";
         case "auth/wrong-password":
-            return "Mot de passe incorrect.";
+            return "Le mot de passe saisi est incorrect.";
+        case "auth/invalid-login-credentials":
+            return "Email ou mot de passe incorrect.";
+        case "auth/user-disabled":
+            return "Ce compte a été désactivé.";
         case "auth/too-many-requests":
-            return "Trop de tentatives. Réessayez plus tard.";
+            return "Trop de tentatives de connexion. Réessayez dans quelques minutes.";
+        case "auth/network-request-failed":
+            return "Erreur de connexion. Vérifiez votre connexion internet.";
+        case "auth/operation-not-allowed":
+            return "Cette méthode de connexion n'est pas autorisée.";
+        case "auth/requires-recent-login":
+            return "Veuillez vous reconnecter pour effectuer cette action.";
         default:
-            return "Une erreur est survenue. Veuillez réessayer.";
+            return "Email ou mot de passe incorrect.";
     }
 };
 

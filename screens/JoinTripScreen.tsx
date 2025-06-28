@@ -3,7 +3,6 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     StyleSheet,
     Text,
     TextInput,
@@ -15,6 +14,7 @@ import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useJoinTrip } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
 
@@ -31,13 +31,15 @@ interface Props {
 }
 
 const JoinTripScreen: React.FC<Props> = ({ navigation }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { joinTrip, loading, error } = useJoinTrip();
     const [inviteCode, setInviteCode] = useState("");
 
     const handleJoinTrip = async () => {
         if (!inviteCode.trim()) {
-            Alert.alert("Erreur", "Veuillez saisir un code d'invitation");
+            modal.showError("Erreur", "Veuillez saisir un code d'invitation");
             return;
         }
 
@@ -66,31 +68,24 @@ const JoinTripScreen: React.FC<Props> = ({ navigation }) => {
                     console.error("Erreur logging join trip:", logError);
                 }
 
-                Alert.alert(
+                modal.showConfirm(
                     "Succès !",
                     `Vous avez rejoint le voyage "${trip.title}"`,
-                    [
-                        {
-                            text: "Voir le voyage",
-                            onPress: () => {
-                                navigation.navigate("TripDetails", {
-                                    tripId: trip.id,
-                                });
-                            },
-                        },
-                        {
-                            text: "Retour à l'accueil",
-                            style: "cancel",
-                            onPress: () => {
-                                navigation.goBack();
-                            },
-                        },
-                    ]
+                    () => {
+                        navigation.navigate("TripDetails", {
+                            tripId: trip.id,
+                        });
+                    },
+                    () => {
+                        navigation.goBack();
+                    },
+                    "Voir le voyage",
+                    "Retour à l'accueil"
                 );
             }
         } catch (err) {
             console.error("Erreur rejoindre voyage:", err);
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 error ||
                     "Impossible de rejoindre le voyage. Vérifiez le code d'invitation."

@@ -2,10 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import * as ImagePicker from "expo-image-picker";
+import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Clipboard,
     Dimensions,
     Image,
@@ -22,6 +22,7 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useCreateTrip } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
 
@@ -88,6 +89,8 @@ LocaleConfig.locales["fr"] = {
 LocaleConfig.defaultLocale = "fr";
 
 const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { createTrip, loading, error } = useCreateTrip();
 
@@ -280,12 +283,12 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
         const trimmedDestination = destination.trim();
 
         if (!trimmedTripName) {
-            Alert.alert("Erreur", "Veuillez saisir un nom de séjour");
+            quickModals.formError("saisir un nom de séjour");
             return;
         }
 
         if (trimmedTripName.length < 3) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Le nom du séjour doit contenir au moins 3 caractères"
             );
@@ -293,15 +296,12 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
         }
 
         if (!trimmedDestination) {
-            Alert.alert("Erreur", "Veuillez choisir une destination");
+            quickModals.formError("choisir une destination");
             return;
         }
 
         if (!selectedDates.startDate) {
-            Alert.alert(
-                "Erreur",
-                "Veuillez sélectionner au moins une date de début"
-            );
+            quickModals.formError("sélectionner au moins une date de début");
             return;
         }
 
@@ -314,7 +314,7 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
         today.setHours(0, 0, 0, 0); // Reset time for date comparison
 
         if (startDate < today) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "La date de début ne peut pas être dans le passé"
             );
@@ -322,7 +322,7 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
         }
 
         if (endDate < startDate) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "La date de fin ne peut pas être antérieure à la date de début"
             );
@@ -331,13 +331,13 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
 
         // Validation du type de voyage
         if (!tripType) {
-            Alert.alert("Erreur", "Veuillez choisir un type de voyage");
+            quickModals.formError("choisir un type de voyage");
             return;
         }
 
         // Validation utilisateur
         if (!user) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Vous devez être connecté pour créer un voyage"
             );
@@ -385,20 +385,21 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
             } catch (fetchError) {
                 console.error("Erreur récupération voyage créé:", fetchError);
                 // Navigation directe en cas d'erreur de récupération
-                Alert.alert("Succès", "Voyage créé avec succès !", [
-                    {
-                        text: "OK",
-                        onPress: () => {
-                            navigation.reset({
-                                index: 1,
-                                routes: [
-                                    { name: "MainApp" },
-                                    { name: "TripDetails", params: { tripId } },
-                                ],
-                            });
-                        },
+                modal.showConfirm(
+                    "Succès",
+                    "Voyage créé avec succès !",
+                    () => {
+                        navigation.reset({
+                            index: 1,
+                            routes: [
+                                { name: "MainApp" },
+                                { name: "TripDetails", params: { tripId } },
+                            ],
+                        });
                     },
-                ]);
+                    undefined,
+                    "OK"
+                );
             }
         } catch (err) {
             console.error("Erreur création voyage:", err);
@@ -408,19 +409,62 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                     ? err.message
                     : "Impossible de créer le voyage");
 
-            Alert.alert("Erreur", `${errorMessage}. Veuillez réessayer.`);
+            modal.showError("Erreur", `${errorMessage}. Veuillez réessayer.`);
         }
     };
 
     const handleCopyCode = async () => {
         try {
             await Clipboard.setString(invitationCode);
-            Alert.alert(
-                "Copié !",
-                "Le code d'invitation a été copié dans le presse-papier"
+            modal.showConfirm(
+                "Code copié ! 📋",
+                "Le code d'invitation a été copié dans le presse-papier. Voulez-vous le partager maintenant ?",
+                handleShareInvitation,
+                () => {}, // Juste fermer si non
+                "Partager",
+                "Plus tard"
             );
         } catch (error) {
-            Alert.alert("Erreur", "Impossible de copier le code");
+            modal.showError("Erreur", "Impossible de copier le code");
+        }
+    };
+
+    const handleShareInvitation = async () => {
+        try {
+            const shareMessage = `🎉 Rejoins-moi sur SpontyTrip !
+
+📍 Voyage : ${tripName}
+${destination ? `🗺️ Destination : ${destination}` : ""}
+${
+    selectedDates.startDate && selectedDates.endDate
+        ? `📅 Dates : ${formatDateDisplay(
+              selectedDates.startDate,
+              selectedDates.endDate
+          )}`
+        : ""
+}
+
+🔑 Code d'invitation : ${invitationCode}
+
+💫 Télécharge SpontyTrip et utilise ce code pour rejoindre l'aventure !`;
+
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (isAvailable) {
+                await Sharing.shareAsync(shareMessage, {
+                    mimeType: "text/plain",
+                    dialogTitle: "Partager l'invitation SpontyTrip",
+                });
+            } else {
+                // Fallback pour copier dans le presse-papier si Sharing n'est pas disponible
+                await Clipboard.setString(shareMessage);
+                modal.showSuccess(
+                    "Message préparé !",
+                    "Le message d'invitation a été copié. Collez-le dans l'app de votre choix."
+                );
+            }
+        } catch (error) {
+            console.error("Erreur lors du partage:", error);
+            modal.showError("Erreur", "Impossible de partager l'invitation");
         }
     };
 
@@ -486,7 +530,7 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                 await ImagePicker.requestMediaLibraryPermissionsAsync();
 
             if (status !== "granted") {
-                Alert.alert(
+                modal.showInfo(
                     "Permission requise",
                     "Nous avons besoin d'accéder à vos photos pour sélectionner une image de couverture."
                 );
@@ -506,7 +550,7 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
             }
         } catch (error) {
             console.error("Erreur lors de la sélection d'image:", error);
-            Alert.alert("Erreur", "Impossible de sélectionner l'image");
+            modal.showError("Erreur", "Impossible de sélectionner l'image");
         }
     };
 
@@ -824,14 +868,31 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
                             </View>
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.continueButton}
-                            onPress={handleCloseInvitationModal}
-                        >
-                            <Text style={styles.continueButtonText}>
-                                Continuer
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Boutons d'action */}
+                        <View style={styles.modalButtonsContainer}>
+                            <TouchableOpacity
+                                style={styles.shareButton}
+                                onPress={handleShareInvitation}
+                            >
+                                <Ionicons
+                                    name="share-outline"
+                                    size={20}
+                                    color="#FFFFFF"
+                                />
+                                <Text style={styles.shareButtonText}>
+                                    Partager
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.continueButton}
+                                onPress={handleCloseInvitationModal}
+                            >
+                                <Text style={styles.continueButtonText}>
+                                    Continuer
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -1387,6 +1448,23 @@ const styles = StyleSheet.create({
         color: "#637887",
         marginTop: 4,
         textAlign: "center",
+    },
+    modalButtonsContainer: {
+        flexDirection: "row",
+        gap: 16,
+    },
+    shareButton: {
+        flex: 1,
+        backgroundColor: "#4DA1A9",
+        borderRadius: 12,
+        padding: 16,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    shareButtonText: {
+        fontSize: 16,
+        color: "#FFFFFF",
+        fontWeight: "600",
     },
 });
 

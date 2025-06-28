@@ -4,7 +4,6 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     Dimensions,
     FlatList,
@@ -18,6 +17,7 @@ import {
     View,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import firebaseService, {
     DebtCalculation,
@@ -65,6 +65,8 @@ const FINTECH_COLORS = {
 const { width: screenWidth } = Dimensions.get("window");
 
 const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { tripId } = route.params;
     const { user } = useAuth();
     const { trip, expenses, loading, error } = useTripSync(tripId);
@@ -180,7 +182,7 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
             !newExpense.amount ||
             newExpense.participants.length === 0
         ) {
-            Alert.alert("Erreur", "Veuillez remplir tous les champs");
+            quickModals.formError("remplir tous les champs");
             return;
         }
 
@@ -196,7 +198,7 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
 
             const amount = parseFloat(newExpense.amount);
             if (isNaN(amount) || amount <= 0) {
-                Alert.alert("Erreur", "Veuillez saisir un montant valide");
+                quickModals.formError("saisir un montant valide");
                 return;
             }
 
@@ -235,10 +237,10 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
             });
             setShowAddModal(false);
 
-            Alert.alert("Succès", "Dépense ajoutée avec succès");
+            modal.showSuccess("Succès", "Dépense ajoutée avec succès");
         } catch (error) {
             console.error("Erreur ajout dépense:", error);
-            Alert.alert("Erreur", "Impossible d'ajouter la dépense");
+            modal.showError("Erreur", "Impossible d'ajouter la dépense");
         }
     };
 
@@ -249,72 +251,62 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
             expense.createdBy === user.uid || trip.creatorId === user.uid;
 
         if (!canDelete) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Vous ne pouvez supprimer que vos propres dépenses"
             );
             return;
         }
 
-        Alert.alert(
+        modal.showDelete(
             "Supprimer la dépense",
             `Êtes-vous sûr de vouloir supprimer "${expense.label}" ?`,
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            // 🎬 Animation de suppression
-                            const animValue =
-                                cardAnimations.current[expense.id];
-                            if (animValue) {
-                                Animated.timing(animValue, {
-                                    toValue: 0,
-                                    duration: 300,
-                                    useNativeDriver: true,
-                                }).start();
+            async () => {
+                try {
+                    // 🎬 Animation de suppression
+                    const animValue = cardAnimations.current[expense.id];
+                    if (animValue) {
+                        Animated.timing(animValue, {
+                            toValue: 0,
+                            duration: 300,
+                            useNativeDriver: true,
+                        }).start();
+                    }
+
+                    await firebaseService.deleteExpense(
+                        tripId,
+                        expense.id,
+                        user.uid
+                    );
+
+                    // Logger l'activité de suppression
+                    try {
+                        await firebaseService.retryLogActivity(
+                            tripId,
+                            user.uid,
+                            user.displayName || user.email || "Utilisateur",
+                            "expense_delete",
+                            {
+                                label: expense.label,
+                                amount: expense.amount,
                             }
+                        );
+                    } catch (logError) {
+                        console.error(
+                            "Erreur logging suppression dépense:",
+                            logError
+                        );
+                    }
 
-                            await firebaseService.deleteExpense(
-                                tripId,
-                                expense.id,
-                                user.uid
-                            );
-
-                            // Logger l'activité de suppression
-                            try {
-                                await firebaseService.retryLogActivity(
-                                    tripId,
-                                    user.uid,
-                                    user.displayName ||
-                                        user.email ||
-                                        "Utilisateur",
-                                    "expense_delete",
-                                    {
-                                        label: expense.label,
-                                        amount: expense.amount,
-                                    }
-                                );
-                            } catch (logError) {
-                                console.error(
-                                    "Erreur logging suppression dépense:",
-                                    logError
-                                );
-                            }
-
-                            Alert.alert("Succès", "Dépense supprimée");
-                        } catch (error) {
-                            console.error("Erreur suppression dépense:", error);
-                            Alert.alert(
-                                "Erreur",
-                                "Impossible de supprimer la dépense"
-                            );
-                        }
-                    },
-                },
-            ]
+                    modal.showSuccess("Succès", "Dépense supprimée");
+                } catch (error) {
+                    console.error("Erreur suppression dépense:", error);
+                    modal.showError(
+                        "Erreur",
+                        "Impossible de supprimer la dépense"
+                    );
+                }
+            }
         );
     };
 
@@ -574,27 +566,151 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
         </TouchableOpacity>
     );
 
-    const renderDebtItem = ({ item }: { item: DebtCalculation }) => (
-        <View style={styles.modernDebtCard}>
-            <View style={styles.debtIconContainer}>
-                <Ionicons
-                    name="arrow-forward"
-                    size={18}
-                    color={FINTECH_COLORS.primary_turquoise}
-                />
-            </View>
-            <View style={styles.debtContent}>
-                <Text style={styles.modernDebtText}>
-                    <Text style={styles.modernDebtName}>{item.fromName}</Text>{" "}
-                    doit{" "}
-                    <Text style={styles.modernDebtAmount}>
-                        {item.amount.toFixed(2)}€
-                    </Text>{" "}
-                    à <Text style={styles.modernDebtName}>{item.toName}</Text>
-                </Text>
-            </View>
-        </View>
-    );
+    // 🎨 COMPOSANT : Carte de remboursement moderne avec animations
+    // 🎨 COMPOSANT SÉPARÉ : Carte de remboursement moderne avec animations
+    const DebtItemCard: React.FC<{ item: DebtCalculation; index: number }> =
+        React.memo(({ item, index }) => {
+            const slideAnim = useRef(new Animated.Value(50)).current;
+            const fadeAnim = useRef(new Animated.Value(0)).current;
+            const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+            React.useEffect(() => {
+                // Animation d'entrée avec délai progressif
+                const delay = index * 150;
+
+                Animated.parallel([
+                    Animated.timing(slideAnim, {
+                        toValue: 0,
+                        duration: 600,
+                        delay,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(fadeAnim, {
+                        toValue: 1,
+                        duration: 800,
+                        delay,
+                        useNativeDriver: true,
+                    }),
+                    Animated.spring(scaleAnim, {
+                        toValue: 1,
+                        delay: delay + 200,
+                        tension: 100,
+                        friction: 8,
+                        useNativeDriver: true,
+                    }),
+                ]).start();
+            }, [index, slideAnim, fadeAnim, scaleAnim]);
+
+            // Obtenir les initiales pour les avatars
+            const getInitials = (name: string) => {
+                return name
+                    .split(" ")
+                    .map((word) => word.charAt(0).toUpperCase())
+                    .slice(0, 2)
+                    .join("");
+            };
+
+            // Couleurs d'avatar basées sur le nom
+            const getAvatarColor = (name: string) => {
+                const colors = [
+                    "#FF6B6B",
+                    "#4ECDC4",
+                    "#45B7D1",
+                    "#96CEB4",
+                    "#FFEAA7",
+                    "#DDA0DD",
+                    "#98D8C8",
+                    "#F7DC6F",
+                ];
+                const colorIndex = name.length % colors.length;
+                return colors[colorIndex];
+            };
+
+            return (
+                <Animated.View
+                    style={[
+                        styles.modernDebtCard,
+                        {
+                            transform: [
+                                { translateY: slideAnim },
+                                { scale: scaleAnim },
+                            ],
+                            opacity: fadeAnim,
+                        },
+                    ]}
+                >
+                    {/* Avatar de celui qui doit */}
+                    <View
+                        style={[
+                            styles.debtAvatar,
+                            { backgroundColor: getAvatarColor(item.fromName) },
+                        ]}
+                    >
+                        <Text style={styles.avatarText}>
+                            {getInitials(item.fromName)}
+                        </Text>
+                    </View>
+
+                    {/* Flèche animée */}
+                    <View style={styles.arrowContainer}>
+                        <Ionicons
+                            name="arrow-forward"
+                            size={20}
+                            color="#7ED957"
+                        />
+                    </View>
+
+                    {/* Contenu principal */}
+                    <View style={styles.debtMainContent}>
+                        <View style={styles.debtAmountContainer}>
+                            <Text style={styles.debtAmountText}>
+                                {item.amount.toFixed(2)}€
+                            </Text>
+                            <View style={styles.debtAmountBadge}>
+                                <Ionicons
+                                    name="cash"
+                                    size={12}
+                                    color="#FFFFFF"
+                                />
+                            </View>
+                        </View>
+
+                        <Text style={styles.debtDescriptionText}>
+                            <Text style={styles.debtFromName}>
+                                {item.fromName}
+                            </Text>
+                            {" → "}
+                            <Text style={styles.debtToName}>{item.toName}</Text>
+                        </Text>
+                    </View>
+
+                    {/* Avatar de celui qui reçoit */}
+                    <View
+                        style={[
+                            styles.debtAvatar,
+                            { backgroundColor: getAvatarColor(item.toName) },
+                        ]}
+                    >
+                        <Text style={styles.avatarText}>
+                            {getInitials(item.toName)}
+                        </Text>
+                    </View>
+
+                    {/* Indicateur de statut */}
+                    <View style={styles.statusIndicator}>
+                        <View style={styles.statusDot} />
+                    </View>
+                </Animated.View>
+            );
+        });
+
+    const renderDebtItem = ({
+        item,
+        index,
+    }: {
+        item: DebtCalculation;
+        index: number;
+    }) => <DebtItemCard item={item} index={index} />;
 
     if (loading) {
         return (
@@ -621,12 +737,6 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                     />
                 </View>
                 <Text style={styles.modernErrorText}>{error}</Text>
-                <TouchableOpacity
-                    style={styles.modernRetryButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={styles.modernRetryButtonText}>Retour</Text>
-                </TouchableOpacity>
             </View>
         );
     }
@@ -854,49 +964,166 @@ const ExpensesScreen: React.FC<Props> = ({ navigation, route }) => {
                 </SafeAreaView>
             </Modal>
 
-            {/* 💰 Modal des remboursements */}
+            {/* 💰 Modal des remboursements moderne */}
             <Modal
                 visible={showBalanceModal}
                 animationType="slide"
                 presentationStyle="pageSheet"
             >
-                <SafeAreaView style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
+                <SafeAreaView style={styles.modernReimbursementModalContainer}>
+                    {/* Header moderne avec dégradé */}
+                    <View style={styles.modernReimbursementModalHeader}>
                         <TouchableOpacity
+                            style={styles.modalCloseButton}
                             onPress={() => setShowBalanceModal(false)}
+                            activeOpacity={0.7}
                         >
-                            <Text style={styles.cancelText}>Fermer</Text>
+                            <Ionicons name="close" size={24} color="#FFFFFF" />
                         </TouchableOpacity>
-                        <Text style={styles.modalTitle}>Remboursements</Text>
-                        <View style={{ width: 60 }} />
+
+                        <View style={styles.modernModalTitleContainer}>
+                            <View style={styles.modalTitleIconContainer}>
+                                <Ionicons
+                                    name="cash-outline"
+                                    size={24}
+                                    color="#FFFFFF"
+                                />
+                            </View>
+                            <Text style={styles.modernModalTitle}>
+                                Remboursements
+                            </Text>
+                        </View>
+
+                        {/* Espace pour équilibrer */}
+                        <View style={styles.modalHeaderSpacer} />
                     </View>
 
-                    <ScrollView style={styles.modalContent}>
+                    <ScrollView
+                        style={styles.modernReimbursementScrollView}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={
+                            styles.reimbursementScrollContent
+                        }
+                    >
                         {summary?.debtsToSettle &&
                         summary.debtsToSettle.length > 0 ? (
-                            <FlatList
-                                data={summary.debtsToSettle}
-                                renderItem={renderDebtItem}
-                                keyExtractor={(item, index) =>
-                                    `${item.from}-${item.to}-${index}`
-                                }
-                                scrollEnabled={false}
-                            />
-                        ) : (
-                            <View style={styles.modernEmptyContainer}>
-                                <View style={styles.emptyIconContainer}>
-                                    <Ionicons
-                                        name="checkmark-circle-outline"
-                                        size={64}
-                                        color={FINTECH_COLORS.primary_green}
+                            <>
+                                {/* Header avec stats */}
+                                <View style={styles.reimbursementHeader}>
+                                    <View style={styles.reimbursementStatsCard}>
+                                        <View
+                                            style={
+                                                styles.reimbursementIconContainer
+                                            }
+                                        >
+                                            <Ionicons
+                                                name="swap-horizontal"
+                                                size={24}
+                                                color="#7ED957"
+                                            />
+                                        </View>
+                                        <View
+                                            style={
+                                                styles.reimbursementStatsContent
+                                            }
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.reimbursementStatsTitle
+                                                }
+                                            >
+                                                {summary.debtsToSettle.length}{" "}
+                                                remboursement
+                                                {summary.debtsToSettle.length >
+                                                1
+                                                    ? "s"
+                                                    : ""}
+                                            </Text>
+                                            <Text
+                                                style={
+                                                    styles.reimbursementStatsSubtitle
+                                                }
+                                            >
+                                                Total :{" "}
+                                                {summary.debtsToSettle
+                                                    .reduce(
+                                                        (sum, debt) =>
+                                                            sum + debt.amount,
+                                                        0
+                                                    )
+                                                    .toFixed(2)}
+                                                €
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {/* Liste des remboursements */}
+                                <View style={styles.reimbursementListContainer}>
+                                    <FlatList
+                                        data={summary.debtsToSettle}
+                                        renderItem={({ item, index }) =>
+                                            renderDebtItem({ item, index })
+                                        }
+                                        keyExtractor={(item, index) =>
+                                            `${item.from}-${item.to}-${index}`
+                                        }
+                                        scrollEnabled={false}
+                                        showsVerticalScrollIndicator={false}
                                     />
                                 </View>
-                                <Text style={styles.modernEmptyTitle}>
-                                    Tout est équilibré !
+                            </>
+                        ) : (
+                            <View
+                                style={styles.modernEmptyReimbursementContainer}
+                            >
+                                <View
+                                    style={
+                                        styles.emptyReimbursementIconContainer
+                                    }
+                                >
+                                    <Ionicons
+                                        name="checkmark-circle"
+                                        size={80}
+                                        color="#7ED957"
+                                    />
+                                </View>
+                                <Text
+                                    style={styles.modernEmptyReimbursementTitle}
+                                >
+                                    Tout est équilibré ! 🎉
                                 </Text>
-                                <Text style={styles.modernEmptySubtitle}>
-                                    Aucun remboursement nécessaire
+                                <Text
+                                    style={
+                                        styles.modernEmptyReimbursementSubtitle
+                                    }
+                                >
+                                    Aucun remboursement nécessaire entre les
+                                    membres
                                 </Text>
+                                <View
+                                    style={
+                                        styles.emptyReimbursementDecorationContainer
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.emptyReimbursementDecoration
+                                        }
+                                    />
+                                    <View
+                                        style={[
+                                            styles.emptyReimbursementDecoration,
+                                            styles.emptyReimbursementDecoration2,
+                                        ]}
+                                    />
+                                    <View
+                                        style={[
+                                            styles.emptyReimbursementDecoration,
+                                            styles.emptyReimbursementDecoration3,
+                                        ]}
+                                    />
+                                </View>
                             </View>
                         )}
                     </ScrollView>
@@ -922,6 +1149,7 @@ const styles = StyleSheet.create({
         backgroundColor: FINTECH_COLORS.light_gray,
     },
     modernHeader: {
+        flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: 20,
@@ -1231,48 +1459,102 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         fontSize: 16,
     },
-    // 💸 CARTES DE DETTES MODERNES
+    // 💸 CARTES DE DETTES MODERNES AVEC ANIMATIONS
     modernDebtCard: {
-        backgroundColor: FINTECH_COLORS.white,
+        backgroundColor: "#FFFFFF",
         padding: 20,
-        borderRadius: 16,
+        borderRadius: 20,
         flexDirection: "row",
         alignItems: "center",
-        gap: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: FINTECH_COLORS.border,
-        // Ombre légère
-        shadowColor: FINTECH_COLORS.shadow,
+        gap: 12,
+        marginBottom: 16,
+        borderWidth: 2,
+        borderColor: "#F0F9FF",
+        // Ombre moderne profonde
+        shadowColor: "#4DA1A9",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    // 👤 AVATARS COLORÉS
+    debtAvatar: {
+        width: 45,
+        height: 45,
+        borderRadius: 22.5,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 3,
+        borderColor: "#FFFFFF",
+        // Ombre d'avatar
+        shadowColor: "#000000",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
         elevation: 3,
     },
-    debtIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: FINTECH_COLORS.light_turquoise_bg,
+    avatarText: {
+        fontSize: 14,
+        fontWeight: "800",
+        color: "#FFFFFF",
+    },
+    // 🎯 FLÈCHE MODERNE
+    arrowContainer: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: "#F0F9F0",
         justifyContent: "center",
         alignItems: "center",
     },
-    debtContent: {
+    // 💰 CONTENU PRINCIPAL
+    debtMainContent: {
         flex: 1,
+        alignItems: "center",
     },
-    modernDebtText: {
-        fontSize: 15,
-        color: FINTECH_COLORS.dark_gray,
-        lineHeight: 22,
+    debtAmountContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 4,
     },
-    modernDebtName: {
+    debtAmountText: {
+        fontSize: 20,
+        fontWeight: "900",
+        color: "#7ED957",
+    },
+    debtAmountBadge: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: "#7ED957",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    debtDescriptionText: {
+        fontSize: 14,
+        color: "#64748B",
+        textAlign: "center",
+    },
+    debtFromName: {
         fontWeight: "700",
-        color: FINTECH_COLORS.dark_gray,
+        color: "#334155",
     },
-    modernDebtAmount: {
-        fontWeight: "800",
-        color: FINTECH_COLORS.primary_turquoise,
-        fontSize: 16,
+    debtToName: {
+        fontWeight: "700",
+        color: "#334155",
+    },
+    // 🔴 INDICATEUR DE STATUT
+    statusIndicator: {
+        position: "absolute",
+        top: 8,
+        right: 8,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#F59E0B",
     },
 
     // ⏳ ÉTATS DE CHARGEMENT ET ERREUR
@@ -1310,22 +1592,6 @@ const styles = StyleSheet.create({
         marginBottom: 24,
         lineHeight: 26,
     },
-    modernRetryButton: {
-        backgroundColor: FINTECH_COLORS.primary_turquoise,
-        paddingHorizontal: 32,
-        paddingVertical: 14,
-        borderRadius: 16,
-        shadowColor: FINTECH_COLORS.primary_turquoise,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 6,
-    },
-    modernRetryButtonText: {
-        color: FINTECH_COLORS.white,
-        fontWeight: "700",
-        fontSize: 16,
-    },
 
     // 🎯 BOUTON FLOTTANT D'AJOUT
     floatingAddButton: {
@@ -1347,6 +1613,198 @@ const styles = StyleSheet.create({
         // Légère bordure pour plus de définition
         borderWidth: 2,
         borderColor: FINTECH_COLORS.white,
+    },
+
+    // 🎨 MODAL DE REMBOURSEMENTS MODERNE
+    modernReimbursementModalContainer: {
+        flex: 1,
+        backgroundColor: "#F8FAFC",
+    },
+    modernReimbursementModalHeader: {
+        backgroundColor: "#4DA1A9",
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingTop: 20,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        // Dégradé simulé avec ombre
+        shadowColor: "#4DA1A9",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+
+    modernModalTitleContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    modalTitleIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: "rgba(255,255,255,0.2)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modernModalTitle: {
+        fontSize: 20,
+        fontWeight: "800",
+        color: "#FFFFFF",
+    },
+
+    modalHeaderDecoration: {
+        position: "absolute",
+        top: 0,
+        right: 0,
+        left: 0,
+        bottom: 0,
+        overflow: "hidden",
+    },
+    modalFloatingElement: {
+        position: "absolute",
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: "rgba(255,255,255,0.1)",
+        top: -20,
+        right: 60,
+    },
+    modalFloatingElement2: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        top: 40,
+        right: 20,
+    },
+
+    // 🎨 SCROLL VIEW MODERNE
+    modernReimbursementScrollView: {
+        flex: 1,
+    },
+    reimbursementScrollContent: {
+        padding: 20,
+        paddingBottom: 40,
+    },
+
+    // 📊 HEADER AVEC STATS
+    reimbursementHeader: {
+        marginBottom: 24,
+    },
+    reimbursementStatsCard: {
+        backgroundColor: "#FFFFFF",
+        padding: 20,
+        borderRadius: 20,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 16,
+        borderWidth: 2,
+        borderColor: "#E5F9E5",
+        // Ombre verte
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    reimbursementIconContainer: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: "#F0F9F0",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    reimbursementStatsContent: {
+        flex: 1,
+    },
+    reimbursementStatsTitle: {
+        fontSize: 18,
+        fontWeight: "800",
+        color: "#1E293B",
+        marginBottom: 4,
+    },
+    reimbursementStatsSubtitle: {
+        fontSize: 14,
+        color: "#64748B",
+        fontWeight: "600",
+    },
+
+    // 📋 CONTENEUR DE LISTE
+    reimbursementListContainer: {
+        gap: 8,
+    },
+
+    // 🎉 ÉTAT VIDE MODERNE
+    modernEmptyReimbursementContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 60,
+    },
+    emptyReimbursementIconContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: "#F0F9F0",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 24,
+        // Ombre verte douce
+        shadowColor: "#7ED957",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 8,
+    },
+    modernEmptyReimbursementTitle: {
+        fontSize: 24,
+        fontWeight: "800",
+        color: "#1E293B",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    modernEmptyReimbursementSubtitle: {
+        fontSize: 16,
+        color: "#64748B",
+        textAlign: "center",
+        marginBottom: 32,
+        lineHeight: 24,
+    },
+    // 🌟 DÉCORATIONS ÉTAT VIDE
+    emptyReimbursementDecorationContainer: {
+        flexDirection: "row",
+        gap: 8,
+    },
+    emptyReimbursementDecoration: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#7ED957",
+    },
+    emptyReimbursementDecoration2: {
+        backgroundColor: "#4DA1A9",
+    },
+    emptyReimbursementDecoration3: {
+        backgroundColor: "#F59E0B",
+    },
+
+    // 🎨 Modal styles
+    modalCloseButton: {
+        position: "absolute",
+        top: 16,
+        right: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalHeaderSpacer: {
+        flex: 1,
     },
 });
 

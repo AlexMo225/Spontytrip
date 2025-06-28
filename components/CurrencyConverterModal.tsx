@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Modal,
     ScrollView,
     StyleSheet,
@@ -19,6 +18,7 @@ import {
 } from "../api/currency";
 import { Colors } from "../constants/Colors";
 import { Fonts } from "../constants/Fonts";
+import { useModal, useQuickModals } from "../hooks/useModal";
 
 interface Props {
     visible: boolean;
@@ -26,6 +26,8 @@ interface Props {
 }
 
 const CurrencyConverterModal: React.FC<Props> = ({ visible, onClose }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { rates, loading, error, lastUpdated, refetch } =
         useCurrencyRates("EUR");
     const [amount, setAmount] = useState("100");
@@ -70,7 +72,7 @@ const CurrencyConverterModal: React.FC<Props> = ({ visible, onClose }) => {
         try {
             await refetch();
         } catch (err) {
-            Alert.alert(
+            modal.showError(
                 "Erreur",
                 "Impossible de mettre à jour les taux de change"
             );

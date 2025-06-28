@@ -8,5 +8,6 @@ export { default as Card } from "./Card";
 export { default as ChecklistCelebration } from "./ChecklistCelebration";
 export { default as CurrencyConverterModal } from "./CurrencyConverterModal";
 export { default as ExpenseItem } from "./ExpenseItem";
+export { default as SpontyModal } from "./SpontyModal";
 export { default as SpontyTripLogoAnimated } from "./SpontyTripLogoAnimated";
 export { default as TripBalanceSummary } from "./TripBalanceSummary";

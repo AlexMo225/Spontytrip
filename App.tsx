@@ -4,8 +4,9 @@ import React from "react";
 // Navigation
 import AuthNavigator from "./navigation/AuthNavigator";
 
-// Auth Context
+// Contexts
 import { AuthProvider } from "./contexts/AuthContext";
+import { ModalProvider } from "./hooks/useModal";
 
 // Constants
 import { Colors } from "./constants/Colors";
@@ -14,12 +15,14 @@ export default function App() {
     console.log("🚀 Démarrage de SpontyTrip avec polices système");
 
     return (
-        <AuthProvider>
-            <StatusBar
-                style="auto"
-                backgroundColor={Colors.backgroundColors.primary}
-            />
-            <AuthNavigator />
-        </AuthProvider>
+        <ModalProvider>
+            <AuthProvider>
+                <StatusBar
+                    style="auto"
+                    backgroundColor={Colors.backgroundColors.primary}
+                />
+                <AuthNavigator />
+            </AuthProvider>
+        </ModalProvider>
     );
 }

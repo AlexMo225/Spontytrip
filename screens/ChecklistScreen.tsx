@@ -4,7 +4,6 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Image,
     Modal,
@@ -18,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ChecklistCelebration from "../components/ChecklistCelebration";
 import { Colors, TaskAssignmentColors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import { TripMember } from "../services/firebaseService";
 import { ChecklistItem, RootStackParamList } from "../types";
@@ -36,6 +36,8 @@ interface Props {
 type TabType = "list" | "assignment" | "myTasks";
 
 const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
+    const modal = useModal();
+    const quickModals = useQuickModals();
     const { user } = useAuth();
     const { tripId } = route.params;
     const { trip, checklist, loading, error } = useTripSync(tripId);
@@ -125,98 +127,101 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const autoAssignTasks = async () => {
         if (!trip?.members || trip.members.length === 0) {
-            Alert.alert("Erreur", "Aucun membre dans ce voyage");
+            modal.showError("Erreur", "Aucun membre dans ce voyage");
             return;
         }
 
         const unassignedTasks = localItems.filter((item) => !item.assignedTo);
         if (unassignedTasks.length === 0) {
-            Alert.alert("Info", "Toutes les tâches sont déjà assignées ! 🎉");
+            modal.showConfirm(
+                "Déjà organisé ! 🎉",
+                "Toutes les tâches sont déjà assignées. Voulez-vous voir la répartition par membre ?",
+                () => setActiveTab("assignment"),
+                () => {},
+                "Voir répartition",
+                "OK"
+            );
             return;
         }
 
-        Alert.alert(
+        modal.showConfirm(
             "🎲 Répartition automatique",
             `Répartir ${unassignedTasks.length} tâches entre ${trip.members.length} membres ?`,
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "🚀 Go !",
-                    onPress: async () => {
-                        try {
-                            const members = trip.members;
-                            const tasksPerMember = Math.floor(
-                                unassignedTasks.length / members.length
+            async () => {
+                try {
+                    const members = trip.members;
+                    const tasksPerMember = Math.floor(
+                        unassignedTasks.length / members.length
+                    );
+                    const extraTasks = unassignedTasks.length % members.length;
+
+                    let taskIndex = 0;
+                    const updatedItems = [...localItems];
+
+                    members.forEach((member, memberIndex) => {
+                        const tasksToAssign =
+                            tasksPerMember + (memberIndex < extraTasks ? 1 : 0);
+
+                        for (
+                            let i = 0;
+                            i < tasksToAssign &&
+                            taskIndex < unassignedTasks.length;
+                            i++
+                        ) {
+                            const taskToUpdate = updatedItems.find(
+                                (item) =>
+                                    item.id === unassignedTasks[taskIndex].id
                             );
-                            const extraTasks =
-                                unassignedTasks.length % members.length;
-
-                            let taskIndex = 0;
-                            const updatedItems = [...localItems];
-
-                            members.forEach((member, memberIndex) => {
-                                const tasksToAssign =
-                                    tasksPerMember +
-                                    (memberIndex < extraTasks ? 1 : 0);
-
-                                for (
-                                    let i = 0;
-                                    i < tasksToAssign &&
-                                    taskIndex < unassignedTasks.length;
-                                    i++
-                                ) {
-                                    const taskToUpdate = updatedItems.find(
-                                        (item) =>
-                                            item.id ===
-                                            unassignedTasks[taskIndex].id
-                                    );
-                                    if (taskToUpdate) {
-                                        taskToUpdate.assignedTo = member.userId;
-                                    }
-                                    taskIndex++;
-                                }
-                            });
-
-                            const firebaseService = (
-                                await import("../services/firebaseService")
-                            ).default;
-                            await firebaseService.updateChecklist(
-                                tripId,
-                                updatedItems,
-                                user?.uid || ""
-                            );
-
-                            // 🔥 LOG POUR LE FEED LIVE - Auto-assignation
-                            if (user) {
-                                await firebaseService.logActivity(
-                                    tripId,
-                                    user.uid,
-                                    user.displayName ||
-                                        user.email ||
-                                        "Utilisateur",
-                                    "checklist_add",
-                                    {
-                                        title: `Répartition automatique de ${unassignedTasks.length} tâches`,
-                                        action: "auto_assigned",
-                                        taskCount: unassignedTasks.length,
-                                        memberCount: trip.members.length,
-                                    }
-                                );
+                            if (taskToUpdate) {
+                                taskToUpdate.assignedTo = member.userId;
                             }
-
-                            Alert.alert(
-                                "🎉 Succès !",
-                                "Tâches réparties équitablement !"
-                            );
-                        } catch (error) {
-                            Alert.alert(
-                                "Erreur",
-                                "Impossible de répartir les tâches"
-                            );
+                            taskIndex++;
                         }
-                    },
-                },
-            ]
+                    });
+
+                    const firebaseService = (
+                        await import("../services/firebaseService")
+                    ).default;
+                    await firebaseService.updateChecklist(
+                        tripId,
+                        updatedItems,
+                        user?.uid || ""
+                    );
+
+                    // 🔥 LOG POUR LE FEED LIVE - Auto-assignation
+                    if (user) {
+                        await firebaseService.logActivity(
+                            tripId,
+                            user.uid,
+                            user.displayName || user.email || "Utilisateur",
+                            "checklist_add",
+                            {
+                                title: `Répartition automatique de ${unassignedTasks.length} tâches`,
+                                action: "auto_assigned",
+                                taskCount: unassignedTasks.length,
+                                memberCount: trip.members.length,
+                            }
+                        );
+                    }
+
+                    modal.showConfirm(
+                        "🎉 Répartition terminée !",
+                        "Tâches réparties équitablement entre tous les membres ! Voulez-vous voir la répartition ?",
+                        () => setActiveTab("assignment"),
+                        () => {},
+                        "Voir répartition",
+                        "Parfait"
+                    );
+                } catch (error) {
+                    modal.showError(
+                        "Erreur",
+                        "Impossible de répartir les tâches"
+                    );
+                }
+            },
+            () => {}, // onCancel - ne rien faire si annulé
+            "🚀 Go !",
+            "Annuler"
         );
     };
 
@@ -253,9 +258,17 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
         const canToggle =
             isCreator || !item.assignedTo || item.assignedTo === user?.uid;
         if (!canToggle) {
-            Alert.alert(
-                "Permission refusée",
-                "Seul le créateur ou la personne assignée peut modifier cet élément."
+            const assignedMember = trip?.members?.find(
+                (m) => m.userId === item.assignedTo
+            );
+            const assignedName = assignedMember?.name || "quelqu'un d'autre";
+            modal.showConfirm(
+                "Permission refusée 🔒",
+                `Cette tâche est assignée à ${assignedName}. Voulez-vous voir toutes vos tâches ?`,
+                () => setActiveTab("myTasks"),
+                () => {},
+                "Mes tâches",
+                "Compris"
             );
             return;
         }
@@ -398,7 +411,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
             setAssignModalVisible(false);
             setSelectedItemId(null);
         } catch (error) {
-            Alert.alert("Erreur", "Impossible d'assigner l'élément");
+            modal.showError("Erreur", "Impossible d'assigner l'élément");
             if (checklist?.items) {
                 setLocalItems(checklist.items);
             }
@@ -406,48 +419,45 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleDeleteItem = async (itemId: string) => {
-        Alert.alert("Supprimer l'élément", "Êtes-vous sûr ?", [
-            { text: "Annuler", style: "cancel" },
-            {
-                text: "Supprimer",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        const itemToDelete = localItems.find(
-                            (item) => item.id === itemId
-                        );
-                        const updatedItems = localItems.filter(
-                            (item) => item.id !== itemId
-                        );
-                        setLocalItems(updatedItems);
+        modal.showDelete(
+            "Supprimer l'élément",
+            "Êtes-vous sûr de vouloir supprimer cet élément ?",
+            async () => {
+                try {
+                    const itemToDelete = localItems.find(
+                        (item) => item.id === itemId
+                    );
+                    const updatedItems = localItems.filter(
+                        (item) => item.id !== itemId
+                    );
+                    setLocalItems(updatedItems);
 
-                        const firebaseService = (
-                            await import("../services/firebaseService")
-                        ).default;
-                        await firebaseService.updateChecklist(
+                    const firebaseService = (
+                        await import("../services/firebaseService")
+                    ).default;
+                    await firebaseService.updateChecklist(
+                        tripId,
+                        updatedItems,
+                        user?.uid || ""
+                    );
+
+                    // 🔥 LOG POUR LE FEED LIVE - Suppression de tâche
+                    if (user && itemToDelete) {
+                        await firebaseService.logActivity(
                             tripId,
-                            updatedItems,
-                            user?.uid || ""
+                            user.uid,
+                            user.displayName || user.email || "Utilisateur",
+                            "checklist_delete",
+                            { title: itemToDelete.title }
                         );
-
-                        // 🔥 LOG POUR LE FEED LIVE - Suppression de tâche
-                        if (user && itemToDelete) {
-                            await firebaseService.logActivity(
-                                tripId,
-                                user.uid,
-                                user.displayName || user.email || "Utilisateur",
-                                "checklist_delete",
-                                { title: itemToDelete.title }
-                            );
-                        }
-                    } catch (error) {
-                        if (checklist?.items) {
-                            setLocalItems(checklist.items);
-                        }
                     }
-                },
-            },
-        ]);
+                } catch (error) {
+                    if (checklist?.items) {
+                        setLocalItems(checklist.items);
+                    }
+                }
+            }
+        );
     };
 
     const getItemsByCategory = () => {
@@ -1026,16 +1036,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.textPrimary}
-                    />
-                </TouchableOpacity>
+                <View style={styles.headerSpacer} />
                 <Text style={styles.headerTitle}>✅ Checklist</Text>
                 <TouchableOpacity
                     style={styles.addButton}
@@ -1210,8 +1211,8 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
-    backButton: {
-        padding: 8,
+    headerSpacer: {
+        width: 32, // Même largeur que le bouton add pour équilibrer
     },
     headerTitle: {
         fontSize: 18,
