@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -14,9 +15,6 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { TripActivity } from "../services/firebaseService";
@@ -37,33 +35,58 @@ interface Props {
 interface ActivityType {
     id: string;
     name: string;
-    icon: string;
+    icon: keyof typeof Ionicons.glyphMap;
     color: string;
 }
 
 const activityTypes: ActivityType[] = [
     {
-        id: "sightseeing",
+        id: "tourist",
         name: "Visite touristique",
-        icon: "camera",
+        icon: "camera-outline",
         color: "#4DA1A9",
     },
     {
         id: "restaurant",
         name: "Restaurant",
-        icon: "restaurant",
-        color: "#FF9500",
+        icon: "restaurant-outline",
+        color: "#F59E0B",
     },
-    { id: "adventure", name: "Aventure", icon: "mountain", color: "#7ED957" },
-    { id: "culture", name: "Culture", icon: "library", color: "#9C27B0" },
-    { id: "shopping", name: "Shopping", icon: "bag", color: "#FF6B6B" },
-    { id: "relaxation", name: "Détente", icon: "flower", color: "#00BCD4" },
-    { id: "transport", name: "Transport", icon: "car", color: "#607D8B" },
+    {
+        id: "sport",
+        name: "Sport",
+        icon: "fitness-outline",
+        color: "#10B981",
+    },
+    {
+        id: "culture",
+        name: "Culture",
+        icon: "book-outline",
+        color: "#8B5CF6",
+    },
+    {
+        id: "shopping",
+        name: "Shopping",
+        icon: "cart-outline",
+        color: "#EC4899",
+    },
+    {
+        id: "nature",
+        name: "Nature",
+        icon: "leaf-outline",
+        color: "#34D399",
+    },
+    {
+        id: "nightlife",
+        name: "Vie nocturne",
+        icon: "moon-outline",
+        color: "#6366F1",
+    },
     {
         id: "other",
         name: "Autre",
-        icon: "ellipsis-horizontal",
-        color: "#795548",
+        icon: "ellipsis-horizontal-outline",
+        color: "#6B7280",
     },
 ];
 
@@ -80,6 +103,7 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     const { tripId, editActivity } = route.params;
     const isEditing = !!editActivity;
 
+    const activityNameInputRef = useRef<TextInput>(null);
     const [activityName, setActivityName] = useState(editActivity?.title || "");
     const [selectedType, setSelectedType] = useState<string>("sightseeing");
     const [location, setLocation] = useState(editActivity?.location || "");
@@ -115,6 +139,8 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     const [showEndTimePicker, setShowEndTimePicker] = useState(false);
     const [tempDate, setTempDate] = useState(new Date());
     const [tempTime, setTempTime] = useState(new Date());
+    const [currentStep, setCurrentStep] = useState(1);
+    const totalSteps = 4;
 
     // Initialisation des valeurs temporaires
     useEffect(() => {
@@ -253,13 +279,12 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
 
             // Modal intelligente avec actions contextuelles
             if (isEditing) {
-                // Pour une modification : voir l'activité ou retourner au planning
                 modal.showConfirm(
                     "✨ Activité modifiée !",
                     `"${activityName.trim()}" a été mise à jour avec succès.`,
                     () => {
-                        // Remplacer cette page par le planning pour éviter les problèmes de pile
-                        navigation.replace("Activities", { tripId });
+                        // Retour simple au planning
+                        navigation.goBack();
                     },
                     () => {
                         // Retour simple
@@ -269,14 +294,13 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                     "Retour"
                 );
             } else {
-                // Pour une nouvelle activité : ajouter une autre ou voir le planning
                 modal.showConfirm(
                     "🎯 Activité ajoutée !",
                     `"${activityName.trim()}" a été ajoutée à votre voyage.`,
                     () => {
-                        // Réinitialiser le formulaire pour ajouter une autre activité
+                        // Réinitialiser complètement le formulaire
                         setActivityName("");
-                        setSelectedType("sightseeing");
+                        setSelectedType("tourist");
                         setLocation("");
                         setLink("");
                         setDescription("");
@@ -286,10 +310,15 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                         setSelectedDate(new Date());
                         setStartTime("");
                         setEndTime("");
+                        setCurrentStep(1);
+                        // Focus sur le champ du nom
+                        if (activityNameInputRef.current) {
+                            activityNameInputRef.current.focus();
+                        }
                     },
                     () => {
-                        // Remplacer cette page par le planning pour éviter les problèmes de pile
-                        navigation.replace("Activities", { tripId });
+                        // Retour simple au planning
+                        navigation.goBack();
                     },
                     "Ajouter une autre",
                     "Voir planning"
@@ -363,66 +392,6 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     );
     const selectedPriorityInfo = priorities.find(
         (priority) => priority.id === selectedPriority
-    );
-
-    const renderTypeOption = (type: ActivityType) => (
-        <TouchableOpacity
-            key={type.id}
-            style={styles.typeOption}
-            onPress={() => {
-                setSelectedType(type.id);
-                setShowTypeModal(false);
-            }}
-        >
-            <View
-                style={[
-                    styles.typeIcon,
-                    { backgroundColor: type.color + "20" },
-                ]}
-            >
-                <Ionicons
-                    name={type.icon as any}
-                    size={24}
-                    color={type.color}
-                />
-            </View>
-            <Text style={styles.typeText}>{type.name}</Text>
-            {selectedType === type.id && (
-                <Ionicons name="checkmark" size={20} color={type.color} />
-            )}
-        </TouchableOpacity>
-    );
-
-    const renderPriorityOption = (priority: (typeof priorities)[0]) => (
-        <TouchableOpacity
-            key={priority.id}
-            style={[
-                styles.priorityOption,
-                selectedPriority === priority.id && {
-                    backgroundColor: priority.color + "20",
-                    borderColor: priority.color,
-                },
-            ]}
-            onPress={() => setSelectedPriority(priority.id)}
-        >
-            <View
-                style={[
-                    styles.priorityDot,
-                    { backgroundColor: priority.color },
-                ]}
-            />
-            <Text
-                style={[
-                    styles.priorityText,
-                    selectedPriority === priority.id && {
-                        color: priority.color,
-                        fontWeight: "600",
-                    },
-                ]}
-            >
-                {priority.name}
-            </Text>
-        </TouchableOpacity>
     );
 
     const renderIOSPicker = (
@@ -507,229 +476,466 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
         );
     };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="arrow-back" size={24} color="#4DA1A9" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>
-                    {isEditing ? "Modifier l'activité" : "Nouvelle activité"}
-                </Text>
-                <TouchableOpacity
+    const renderTypeModal = () => (
+        <Modal
+            visible={showTypeModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowTypeModal(false)}
+        >
+            <View style={styles.modalOverlay}>
+                <View
                     style={[
-                        styles.saveButton,
-                        isLoading && styles.saveButtonDisabled,
+                        styles.modalContent,
+                        { width: "90%", maxHeight: "70%" },
                     ]}
-                    onPress={handleSave}
-                    disabled={isLoading}
                 >
-                    <Text style={styles.saveButtonText}>
-                        {isLoading ? "..." : "Sauver"}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Nom de l'activité */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Nom de l'activité *</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Ex: Visite de la Tour Eiffel..."
-                        value={activityName}
-                        onChangeText={setActivityName}
-                        placeholderTextColor="#9CA3AF"
-                    />
-                </View>
-
-                {/* Type d'activité */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Type d'activité</Text>
-                    <TouchableOpacity
-                        style={styles.typeSelector}
-                        onPress={() => setShowTypeModal(true)}
-                    >
-                        <View style={styles.typeSelectorContent}>
-                            <View
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Type d'activité</Text>
+                        <TouchableOpacity
+                            onPress={() => setShowTypeModal(false)}
+                        >
+                            <Ionicons
+                                name="close-outline"
+                                size={24}
+                                color="#9CA3AF"
+                            />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.typeList}>
+                        {activityTypes.map((type) => (
+                            <TouchableOpacity
+                                key={type.id}
                                 style={[
-                                    styles.typeIcon,
-                                    {
-                                        backgroundColor:
-                                            selectedTypeInfo?.color + "20",
-                                    },
+                                    styles.typeOption,
+                                    selectedType === type.id &&
+                                        styles.typeOptionSelected,
                                 ]}
+                                onPress={() => {
+                                    setSelectedType(type.id);
+                                    setShowTypeModal(false);
+                                }}
                             >
+                                <View
+                                    style={[
+                                        styles.typeIcon,
+                                        { backgroundColor: type.color },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name={type.icon as any}
+                                        size={20}
+                                        color="white"
+                                    />
+                                </View>
+                                <Text
+                                    style={[
+                                        styles.typeText,
+                                        selectedType === type.id &&
+                                            styles.typeTextSelected,
+                                    ]}
+                                >
+                                    {type.name}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+    );
+
+    const renderProgressBar = () => (
+        <View style={styles.progressContainer}>
+            {Array.from({ length: totalSteps }).map((_, index) => (
+                <View
+                    key={index}
+                    style={[
+                        styles.progressBar,
+                        {
+                            backgroundColor:
+                                index + 1 <= currentStep
+                                    ? "#4DA1A9"
+                                    : "#E5E7EB",
+                            width: `${100 / totalSteps}%`,
+                        },
+                    ]}
+                />
+            ))}
+        </View>
+    );
+
+    const renderStepContent = () => {
+        switch (currentStep) {
+            case 1:
+                return (
+                    <View style={styles.stepContainer}>
+                        <Text style={styles.stepTitle}>
+                            Informations principales
+                        </Text>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>
+                                Nom de l'activité *
+                            </Text>
+                            <View style={styles.inputContainer}>
                                 <Ionicons
-                                    name={selectedTypeInfo?.icon as any}
+                                    name="bookmark-outline"
                                     size={20}
-                                    color={selectedTypeInfo?.color}
+                                    color="#4DA1A9"
+                                    style={styles.inputIcon}
+                                />
+                                <TextInput
+                                    ref={activityNameInputRef}
+                                    style={styles.inputWithIcon}
+                                    placeholder="Ex: Visite de la Tour Eiffel..."
+                                    value={activityName}
+                                    onChangeText={setActivityName}
+                                    placeholderTextColor="#9CA3AF"
                                 />
                             </View>
-                            <Text style={styles.typeSelectorText}>
-                                {selectedTypeInfo?.name}
-                            </Text>
                         </View>
-                        <Ionicons
-                            name="chevron-down"
-                            size={20}
-                            color="#9CA3AF"
-                        />
-                    </TouchableOpacity>
-                </View>
 
-                {/* Date et Heure */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Date et heure *</Text>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Type d'activité</Text>
+                            <TouchableOpacity
+                                style={styles.selectButton}
+                                onPress={() => setShowTypeModal(true)}
+                            >
+                                <View style={styles.selectContent}>
+                                    <View
+                                        style={[
+                                            styles.typeIcon,
+                                            {
+                                                backgroundColor:
+                                                    activityTypes.find(
+                                                        (t) =>
+                                                            t.id ===
+                                                            selectedType
+                                                    )?.color,
+                                            },
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                activityTypes.find(
+                                                    (t) => t.id === selectedType
+                                                )?.icon
+                                            }
+                                            size={20}
+                                            color="white"
+                                        />
+                                    </View>
+                                    <Text style={styles.selectText}>
+                                        {
+                                            activityTypes.find(
+                                                (t) => t.id === selectedType
+                                            )?.name
+                                        }
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name="chevron-down"
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                );
+            case 2:
+                return (
+                    <View style={styles.stepContainer}>
+                        <Text style={styles.stepTitle}>Date et heure</Text>
+                        <TouchableOpacity
+                            style={styles.dateButton}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <Ionicons
+                                name="calendar"
+                                size={20}
+                                color="#4DA1A9"
+                            />
+                            <Text style={styles.dateText}>
+                                {formatDate(selectedDate)}
+                            </Text>
+                            <Ionicons
+                                name="chevron-forward"
+                                size={20}
+                                color="#9CA3AF"
+                            />
+                        </TouchableOpacity>
 
-                    {/* Sélecteur de date */}
-                    <TouchableOpacity
-                        style={styles.dateTimeButton}
-                        onPress={() => setShowDatePicker(true)}
-                    >
-                        <Ionicons
-                            name="calendar-outline"
-                            size={20}
-                            color="#4DA1A9"
-                        />
-                        <Text style={styles.dateTimeText}>
-                            {formatDate(selectedDate)}
-                        </Text>
-                        <Ionicons
-                            name="chevron-forward"
-                            size={16}
-                            color="#9CA3AF"
-                        />
-                    </TouchableOpacity>
-
-                    {/* Sélecteurs d'heure */}
-                    <View style={styles.timeRow}>
-                        <View style={styles.timeColumn}>
-                            <Text style={styles.timeLabel}>Heure de début</Text>
+                        <View style={styles.timeContainer}>
                             <TouchableOpacity
                                 style={styles.timeButton}
                                 onPress={() => setShowStartTimePicker(true)}
                             >
                                 <Ionicons
-                                    name="time-outline"
-                                    size={18}
+                                    name="time"
+                                    size={20}
                                     color="#4DA1A9"
                                 />
                                 <Text style={styles.timeText}>
-                                    {startTime || "Non définie"}
+                                    {startTime || "Début"}
                                 </Text>
                             </TouchableOpacity>
-                        </View>
 
-                        <View style={styles.timeColumn}>
-                            <Text style={styles.timeLabel}>Heure de fin</Text>
+                            <View style={styles.timeSeparator}>
+                                <Ionicons
+                                    name="arrow-forward"
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            </View>
+
                             <TouchableOpacity
                                 style={styles.timeButton}
                                 onPress={() => setShowEndTimePicker(true)}
                             >
                                 <Ionicons
-                                    name="time-outline"
-                                    size={18}
+                                    name="time"
+                                    size={20}
                                     color="#4DA1A9"
                                 />
                                 <Text style={styles.timeText}>
-                                    {endTime || "Non définie"}
+                                    {endTime || "Fin"}
                                 </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                );
+            case 3:
+                return (
+                    <View style={styles.stepContainer}>
+                        <Text style={styles.stepTitle}>Localisation</Text>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Lieu</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons
+                                    name="location-outline"
+                                    size={20}
+                                    color="#4DA1A9"
+                                    style={styles.inputIcon}
+                                />
+                                <TextInput
+                                    style={styles.inputWithIcon}
+                                    placeholder="Ex: 5 Avenue Anatole France, Paris..."
+                                    value={location}
+                                    onChangeText={setLocation}
+                                    placeholderTextColor="#9CA3AF"
+                                />
+                            </View>
+                        </View>
 
-                {/* Lieu */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Lieu</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Ex: 5 Avenue Anatole France, Paris..."
-                        value={location}
-                        onChangeText={setLocation}
-                        placeholderTextColor="#9CA3AF"
-                    />
-                </View>
+                        <View style={styles.formGroup}>
+                            <View style={styles.labelContainer}>
+                                <Text style={styles.label}>Lien</Text>
+                                <Text style={styles.optionalText}>
+                                    (optionnel)
+                                </Text>
+                            </View>
+                            <View style={styles.inputContainer}>
+                                <Ionicons
+                                    name="link-outline"
+                                    size={20}
+                                    color="#4DA1A9"
+                                    style={styles.inputIcon}
+                                />
+                                <TextInput
+                                    style={[
+                                        styles.inputWithIcon,
+                                        !isValidUrl(link) &&
+                                            link.trim() &&
+                                            styles.inputError,
+                                    ]}
+                                    placeholder="https://... (billetterie, site officiel)"
+                                    value={link}
+                                    onChangeText={setLink}
+                                    placeholderTextColor="#9CA3AF"
+                                    keyboardType="url"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                />
+                                {link.trim() && (
+                                    <TouchableOpacity
+                                        style={styles.clearButton}
+                                        onPress={() => setLink("")}
+                                    >
+                                        <Ionicons
+                                            name="close-circle"
+                                            size={20}
+                                            color="#9CA3AF"
+                                        />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            {!isValidUrl(link) && link.trim() && (
+                                <Text style={styles.errorText}>
+                                    Le lien doit commencer par http:// ou
+                                    https://
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                );
+            case 4:
+                return (
+                    <View style={styles.stepContainer}>
+                        <Text style={styles.stepTitle}>Description</Text>
+                        <View style={styles.formGroup}>
+                            <View style={styles.labelContainer}>
+                                <Text style={styles.label}>Description</Text>
+                                <Text style={styles.optionalText}>
+                                    (optionnel)
+                                </Text>
+                            </View>
+                            <View
+                                style={[
+                                    styles.inputContainer,
+                                    styles.textAreaContainer,
+                                ]}
+                            >
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    placeholder="Description de l'activité..."
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                    placeholderTextColor="#9CA3AF"
+                                />
+                            </View>
+                        </View>
+                    </View>
+                );
+            default:
+                return null;
+        }
+    };
 
-                {/* Lien (optionnel) */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Lien (optionnel)</Text>
-                    <TextInput
-                        style={[
-                            styles.input,
-                            !isValidUrl(link) &&
-                                link.trim() &&
-                                styles.inputError,
-                        ]}
-                        placeholder="https://... (billetterie, site officiel, etc.)"
-                        value={link}
-                        onChangeText={setLink}
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="url"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                    {!isValidUrl(link) && link.trim() && (
-                        <Text style={styles.errorText}>
-                            Le lien doit commencer par http:// ou https://
-                        </Text>
-                    )}
-                </View>
-
-                {/* Description */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>
-                        Description (optionnelle)
-                    </Text>
-                    <TextInput
-                        style={[styles.input, styles.textArea]}
-                        placeholder="Décrivez l'activité, ajoutez des notes..."
-                        value={description}
-                        onChangeText={setDescription}
-                        multiline
-                        numberOfLines={4}
-                        textAlignVertical="top"
-                        placeholderTextColor="#9CA3AF"
-                    />
-                </View>
-
-                {/* Espacement en bas */}
-                <View style={styles.bottomSpacing} />
-            </ScrollView>
-
-            {/* Modal de sélection de type */}
-            <Modal
-                visible={showTypeModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowTypeModal(false)}
+    return (
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.keyboardAvoidingView}
             >
-                <SafeAreaView style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <TouchableOpacity
-                            onPress={() => setShowTypeModal(false)}
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                    >
+                        <Ionicons name="arrow-back" size={24} color="#4DA1A9" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Nouvelle activité</Text>
+                    <TouchableOpacity
+                        onPress={handleSave}
+                        style={styles.saveButton}
+                        disabled={!activityName.trim()}
+                    >
+                        <Text
+                            style={[
+                                styles.saveButtonText,
+                                !activityName.trim() &&
+                                    styles.saveButtonTextDisabled,
+                            ]}
                         >
-                            <Text style={styles.modalCancelText}>Annuler</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.modalTitle}>Type d'activité</Text>
-                        <View style={styles.modalPlaceholder} />
+                            Sauver
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {renderProgressBar()}
+
+                <ScrollView
+                    style={styles.scrollView}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={styles.scrollViewContent}
+                >
+                    {renderStepContent()}
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <TouchableOpacity
+                        style={[
+                            styles.footerButton,
+                            currentStep === 1 && styles.footerButtonDisabled,
+                        ]}
+                        onPress={() =>
+                            setCurrentStep((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={currentStep === 1}
+                    >
+                        <Ionicons
+                            name="arrow-back"
+                            size={20}
+                            color={currentStep === 1 ? "#9CA3AF" : "#4DA1A9"}
+                        />
+                        <Text
+                            style={[
+                                styles.footerButtonText,
+                                currentStep === 1 &&
+                                    styles.footerButtonTextDisabled,
+                            ]}
+                        >
+                            Précédent
+                        </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.footerCenter}>
+                        <Text style={styles.stepIndicator}>
+                            {currentStep}/{totalSteps}
+                        </Text>
                     </View>
 
-                    <ScrollView style={styles.modalContent}>
-                        {activityTypes.map(renderTypeOption)}
-                    </ScrollView>
-                </SafeAreaView>
-            </Modal>
+                    <TouchableOpacity
+                        style={[
+                            styles.footerButton,
+                            currentStep === totalSteps &&
+                                styles.footerButtonDisabled,
+                        ]}
+                        onPress={() =>
+                            setCurrentStep((prev) =>
+                                Math.min(totalSteps, prev + 1)
+                            )
+                        }
+                        disabled={currentStep === totalSteps}
+                    >
+                        <Text
+                            style={[
+                                styles.footerButtonText,
+                                currentStep === totalSteps &&
+                                    styles.footerButtonTextDisabled,
+                            ]}
+                        >
+                            Suivant
+                        </Text>
+                        <Ionicons
+                            name="arrow-forward"
+                            size={20}
+                            color={
+                                currentStep === totalSteps
+                                    ? "#9CA3AF"
+                                    : "#4DA1A9"
+                            }
+                        />
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
 
-            {/* Date Picker pour Android */}
+            {/* Pickers iOS */}
+            {renderIOSPicker(showDatePicker, "date", handleDateChange)}
+            {renderIOSPicker(
+                showStartTimePicker,
+                "time",
+                handleStartTimeChange
+            )}
+            {renderIOSPicker(showEndTimePicker, "time", handleEndTimeChange)}
+
+            {/* Type Modal */}
+            {renderTypeModal()}
+
+            {/* Android Pickers */}
             {Platform.OS === "android" && showDatePicker && (
                 <DateTimePicker
                     value={selectedDate}
@@ -739,8 +945,6 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                     minimumDate={new Date()}
                 />
             )}
-
-            {/* Time Picker pour Android */}
             {Platform.OS === "android" && showStartTimePicker && (
                 <DateTimePicker
                     value={new Date()}
@@ -749,7 +953,6 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                     onChange={handleStartTimeChange}
                 />
             )}
-
             {Platform.OS === "android" && showEndTimePicker && (
                 <DateTimePicker
                     value={new Date()}
@@ -758,15 +961,6 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                     onChange={handleEndTimeChange}
                 />
             )}
-
-            {/* Pickers pour iOS */}
-            {renderIOSPicker(showDatePicker, "date", handleDateChange)}
-            {renderIOSPicker(
-                showStartTimePicker,
-                "time",
-                handleStartTimeChange
-            )}
-            {renderIOSPicker(showEndTimePicker, "time", handleEndTimeChange)}
         </SafeAreaView>
     );
 };
@@ -774,31 +968,28 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#F8F9FA",
+        backgroundColor: "#F9FAFB",
+    },
+    keyboardAvoidingView: {
+        flex: 1,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        backgroundColor: "#FFFFFF",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "white",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#F3F4F6",
-        justifyContent: "center",
-        alignItems: "center",
-    },
     headerTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: "600",
-        color: "#1F2937",
-        fontFamily: "Inter_600SemiBold",
+        color: "#111827",
+    },
+    backButton: {
+        padding: 8,
     },
     saveButton: {
         backgroundColor: "#4DA1A9",
@@ -806,258 +997,266 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 8,
     },
-    saveButtonDisabled: {
-        backgroundColor: "#9CA3AF",
-    },
     saveButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
+        color: "white",
         fontWeight: "600",
-        fontFamily: "Inter_600SemiBold",
     },
-    content: {
+    saveButtonTextDisabled: {
+        opacity: 0.5,
+    },
+    progressContainer: {
+        flexDirection: "row",
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: "white",
+    },
+    progressBar: {
+        height: 4,
+        marginHorizontal: 2,
+        borderRadius: 2,
+    },
+    scrollView: {
         flex: 1,
-        paddingHorizontal: 20,
     },
-    section: {
-        marginTop: 24,
+    scrollViewContent: {
+        padding: 16,
     },
-    sectionTitle: {
-        fontSize: 16,
+    stepContainer: {
+        marginBottom: 24,
+    },
+    stepTitle: {
+        fontSize: 20,
         fontWeight: "600",
+        color: "#111827",
+        marginBottom: 16,
+    },
+    formGroup: {
+        marginBottom: 16,
+    },
+    labelContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: "500",
         color: "#374151",
-        marginBottom: 12,
-        fontFamily: "Inter_600SemiBold",
+    },
+    optionalText: {
+        fontSize: 14,
+        color: "#6B7280",
+        marginLeft: 8,
+    },
+    inputContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        paddingHorizontal: 12,
+    },
+    inputIcon: {
+        marginRight: 8,
+    },
+    inputWithIcon: {
+        flex: 1,
+        fontSize: 16,
+        color: "#111827",
+        paddingVertical: 12,
     },
     input: {
-        borderWidth: 1,
-        borderColor: "#D1D5DB",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        flex: 1,
         fontSize: 16,
-        backgroundColor: "#FFFFFF",
-        color: "#1F2937",
-        fontFamily: "Inter_400Regular",
+        color: "#111827",
+        paddingVertical: 12,
     },
     inputError: {
         borderColor: "#EF4444",
-        borderWidth: 2,
     },
     errorText: {
         fontSize: 14,
         color: "#EF4444",
-        marginTop: 8,
-        fontFamily: "Inter_400Regular",
+        marginTop: 4,
+    },
+    textAreaContainer: {
+        minHeight: 120,
     },
     textArea: {
-        height: 100,
-        paddingTop: 14,
-        textAlignVertical: "top",
+        height: "auto",
+        paddingTop: 12,
     },
-    typeSelector: {
+    footer: {
         flexDirection: "row",
-        alignItems: "center",
         justifyContent: "space-between",
+        alignItems: "center",
         padding: 16,
-        borderWidth: 1,
-        borderColor: "#D1D5DB",
-        borderRadius: 12,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "white",
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
     },
-    typeSelectorContent: {
+    footerButton: {
         flexDirection: "row",
         alignItems: "center",
+        padding: 8,
+    },
+    footerButtonDisabled: {
+        opacity: 0.5,
+    },
+    footerButtonText: {
+        fontSize: 16,
+        color: "#4DA1A9",
+        marginHorizontal: 8,
+    },
+    footerButtonTextDisabled: {
+        color: "#9CA3AF",
+    },
+    footerCenter: {
+        alignItems: "center",
+    },
+    stepIndicator: {
+        fontSize: 14,
+        color: "#6B7280",
+    },
+    typeOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 8,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
     },
     typeIcon: {
         width: 32,
         height: 32,
-        borderRadius: 8,
-        justifyContent: "center",
+        borderRadius: 16,
         alignItems: "center",
+        justifyContent: "center",
         marginRight: 12,
     },
-    typeSelectorText: {
+    typeText: {
         fontSize: 16,
-        color: "#1F2937",
-        fontFamily: "Inter_400Regular",
+        color: "#111827",
     },
-    dateTimeButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 16,
-        borderWidth: 1,
-        borderColor: "#D1D5DB",
-        borderRadius: 12,
-        backgroundColor: "#FFFFFF",
-        marginBottom: 16,
-    },
-    dateTimeText: {
-        fontSize: 16,
-        color: "#1F2937",
-        marginLeft: 12,
-        flex: 1,
-        fontFamily: "Inter_400Regular",
-    },
-    timeRow: {
-        flexDirection: "row",
-        gap: 12,
-    },
-    timeColumn: {
-        flex: 1,
-    },
-    timeLabel: {
-        fontSize: 14,
-        color: "#6B7280",
-        marginBottom: 8,
-        fontFamily: "Inter_400Regular",
-    },
-    timeButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 12,
-        borderWidth: 1,
-        borderColor: "#D1D5DB",
-        borderRadius: 8,
-        backgroundColor: "#FFFFFF",
-    },
-    timeText: {
-        fontSize: 14,
-        color: "#1F2937",
-        marginLeft: 8,
-        fontFamily: "Inter_400Regular",
-    },
-    bottomSpacing: {
-        height: 40,
-    },
-
-    // Modal styles
-    modalContainer: {
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-    },
-    modalHeader: {
+    selectButton: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        padding: 12,
+    },
+    selectContent: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    selectText: {
+        fontSize: 16,
+        color: "#111827",
+    },
+    dateButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 8,
+    },
+    dateText: {
+        flex: 1,
+        fontSize: 16,
+        color: "#111827",
+        marginLeft: 12,
+    },
+    timeContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    timeButton: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        padding: 12,
+    },
+    timeText: {
+        fontSize: 16,
+        color: "#111827",
+        marginLeft: 12,
+    },
+    timeSeparator: {
+        paddingHorizontal: 8,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalContent: {
+        backgroundColor: "white",
+        padding: 20,
+        borderRadius: 10,
+        width: "80%",
+        maxHeight: "80%",
+    },
+    pickerHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: 8,
+    },
+    cancelButton: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#4DA1A9",
+    },
+    confirmButton: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#4DA1A9",
+    },
+    pickerContainer: {
+        padding: 8,
+    },
+    iosPicker: {
+        width: "100%",
+        height: "100%",
+    },
+    modalHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: "600",
-        color: "#1F2937",
-        fontFamily: "Inter_600SemiBold",
+        color: "#111827",
     },
-    modalCancelText: {
-        fontSize: 16,
+    typeList: {
+        padding: 12,
+    },
+    typeOptionSelected: {
+        backgroundColor: "#F0FDFB",
+        borderColor: "#4DA1A9",
+    },
+    typeTextSelected: {
         color: "#4DA1A9",
-        fontFamily: "Inter_400Regular",
+        fontWeight: "500",
     },
-    modalPlaceholder: {
-        width: 60,
-    },
-    modalContent: {
-        flex: 1,
-        paddingHorizontal: 20,
-    },
-    typeOption: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        marginVertical: 4,
-        backgroundColor: "#F9FAFB",
-    },
-    typeText: {
-        fontSize: 16,
-        color: "#1F2937",
-        marginLeft: 12,
-        flex: 1,
-        fontFamily: "Inter_400Regular",
-    },
-    prioritiesContainer: {
-        flexDirection: "row",
-        gap: Spacing.sm,
-    },
-    priorityOption: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        padding: Spacing.sm,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        backgroundColor: Colors.white,
-    },
-    priorityDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        marginRight: Spacing.xs,
-    },
-    priorityText: {
-        ...TextStyles.body2,
-        color: Colors.text.primary,
-        fontSize: 14,
-    },
-    row: {
-        flexDirection: "row",
-        gap: Spacing.md,
-    },
-    halfWidth: {
-        flex: 1,
-    },
-    bottomSection: {
-        padding: Spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-        backgroundColor: Colors.white,
-    },
-    modalOverlay: {
-        flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: "rgba(0, 0, 0, 0.4)",
-    },
-    modalContent: {
-        backgroundColor: "#FFFFFF",
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        paddingBottom: Platform.OS === "ios" ? 34 : 0,
-    },
-    pickerHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
-        backgroundColor: "#F3F4F6",
-    },
-    cancelButton: {
-        fontSize: 17,
-        color: "#4DA1A9",
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-    },
-    confirmButton: {
-        fontSize: 17,
-        color: "#4DA1A9",
-        fontWeight: "600",
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-    },
-    pickerContainer: {
-        backgroundColor: "#FFFFFF",
-        paddingTop: 8,
-    },
-    iosPicker: {
-        height: 216,
-        backgroundColor: "#FFFFFF",
+    clearButton: {
+        padding: 4,
     },
 });
 
