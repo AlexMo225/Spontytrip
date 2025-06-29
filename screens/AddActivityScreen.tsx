@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Modal,
     Platform,
@@ -113,6 +113,33 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showStartTimePicker, setShowStartTimePicker] = useState(false);
     const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+    const [tempDate, setTempDate] = useState(new Date());
+    const [tempTime, setTempTime] = useState(new Date());
+
+    // Initialisation des valeurs temporaires
+    useEffect(() => {
+        if (showDatePicker) {
+            setTempDate(selectedDate);
+        }
+    }, [showDatePicker, selectedDate]);
+
+    useEffect(() => {
+        if (showStartTimePicker && startTime) {
+            const currentTime = new Date();
+            const [hours, minutes] = startTime.split(":");
+            currentTime.setHours(parseInt(hours), parseInt(minutes));
+            setTempTime(currentTime);
+        }
+    }, [showStartTimePicker, startTime]);
+
+    useEffect(() => {
+        if (showEndTimePicker && endTime) {
+            const currentTime = new Date();
+            const [hours, minutes] = endTime.split(":");
+            currentTime.setHours(parseInt(hours), parseInt(minutes));
+            setTempTime(currentTime);
+        }
+    }, [showEndTimePicker, endTime]);
 
     // Fonction de validation pour les liens
     const isValidUrl = (url: string): boolean => {
@@ -282,31 +309,43 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
-        setShowDatePicker(false);
-        if (selectedDate) {
-            setSelectedDate(selectedDate);
+        if (Platform.OS === "android") {
+            setShowDatePicker(false);
+            if (selectedDate) {
+                setSelectedDate(selectedDate);
+            }
+        } else if (selectedDate) {
+            setTempDate(selectedDate);
         }
     };
 
     const handleStartTimeChange = (event: any, selectedTime?: Date) => {
-        setShowStartTimePicker(false);
-        if (selectedTime) {
-            const timeString = selectedTime.toLocaleTimeString("fr-FR", {
-                hour: "2-digit",
-                minute: "2-digit",
-            });
-            setStartTime(timeString);
+        if (Platform.OS === "android") {
+            setShowStartTimePicker(false);
+            if (selectedTime) {
+                const timeString = selectedTime.toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+                setStartTime(timeString);
+            }
+        } else if (selectedTime) {
+            setTempTime(selectedTime);
         }
     };
 
     const handleEndTimeChange = (event: any, selectedTime?: Date) => {
-        setShowEndTimePicker(false);
-        if (selectedTime) {
-            const timeString = selectedTime.toLocaleTimeString("fr-FR", {
-                hour: "2-digit",
-                minute: "2-digit",
-            });
-            setEndTime(timeString);
+        if (Platform.OS === "android") {
+            setShowEndTimePicker(false);
+            if (selectedTime) {
+                const timeString = selectedTime.toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+                setEndTime(timeString);
+            }
+        } else if (selectedTime) {
+            setTempTime(selectedTime);
         }
     };
 
@@ -385,6 +424,88 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
             </Text>
         </TouchableOpacity>
     );
+
+    const renderIOSPicker = (
+        show: boolean,
+        mode: "date" | "time",
+        onChange: (event: any, date?: Date) => void
+    ) => {
+        if (!show || Platform.OS !== "ios") return null;
+
+        return (
+            <Modal
+                transparent={true}
+                animationType="slide"
+                visible={show}
+                onRequestClose={() => {
+                    if (mode === "date") setShowDatePicker(false);
+                    else if (mode === "time") {
+                        setShowStartTimePicker(false);
+                        setShowEndTimePicker(false);
+                    }
+                }}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.pickerHeader}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (mode === "date")
+                                        setShowDatePicker(false);
+                                    else if (mode === "time") {
+                                        setShowStartTimePicker(false);
+                                        setShowEndTimePicker(false);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.cancelButton}>Annuler</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (mode === "date") {
+                                        setSelectedDate(tempDate);
+                                        setShowDatePicker(false);
+                                    } else if (mode === "time") {
+                                        const timeString =
+                                            tempTime.toLocaleTimeString(
+                                                "fr-FR",
+                                                {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                }
+                                            );
+                                        if (showStartTimePicker) {
+                                            setStartTime(timeString);
+                                            setShowStartTimePicker(false);
+                                        } else {
+                                            setEndTime(timeString);
+                                            setShowEndTimePicker(false);
+                                        }
+                                    }
+                                }}
+                            >
+                                <Text style={styles.confirmButton}>OK</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.pickerContainer}>
+                            <DateTimePicker
+                                value={mode === "date" ? tempDate : tempTime}
+                                mode={mode}
+                                display="spinner"
+                                onChange={onChange}
+                                locale="fr-FR"
+                                textColor="#000000"
+                                style={styles.iosPicker}
+                                minimumDate={
+                                    mode === "date" ? new Date() : undefined
+                                }
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -608,36 +729,44 @@ const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
                 </SafeAreaView>
             </Modal>
 
-            {/* Date Picker */}
-            {showDatePicker && (
+            {/* Date Picker pour Android */}
+            {Platform.OS === "android" && showDatePicker && (
                 <DateTimePicker
                     value={selectedDate}
                     mode="date"
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    display="default"
                     onChange={handleDateChange}
                     minimumDate={new Date()}
                 />
             )}
 
-            {/* Start Time Picker */}
-            {showStartTimePicker && (
+            {/* Time Picker pour Android */}
+            {Platform.OS === "android" && showStartTimePicker && (
                 <DateTimePicker
                     value={new Date()}
                     mode="time"
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    display="default"
                     onChange={handleStartTimeChange}
                 />
             )}
 
-            {/* End Time Picker */}
-            {showEndTimePicker && (
+            {Platform.OS === "android" && showEndTimePicker && (
                 <DateTimePicker
                     value={new Date()}
                     mode="time"
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    display="default"
                     onChange={handleEndTimeChange}
                 />
             )}
+
+            {/* Pickers pour iOS */}
+            {renderIOSPicker(showDatePicker, "date", handleDateChange)}
+            {renderIOSPicker(
+                showStartTimePicker,
+                "time",
+                handleStartTimeChange
+            )}
+            {renderIOSPicker(showEndTimePicker, "time", handleEndTimeChange)}
         </SafeAreaView>
     );
 };
@@ -887,6 +1016,48 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: Colors.border,
         backgroundColor: Colors.white,
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "flex-end",
+        backgroundColor: "rgba(0, 0, 0, 0.4)",
+    },
+    modalContent: {
+        backgroundColor: "#FFFFFF",
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
+        paddingBottom: Platform.OS === "ios" ? 34 : 0,
+    },
+    pickerHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+        backgroundColor: "#F3F4F6",
+    },
+    cancelButton: {
+        fontSize: 17,
+        color: "#4DA1A9",
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+    confirmButton: {
+        fontSize: 17,
+        color: "#4DA1A9",
+        fontWeight: "600",
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+    pickerContainer: {
+        backgroundColor: "#FFFFFF",
+        paddingTop: 8,
+    },
+    iosPicker: {
+        height: 216,
+        backgroundColor: "#FFFFFF",
     },
 });
 
