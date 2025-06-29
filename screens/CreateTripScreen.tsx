@@ -2,15 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import * as ImagePicker from "expo-image-picker";
-import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Clipboard,
+    Alert,
     Dimensions,
     Image,
     Modal,
     ScrollView,
+    Share,
     StatusBar,
     StyleSheet,
     Text,
@@ -415,21 +415,31 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleCopyCode = async () => {
         try {
-            await Clipboard.setString(invitationCode);
-            modal.showConfirm(
-                "Code copié ! 📋",
-                "Le code d'invitation a été copié dans le presse-papier. Voulez-vous le partager maintenant ?",
-                handleShareInvitation,
-                () => {}, // Juste fermer si non
-                "Partager",
-                "Plus tard"
+            // Afficher le code dans une Alert pour copie manuelle
+            Alert.alert(
+                "Code d'invitation 📋",
+                `Voici votre code d'invitation :\n\n${invitationCode}\n\nVoulez-vous partager le message complet ?`,
+                [
+                    {
+                        text: "Partager le message",
+                        onPress: handleShareInvitation,
+                    },
+                    {
+                        text: "Juste le code",
+                        onPress: () => console.log("Code affiché"),
+                    },
+                ]
             );
         } catch (error) {
-            modal.showError("Erreur", "Impossible de copier le code");
+            Alert.alert("Erreur", "Impossible d'afficher le code", [
+                { text: "OK" },
+            ]);
         }
     };
 
     const handleShareInvitation = async () => {
+        console.log("🚀 handleShareInvitation - Début");
+
         try {
             const shareMessage = `🎉 Rejoins-moi sur SpontyTrip !
 
@@ -448,23 +458,54 @@ ${
 
 💫 Télécharge SpontyTrip et utilise ce code pour rejoindre l'aventure !`;
 
-            const isAvailable = await Sharing.isAvailableAsync();
-            if (isAvailable) {
-                await Sharing.shareAsync(shareMessage, {
-                    mimeType: "text/plain",
-                    dialogTitle: "Partager l'invitation SpontyTrip",
+            console.log(
+                "📝 Message à partager:",
+                shareMessage.substring(0, 50) + "..."
+            );
+
+            // Essayer d'abord l'API Share native (menu de partage iOS/Android)
+            try {
+                console.log("📱 Tentative avec Share.share natif...");
+
+                const result = await Share.share({
+                    message: shareMessage,
+                    title: "Invitation SpontyTrip",
                 });
-            } else {
-                // Fallback pour copier dans le presse-papier si Sharing n'est pas disponible
-                await Clipboard.setString(shareMessage);
-                modal.showSuccess(
-                    "Message préparé !",
-                    "Le message d'invitation a été copié. Collez-le dans l'app de votre choix."
+
+                if (result.action === Share.sharedAction) {
+                    console.log("✅ Partage réussi via Share natif");
+                } else if (result.action === Share.dismissedAction) {
+                    console.log("ℹ️ Menu de partage fermé par l'utilisateur");
+                }
+
+                return;
+            } catch (shareError) {
+                console.error("❌ Erreur Share natif:", shareError);
+                console.log("🔄 Fallback vers Alert...");
+
+                // Fallback : afficher le message dans une Alert pour copie manuelle
+                Alert.alert(
+                    "Message d'invitation 📱",
+                    `Voici votre message d'invitation à copier et partager :\n\n${shareMessage}`,
+                    [
+                        {
+                            text: "Copier manuellement",
+                            onPress: () => {
+                                console.log(
+                                    "✅ Message affiché à l'utilisateur"
+                                );
+                            },
+                        },
+                    ]
                 );
             }
         } catch (error) {
-            console.error("Erreur lors du partage:", error);
-            modal.showError("Erreur", "Impossible de partager l'invitation");
+            console.error("💥 Erreur générale lors du partage:", error);
+            Alert.alert(
+                "Erreur",
+                "Impossible de préparer le message d'invitation",
+                [{ text: "OK" }]
+            );
         }
     };
 

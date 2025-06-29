@@ -7,8 +7,11 @@ import {
     Animated,
     FlatList,
     Keyboard,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -77,38 +80,44 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
         }
     }, [error, navigation, loading]);
 
-    // Fonction pour afficher un message de succès intelligent (iOS et Android)
+    // Fonctions pour afficher les messages en tenant compte de la plateforme
     const showSuccessMessage = (message: string, isEdit: boolean = false) => {
-        if (isEdit) {
-            // Pour une modification : continuer ou voir toutes les notes
-            modal.showConfirm(
-                "✨ Note modifiée !",
-                message,
-                () => {
-                    // Rester pour continuer à modifier d'autres notes
-                    handleCreateNote();
-                },
-                () => {
-                    // Retour normal
-                },
-                "Ajouter une autre",
-                "Terminé"
+        // Sur iOS, utiliser un délai pour éviter les conflits de modales
+        if (Platform.OS === "ios") {
+            if (isEdit) {
+                modal.showSuccessDelayed("✨ Note modifiée !", message);
+            } else {
+                modal.showSuccessDelayed("📝 Note créée !", message);
+            }
+        } else {
+            // Sur Android, utiliser les modales normales
+            if (isEdit) {
+                modal.showSuccess("✨ Note modifiée !", message);
+            } else {
+                modal.showSuccess("📝 Note créée !", message);
+            }
+        }
+    };
+
+    const showSuccessDeleted = () => {
+        if (Platform.OS === "ios") {
+            modal.showSuccessDelayed(
+                "🗑️ Note supprimée !",
+                "La note a été supprimée avec succès."
             );
         } else {
-            // Pour une création : ajouter une autre ou continuer
-            modal.showConfirm(
-                "📝 Note créée !",
-                message,
-                () => {
-                    // Réinitialiser pour ajouter une autre note
-                    handleCreateNote();
-                },
-                () => {
-                    // Continuer à consulter les notes
-                },
-                "Ajouter une autre",
-                "Voir mes notes"
+            modal.showSuccess(
+                "🗑️ Note supprimée !",
+                "La note a été supprimée avec succès."
             );
+        }
+    };
+
+    const showErrorMessage = (title: string, message: string) => {
+        if (Platform.OS === "ios") {
+            modal.showErrorDelayed(title, message);
+        } else {
+            modal.showError(title, message);
         }
     };
 
@@ -164,24 +173,19 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsImportant(false);
         setShowCreateModal(true);
 
-        // Animation d'ouverture
-        Animated.spring(scaleAnim, {
+        // Animation d'ouverture rapide et fluide
+        Animated.timing(scaleAnim, {
             toValue: 1,
+            duration: 250,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
         }).start();
     };
 
     const handleEditNote = (note: TripNote) => {
         if (!canEditNote(note)) {
-            modal.showConfirm(
+            showErrorMessage(
                 "Accès refusé 🔒",
-                `Cette note a été créée par ${note.createdByName}. Voulez-vous créer votre propre note ?`,
-                handleCreateNote,
-                () => {},
-                "Créer ma note",
-                "Compris"
+                `Cette note a été créée par ${note.createdByName}. Seul son auteur ou le créateur du voyage peut la modifier.`
             );
             return;
         }
@@ -191,24 +195,19 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsImportant(note.isImportant || false);
         setShowCreateModal(true);
 
-        // Animation d'ouverture
-        Animated.spring(scaleAnim, {
+        // Animation d'ouverture rapide et fluide
+        Animated.timing(scaleAnim, {
             toValue: 1,
+            duration: 250,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
         }).start();
     };
 
     const handleDeleteNote = (note: TripNote) => {
         if (!canEditNote(note)) {
-            modal.showConfirm(
+            showErrorMessage(
                 "Accès refusé 🔒",
-                `Cette note appartient à ${note.createdByName}. Voulez-vous créer votre propre note ?`,
-                handleCreateNote,
-                () => {},
-                "Créer ma note",
-                "Compris"
+                `Cette note a été créée par ${note.createdByName}. Seul son auteur ou le créateur du voyage peut la supprimer.`
             );
             return;
         }
@@ -239,28 +238,12 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                         );
                     }
 
-                    // Modal intelligente après suppression
-                    modal.showConfirm(
-                        "🗑️ Note supprimée !",
-                        "La note a été supprimée avec succès.",
-                        () => {
-                            // Créer une nouvelle note
-                            handleCreateNote();
-                        },
-                        () => {
-                            // Continuer normalement
-                        },
-                        "Ajouter une note",
-                        "Continuer"
-                    );
+                    // Message de succès simple
+                    showSuccessDeleted();
                 } catch (error) {
-                    modal.showConfirm(
+                    showErrorMessage(
                         "❌ Erreur de suppression",
-                        "Impossible de supprimer la note. Voulez-vous réessayer ?",
-                        () => handleDeleteNote(note),
-                        () => {},
-                        "Réessayer",
-                        "Annuler"
+                        "Impossible de supprimer la note. Veuillez réessayer."
                     );
                 }
             }
@@ -269,19 +252,9 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const handleSaveNote = async () => {
         if (!noteContent.trim()) {
-            modal.showConfirm(
+            showErrorMessage(
                 "📝 Note vide",
-                "Votre note doit contenir du texte. Voulez-vous continuer à l'écrire ?",
-                () => {
-                    // Rester sur la modal pour continuer l'édition
-                    // Pas besoin de fermer, juste focus sur le champ
-                },
-                () => {
-                    // Fermer la modal
-                    handleCloseModal();
-                },
-                "Continuer",
-                "Annuler"
+                "Votre note doit contenir du texte."
             );
             return;
         }
@@ -297,6 +270,9 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                     user?.uid || "",
                     isImportant
                 );
+
+                // Fermer d'abord la modal, puis afficher le succès
+                handleCloseModal();
                 showSuccessMessage("Note modifiée avec succès", true);
             } else {
                 // Création d'une nouvelle note
@@ -321,24 +297,14 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                     console.error("Erreur logging note:", logError);
                 }
 
+                // Fermer d'abord la modal, puis afficher le succès
+                handleCloseModal();
                 showSuccessMessage("Note créée avec succès");
             }
-
-            handleCloseModal();
         } catch (error) {
-            modal.showConfirm(
+            showErrorMessage(
                 "💾 Erreur de sauvegarde",
-                "Impossible de sauvegarder la note. Voulez-vous réessayer ?",
-                () => {
-                    // Réessayer la sauvegarde
-                    handleSaveNote();
-                },
-                () => {
-                    // Garder le contenu et fermer
-                    handleCloseModal();
-                },
-                "Réessayer",
-                "Fermer"
+                "Impossible de sauvegarder la note. Veuillez réessayer."
             );
         } finally {
             setSaving(false);
@@ -346,18 +312,19 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleCloseModal = () => {
-        // Animation de fermeture
-        Animated.spring(scaleAnim, {
+        // Fermer le clavier d'abord
+        Keyboard.dismiss();
+
+        // Animation de fermeture rapide et fluide
+        Animated.timing(scaleAnim, {
             toValue: 0,
+            duration: 200,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
         }).start(() => {
             setShowCreateModal(false);
             setEditingNote(null);
             setNoteContent("");
             setIsImportant(false);
-            Keyboard.dismiss();
         });
     };
 
@@ -563,7 +530,11 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                 animationType="fade"
                 onRequestClose={handleCloseModal}
             >
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 50 : 0}
+                >
                     <Animated.View
                         style={[
                             styles.modalContainer,
@@ -585,44 +556,56 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.modalContent}>
-                            <TextInput
-                                style={styles.noteInput}
-                                value={noteContent}
-                                onChangeText={setNoteContent}
-                                placeholder="Écrivez votre note ici...
+                        <ScrollView
+                            style={styles.modalScrollView}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            <View style={styles.modalContent}>
+                                <TextInput
+                                    style={styles.noteInput}
+                                    value={noteContent}
+                                    onChangeText={setNoteContent}
+                                    placeholder="Écrivez votre note ici...
 
 💡 Idées :
 • Informations importantes
 • Numéros utiles
 • Recommandations
 • Souvenirs de voyage"
-                                placeholderTextColor="#9CA3AF"
-                                multiline={true}
-                                textAlignVertical="top"
-                                autoFocus={true}
-                            />
-
-                            <TouchableOpacity
-                                style={styles.importantToggle}
-                                onPress={() => setIsImportant(!isImportant)}
-                            >
-                                <Ionicons
-                                    name={isImportant ? "star" : "star-outline"}
-                                    size={20}
-                                    color={isImportant ? "#F59E0B" : "#9CA3AF"}
+                                    placeholderTextColor="#9CA3AF"
+                                    multiline={true}
+                                    textAlignVertical="top"
+                                    autoFocus={true}
                                 />
-                                <Text
-                                    style={[
-                                        styles.importantText,
-                                        isImportant &&
-                                            styles.importantTextActive,
-                                    ]}
+
+                                <TouchableOpacity
+                                    style={styles.importantToggle}
+                                    onPress={() => setIsImportant(!isImportant)}
                                 >
-                                    Marquer comme importante
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                                    <Ionicons
+                                        name={
+                                            isImportant
+                                                ? "star"
+                                                : "star-outline"
+                                        }
+                                        size={20}
+                                        color={
+                                            isImportant ? "#F59E0B" : "#9CA3AF"
+                                        }
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.importantText,
+                                            isImportant &&
+                                                styles.importantTextActive,
+                                        ]}
+                                    >
+                                        Marquer comme importante
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity
@@ -662,7 +645,7 @@ const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
                             </TouchableOpacity>
                         </View>
                     </Animated.View>
-                </View>
+                </KeyboardAvoidingView>
             </Modal>
         </SafeAreaView>
     );
@@ -960,11 +943,9 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         backgroundColor: "#FFFFFF",
-        padding: 20,
+        margin: 20,
         borderRadius: 16,
-        width: "90%",
-        maxWidth: 500,
-        maxHeight: "80%",
+        maxHeight: Platform.OS === "ios" ? "80%" : "85%",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
@@ -975,7 +956,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 20,
+        paddingHorizontal: 20,
+        paddingTop: 20,
         paddingBottom: 16,
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
@@ -986,8 +968,11 @@ const styles = StyleSheet.create({
         color: "#1F2937",
         fontFamily: Fonts.heading.family,
     },
+    modalScrollView: {
+        maxHeight: Platform.OS === "ios" ? 300 : 350,
+    },
     modalContent: {
-        marginBottom: 20,
+        padding: 20,
     },
     noteInput: {
         fontSize: 16,
@@ -995,8 +980,7 @@ const styles = StyleSheet.create({
         color: "#374151",
         fontFamily: Fonts.body.family,
         textAlignVertical: "top",
-        minHeight: 120,
-        maxHeight: 200,
+        minHeight: Platform.OS === "ios" ? 150 : 120,
         borderWidth: 1,
         borderColor: "#E5E7EB",
         borderRadius: 12,
@@ -1025,7 +1009,12 @@ const styles = StyleSheet.create({
     modalActions: {
         flexDirection: "row",
         justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        paddingTop: 16,
         gap: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
     },
     cancelButton: {
         flex: 1,

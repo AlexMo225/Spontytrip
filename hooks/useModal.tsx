@@ -32,6 +32,13 @@ interface ModalContextType {
         onDelete: () => void,
         onCancel?: () => void
     ) => void;
+    // Nouvelle méthode avec délai pour iOS
+    showSuccessDelayed: (
+        title: string,
+        message?: string,
+        delay?: number
+    ) => void;
+    showErrorDelayed: (title: string, message?: string, delay?: number) => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -178,6 +185,27 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({
         });
     };
 
+    // Nouvelles méthodes avec délai pour iOS
+    const showSuccessDelayed = (
+        title: string,
+        message?: string,
+        delay: number = 500
+    ) => {
+        setTimeout(() => {
+            showSuccess(title, message);
+        }, delay);
+    };
+
+    const showErrorDelayed = (
+        title: string,
+        message?: string,
+        delay: number = 500
+    ) => {
+        setTimeout(() => {
+            showError(title, message);
+        }, delay);
+    };
+
     const value: ModalContextType = {
         showModal,
         hideModal,
@@ -187,6 +215,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({
         showInfo,
         showConfirm,
         showDelete,
+        showSuccessDelayed,
+        showErrorDelayed,
     };
 
     return (
