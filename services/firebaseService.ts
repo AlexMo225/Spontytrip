@@ -64,11 +64,25 @@ export const convertFirestoreChecklist = (data: any): TripChecklist => {
         updatedAt: convertFirebaseTimestamp(data.updatedAt),
         items:
             data.items?.map((item: any) => ({
-                ...item,
-                createdAt: convertFirebaseTimestamp(item.createdAt),
+                id:
+                    item.id ||
+                    `${data.tripId}_item_${Date.now()}_${Math.random()
+                        .toString(36)
+                        .substring(2, 8)}`,
+                tripId: item.tripId || data.tripId,
+                title: item.title || "",
+                category: item.category || "essentials",
+                description: item.description,
+                assignedTo: item.assignedTo,
+                isCompleted: item.isCompleted || false,
+                completedBy: item.completedBy,
                 completedAt: item.completedAt
                     ? convertFirebaseTimestamp(item.completedAt)
                     : undefined,
+                createdBy: item.createdBy || data.updatedBy,
+                createdAt: convertFirebaseTimestamp(
+                    item.createdAt || data.updatedAt
+                ),
             })) || [],
     };
 };
@@ -367,16 +381,27 @@ class FirebaseService {
 
     async getTripById(tripId: string): Promise<FirestoreTrip | null> {
         try {
-            const docRef = this.db.collection("trips").doc(tripId);
-            const docSnap = await docRef.get();
+            console.log(`📥 Tentative de récupération du voyage ${tripId}`);
+            const tripDoc = await this.db.collection("trips").doc(tripId).get();
 
-            if (docSnap.exists) {
-                return convertFirestoreTrip(docSnap);
+            if (!tripDoc.exists) {
+                console.log(`❌ Voyage ${tripId} non trouvé`);
+                return null;
             }
-            return null;
+
+            const tripData = convertFirestoreTrip(tripDoc);
+            console.log(`✅ Voyage ${tripId} récupéré avec succès:`, {
+                title: tripData.title,
+                members: tripData.members.length,
+                memberIds: tripData.memberIds,
+            });
+            return tripData;
         } catch (error) {
-            console.error("Erreur récupération voyage:", error);
-            return null;
+            console.error(
+                `🚨 Erreur lors de la récupération du voyage ${tripId}:`,
+                error
+            );
+            throw error;
         }
     }
 
@@ -546,23 +571,23 @@ class FirebaseService {
                             const doc = snapshot.docs[0];
                             const rawData = doc.data();
 
-                            console.log(`📝 Données brutes checklist:`, {
-                                tripId: rawData.tripId,
-                                itemsCount: rawData.items?.length || 0,
-                                updatedBy: rawData.updatedBy,
-                                items:
-                                    rawData.items?.map((item: any) => ({
-                                        id: item.id,
-                                        title: item.title,
-                                        category: item.category,
-                                    })) || [],
-                            });
+                            console.log(
+                                `📝 Données brutes checklist:`,
+                                rawData
+                            );
 
                             const convertedChecklist =
                                 convertFirestoreChecklist(rawData);
 
                             console.log(
-                                `✅ Checklist convertie - ${convertedChecklist.items.length} items`
+                                `✅ Checklist convertie - ${convertedChecklist.items.length} items`,
+                                convertedChecklist.items.map((item) => ({
+                                    id: item.id,
+                                    title: item.title,
+                                    category: item.category,
+                                    isCompleted: item.isCompleted,
+                                    assignedTo: item.assignedTo,
+                                }))
                             );
                             callback(convertedChecklist);
                         } else {
@@ -622,38 +647,20 @@ class FirebaseService {
                     tripId: item.tripId,
                     title: item.title,
                     category: item.category,
-                    isCompleted: item.isCompleted,
-                    createdBy: item.createdBy,
-                    createdAt: item.createdAt,
+                    isCompleted: item.isCompleted || false,
+                    createdBy: item.createdBy || userId,
+                    createdAt: item.createdAt || new Date(),
+                    assignedTo: item.assignedTo || null,
+                    completedBy: item.completedBy || null,
+                    completedAt: item.completedAt || null,
+                    description: item.description || null,
                 };
-
-                // Ajouter seulement les champs définis (non undefined)
-                if (
-                    item.description !== undefined &&
-                    item.description !== null
-                ) {
-                    cleanedItem.description = item.description;
-                }
-                if (item.assignedTo !== undefined && item.assignedTo !== null) {
-                    cleanedItem.assignedTo = item.assignedTo;
-                }
-                if (
-                    item.completedBy !== undefined &&
-                    item.completedBy !== null
-                ) {
-                    cleanedItem.completedBy = item.completedBy;
-                }
-                if (
-                    item.completedAt !== undefined &&
-                    item.completedAt !== null
-                ) {
-                    cleanedItem.completedAt = item.completedAt;
-                }
 
                 return cleanedItem as ChecklistItem;
             });
 
             console.log("✅ Items nettoyés:", cleanedItems.length);
+            console.log("📝 Items après nettoyage:", cleanedItems);
 
             const querySnapshot = await this.db
                 .collection("checklists")
@@ -678,11 +685,9 @@ class FirebaseService {
                 console.log("⚠️ Aucune checklist trouvée pour ce voyage");
                 throw new Error("Checklist introuvable pour ce voyage");
             }
-
-            // Note: Le logging d'activité est géré séparément dans les screens
         } catch (error) {
             console.error("❌ Erreur mise à jour checklist:", error);
-            throw new Error("Impossible de mettre à jour la checklist");
+            throw error; // Propager l'erreur originale pour un meilleur debugging
         }
     }
 
@@ -696,49 +701,114 @@ class FirebaseService {
         userId: string
     ): Promise<void> {
         try {
+            console.log("🚀 Ajout dépense:", {
+                tripId,
+                label: expense.label,
+                amount: expense.amount,
+                paidBy: expense.paidBy,
+                paidByName: expense.paidByName,
+                participants: expense.participants,
+                participantNames: expense.participantNames,
+            });
+
+            // Générer un ID unique avec timestamp pour éviter les collisions
+            const timestamp = Date.now();
+            const randomSuffix = Math.random().toString(36).substring(2, 8);
+            const expenseId = `${tripId}_expense_${timestamp}_${randomSuffix}`;
+
+            // ✨ Utiliser serverTimestamp() pour garantir la cohérence
+            const serverTime = firebase.firestore.FieldValue.serverTimestamp();
+
+            const expenseData: ExpenseItem = {
+                ...expense,
+                id: expenseId,
+                // ⚠️ Important : Pour les arrays, on utilise new Date() mais basé sur serverTime quand possible
+                createdAt: new Date(), // Timestamp immédiat pour l'ordre local
+                updatedAt: new Date(),
+            };
+
+            console.log("📝 Données expense prêtes:", {
+                id: expenseData.id,
+                label: expenseData.label,
+                amount: expenseData.amount,
+                createdAt: expenseData.createdAt.toISOString(),
+                timestampMs: expenseData.createdAt.getTime(),
+            });
+
+            // Vérifier si le document expenses existe déjà
             const querySnapshot = await this.db
                 .collection("expenses")
                 .where("tripId", "==", tripId)
                 .limit(1)
                 .get();
 
-            const expenseData = {
-                ...expense,
-                id: `${tripId}_expense_${Date.now()}_${Math.random()
-                    .toString(36)
-                    .substr(2, 9)}`,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
-
             if (!querySnapshot.empty) {
-                // Ajouter à la liste existante
+                // Document existe : ajouter à la liste
                 const docRef = querySnapshot.docs[0].ref;
                 const currentData =
                     querySnapshot.docs[0].data() as TripExpenses;
+
+                console.log(
+                    "📋 Document expenses existant trouvé, ajout à la liste"
+                );
+                console.log(
+                    "📊 Dépenses actuelles:",
+                    currentData.expenses?.length || 0
+                );
+
                 const updatedExpenses = [
                     ...(currentData.expenses || []),
                     expenseData,
                 ];
 
+                console.log(
+                    "📊 Nouvelles dépenses après ajout:",
+                    updatedExpenses.length
+                );
+
                 await docRef.update({
                     expenses: updatedExpenses,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: serverTime,
                     updatedBy: userId,
                 });
+
+                console.log("✅ Dépense ajoutée au document existant");
             } else {
-                // Créer le document dépenses
+                // Créer un nouveau document
+                console.log("📋 Création nouveau document expenses");
+
                 await this.db.collection("expenses").add({
                     tripId,
                     expenses: [expenseData],
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: serverTime,
                     updatedBy: userId,
                 });
+
+                console.log("✅ Nouveau document expenses créé");
             }
 
-            // Note: Le logging d'activité est géré séparément dans les screens
+            console.log("🎉 Dépense ajoutée avec succès:", expenseData.id);
+
+            // Log des détails pour le debug
+            console.log("🔍 Détails finaux de la dépense:", {
+                id: expenseData.id,
+                label: expenseData.label,
+                amount: expenseData.amount,
+                paidBy: expenseData.paidBy,
+                paidByName: expenseData.paidByName,
+                participants: expenseData.participants,
+                participantNames: expenseData.participantNames,
+                createdAt: expenseData.createdAt.toISOString(),
+                createdAtTimestamp: expenseData.createdAt.getTime(),
+            });
         } catch (error) {
-            console.error("Erreur ajout dépense:", error);
+            console.error("❌ Erreur ajout dépense:", error);
+            console.error("📝 Données de la dépense qui a échoué:", {
+                tripId,
+                label: expense.label,
+                amount: expense.amount,
+                paidBy: expense.paidBy,
+            });
             throw new Error("Impossible d'ajouter la dépense");
         }
     }
@@ -817,6 +887,8 @@ class FirebaseService {
         callback: (expenses: TripExpenses | null) => void,
         errorHandler?: (error: any) => void
     ): () => void {
+        console.log("🔄 Initialisation listener expenses pour:", tripId);
+
         const unsubscribe = this.db
             .collection("expenses")
             .where("tripId", "==", tripId)
@@ -825,32 +897,98 @@ class FirebaseService {
                     if (!snapshot.empty) {
                         const doc = snapshot.docs[0];
                         const data = doc.data() as TripExpenses;
-                        // Convertir les timestamps
+
+                        console.log("📦 Données expenses reçues:", {
+                            tripId,
+                            expenseCount: data.expenses?.length || 0,
+                            updatedAt: data.updatedAt,
+                            updatedBy: data.updatedBy,
+                        });
+
+                        // Convertir les timestamps ET trier les dépenses
                         const convertedData = {
                             ...data,
                             updatedAt: convertFirebaseTimestamp(data.updatedAt),
                             expenses:
-                                data.expenses?.map((expense) => ({
-                                    ...expense,
-                                    date: convertFirebaseTimestamp(
-                                        expense.date
-                                    ),
-                                    createdAt: convertFirebaseTimestamp(
-                                        expense.createdAt
-                                    ),
-                                    updatedAt: expense.updatedAt
-                                        ? convertFirebaseTimestamp(
-                                              expense.updatedAt
-                                          )
-                                        : undefined,
-                                })) || [],
+                                data.expenses
+                                    ?.map((expense) => {
+                                        const convertedExpense = {
+                                            ...expense,
+                                            date: convertFirebaseTimestamp(
+                                                expense.date
+                                            ),
+                                            createdAt: convertFirebaseTimestamp(
+                                                expense.createdAt
+                                            ),
+                                            updatedAt: expense.updatedAt
+                                                ? convertFirebaseTimestamp(
+                                                      expense.updatedAt
+                                                  )
+                                                : undefined,
+                                        };
+
+                                        // Log de debug pour chaque dépense
+                                        console.log("🔄 Conversion expense:", {
+                                            id: expense.id,
+                                            label: expense.label,
+                                            amount: expense.amount,
+                                            originalCreatedAt:
+                                                expense.createdAt,
+                                            convertedCreatedAt:
+                                                convertedExpense.createdAt.toISOString(),
+                                            isValidDate: !isNaN(
+                                                convertedExpense.createdAt.getTime()
+                                            ),
+                                        });
+
+                                        return convertedExpense;
+                                    })
+                                    // ✨ TRI AUTOMATIQUE par date de création décroissante (plus récent en premier)
+                                    .sort((a, b) => {
+                                        try {
+                                            const result =
+                                                b.createdAt.getTime() -
+                                                a.createdAt.getTime();
+                                            console.log("🔄 Tri:", {
+                                                aLabel: a.label,
+                                                bLabel: b.label,
+                                                aTime: a.createdAt.getTime(),
+                                                bTime: b.createdAt.getTime(),
+                                                result,
+                                            });
+                                            return result;
+                                        } catch (error) {
+                                            console.warn(
+                                                "⚠️ Erreur tri dépenses, ordre original conservé:",
+                                                error
+                                            );
+                                            return 0; // Garde l'ordre original en cas d'erreur
+                                        }
+                                    }) || [],
                         };
+
+                        console.log("✅ Expenses traitées et triées:", {
+                            count: convertedData.expenses.length,
+                            expensesList: convertedData.expenses.map((e) => ({
+                                id: e.id,
+                                label: e.label,
+                                amount: e.amount,
+                                createdAt: e.createdAt.toISOString(),
+                            })),
+                        });
+
                         callback(convertedData);
                     } else {
+                        console.log(
+                            "ℹ️ Aucune dépense trouvée pour le voyage:",
+                            tripId
+                        );
                         callback(null);
                     }
                 },
                 (error) => {
+                    console.error("❌ Erreur listener expenses:", error);
+
                     // Utiliser le gestionnaire d'erreur personnalisé si fourni
                     if (errorHandler) {
                         errorHandler(error);
@@ -876,6 +1014,7 @@ class FirebaseService {
                 }
             );
 
+        console.log("✅ Listener expenses initialisé pour:", tripId);
         return unsubscribe;
     }
 
@@ -1686,77 +1825,39 @@ class FirebaseService {
         callback: (trip: FirestoreTrip | null) => void,
         errorHandler?: (error: any) => void
     ): () => void {
-        const unsubscribe = this.db
+        console.log(`🔄 Abonnement aux mises à jour du voyage ${tripId}`);
+
+        return this.db
             .collection("trips")
             .doc(tripId)
             .onSnapshot(
                 (doc) => {
-                    if (doc.exists) {
-                        const data = doc.data();
-                        if (data) {
-                            // Convertir manuellement au lieu d'utiliser convertFirestoreTrip
-                            const convertedTrip: FirestoreTrip = {
-                                id: doc.id,
-                                ...data,
-                                startDate: convertFirebaseTimestamp(
-                                    data.startDate
-                                ),
-                                endDate: convertFirebaseTimestamp(data.endDate),
-                                createdAt: convertFirebaseTimestamp(
-                                    data.createdAt
-                                ),
-                                updatedAt: convertFirebaseTimestamp(
-                                    data.updatedAt
-                                ),
-                                members:
-                                    data.members?.map((member: TripMember) => ({
-                                        ...member,
-                                        joinedAt: convertFirebaseTimestamp(
-                                            member.joinedAt
-                                        ),
-                                    })) || [],
-                            } as FirestoreTrip;
-                            callback(convertedTrip);
-                        } else {
-                            console.log(
-                                "⚠️ Document voyage existe mais sans données"
-                            );
-                            callback(null);
-                        }
-                    } else {
+                    if (!doc.exists) {
                         console.log(
-                            "⚠️ Document voyage n'existe plus - suppression détectée"
+                            `❌ Voyage ${tripId} non trouvé (onSnapshot)`
                         );
                         callback(null);
+                        return;
                     }
+
+                    const tripData = convertFirestoreTrip(doc);
+                    console.log(`📦 Mise à jour du voyage ${tripId} reçue:`, {
+                        title: tripData.title,
+                        members: tripData.members.length,
+                        memberIds: tripData.memberIds,
+                    });
+                    callback(tripData);
                 },
                 (error) => {
-                    // Utiliser le gestionnaire d'erreur personnalisé si fourni
+                    console.error(
+                        `🚨 Erreur d'abonnement au voyage ${tripId}:`,
+                        error
+                    );
                     if (errorHandler) {
                         errorHandler(error);
-                        return;
                     }
-
-                    // Comportement par défaut (pour compatibilité)
-                    console.error("❌ Erreur snapshot trip:", error);
-
-                    // Si c'est une erreur de permissions, le voyage a probablement été supprimé
-                    if (
-                        error.code === "permission-denied" ||
-                        error.code === "not-found"
-                    ) {
-                        console.log(
-                            "🛑 Erreur permissions voyage - probablement supprimé"
-                        );
-                        callback(null);
-                        return;
-                    }
-
-                    callback(null);
                 }
             );
-
-        return unsubscribe;
     }
 
     // ==========================================

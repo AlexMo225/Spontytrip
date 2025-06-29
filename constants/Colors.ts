@@ -2,9 +2,9 @@
 
 export const Colors = {
     // Couleurs principales
-    primary: "#6B73FF", // Bleu moderne
-    primaryLight: "#A8B0FF",
-    primaryDark: "#4B51CC",
+    primary: "#4DA1A9", // Bleu-vert moderne
+    primaryLight: "#7FBDC3",
+    primaryDark: "#3A7A80",
 
     // Couleurs secondaires pastels
     secondary: "#9FE2BF", // Vert pastel
@@ -38,14 +38,14 @@ export const Colors = {
         secondary: "#6B7280",
         muted: "#9CA3AF",
         white: "#FFFFFF",
-        accent: "#6B73FF",
+        accent: "#4DA1A9",
     },
 
     // Couleurs fonctionnelles
     success: "#10B981", // Vert succès
     error: "#EF4444", // Rouge erreur
     warning: "#F59E0B", // Orange warning
-    info: "#3B82F6", // Bleu info
+    info: "#4DA1A9", // Bleu-vert info
 
     // Couleurs pastels additionnelles
     pastelPink: "#FFB3BA",
@@ -60,7 +60,7 @@ export const Colors = {
 
     // Couleurs des bordures
     border: "#E5E7EB",
-    borderFocus: "#6B73FF",
+    borderFocus: "#4DA1A9",
 
     // Couleurs d'état des éléments
     pressed: "#F3F4F6",
@@ -69,7 +69,7 @@ export const Colors = {
 
     // Couleurs transparentes
     cardShadow: "rgba(0, 0, 0, 0.08)",
-    buttonShadow: "rgba(107, 115, 255, 0.3)",
+    buttonShadow: "rgba(77, 161, 169, 0.3)", // Ajusté pour le nouveau bleu-vert
 } as const;
 
 // Alias pour faciliter la transition
@@ -78,7 +78,7 @@ export const { backgroundColors } = Colors;
 
 // Dégradés
 export const Gradients = {
-    primary: ["#6B73FF", "#9FE2BF"],
+    primary: ["#4DA1A9", "#9FE2BF"],
     sunset: ["#FF6B9D", "#FFB3BA"],
     ocean: ["#BAE1FF", "#9FE2BF"],
     lavender: ["#E2CCFF", "#BAE1FF"],
@@ -87,7 +87,7 @@ export const Gradients = {
 
 // Couleurs pour les catégories de checklist
 export const CategoryColors = {
-    transport: "#6B73FF",
+    transport: "#4DA1A9",
     accommodation: "#9FE2BF",
     activities: "#FF6B9D",
     food: "#FFFFBA",
@@ -101,7 +101,7 @@ export const TaskAssignmentColors = {
     // Couleurs d'avatar pour les membres (rotation automatique)
     memberAvatars: [
         "#FF6B9D", // Rose dynamique
-        "#6B73FF", // Bleu électrique
+        "#4DA1A9", // Bleu-vert
         "#9FE2BF", // Vert mint
         "#FFB3BA", // Rose pastel
         "#BAE1FF", // Bleu ciel
@@ -124,7 +124,7 @@ export const TaskAssignmentColors = {
     // Couleurs de statut des tâches
     taskStatus: {
         pending: "#F59E0B", // Orange en attente
-        accepted: "#3B82F6", // Bleu accepté
+        accepted: "#4DA1A9", // Bleu-vert accepté
         inProgress: "#8B5CF6", // Violet en cours
         completed: "#10B981", // Vert terminé
         overdue: "#EF4444", // Rouge en retard
@@ -147,6 +147,6 @@ export const TaskAssignmentColors = {
         sunset: ["#FF6B9D", "#E2CCFF"], // Coucher de soleil
         forest: ["#BAFFC9", "#9FE2BF"], // Forêt
         cosmic: ["#E2CCFF", "#9C88FF"], // Cosmique
-        energy: ["#6B73FF", "#9FE2BF"], // Énergie
+        energy: ["#4DA1A9", "#9FE2BF"], // Énergie
     },
 } as const;

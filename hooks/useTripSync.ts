@@ -92,6 +92,7 @@ export const useTripSync = (tripId: string): TripSyncData => {
     // Flag pour éviter les erreurs multiples
     const deletionDetectedRef = useRef(false);
     const cleanupExecutedRef = useRef(false);
+    const retryCountRef = useRef(0);
 
     // Utiliser useRef pour stocker les unsubscribe functions
     const unsubscribeRefs = useRef<{
@@ -144,200 +145,193 @@ export const useTripSync = (tripId: string): TripSyncData => {
     );
 
     // Fonction de détection de suppression pour tous les listeners
+    type PermissionErrorHandler = (error: any) => void;
+    type InitializeSyncFunction = () => Promise<void>;
+
     const createPermissionErrorHandler = useCallback(
-        (listenerName: string) => {
+        (listenerName: string): PermissionErrorHandler => {
             return (error: any) => {
-                // Vérifier si c'est une erreur de permissions et si on n'a pas déjà détecté la suppression
+                console.log(
+                    `⚠️ Erreur de permission dans ${listenerName} pour le voyage ${tripId}:`,
+                    error
+                );
+
+                // Si c'est une erreur de permissions, on essaie 3 fois maximum
                 if (
-                    !deletionDetectedRef.current &&
-                    (error.code === "permission-denied" ||
-                        error.code === "not-found" ||
-                        error.message?.includes("permissions"))
+                    error.code === "permission-denied" ||
+                    error.message?.includes("permissions")
                 ) {
-                    deletionDetectedRef.current = true;
+                    if (retryCountRef.current < 3) {
+                        retryCountRef.current++;
+                        console.log(
+                            `⚠️ Tentative ${retryCountRef.current}/3 via ${listenerName} pour le voyage ${tripId}`
+                        );
+                        setError(
+                            `Erreur d'accès au voyage - tentative ${retryCountRef.current}/3...`
+                        );
+
+                        // Réessayer après 2 secondes
+                        setTimeout(() => {
+                            console.log(
+                                `🔄 Nouvelle tentative d'accès au voyage ${tripId}...`
+                            );
+                            initializeSync();
+                        }, 2000);
+                    } else {
+                        console.log(
+                            `🚨 Erreur de permission persistante via ${listenerName} pour le voyage ${tripId} - nettoyage`
+                        );
+                        executeCleanup(`Permission denied - ${listenerName}`);
+                    }
+                } else if (error.code === "not-found") {
                     console.log(
-                        `🚨 Suppression détectée via ${listenerName} - nettoyage immédiat`
+                        `❌ Voyage ${tripId} non trouvé via ${listenerName} - nettoyage`
                     );
-                    executeCleanup(`Permission denied - ${listenerName}`);
+                    executeCleanup(`Trip not found - ${listenerName}`);
                 }
-                // Ne pas afficher l'erreur - retourner silencieusement
+                // Pour les autres types d'erreurs, on les ignore
             };
         },
-        [executeCleanup]
+        [executeCleanup, tripId]
     );
 
+    // Définir initializeSync avec son type
+    const initializeSync: InitializeSyncFunction = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Vérifier d'abord si le voyage existe
+            const exists = await firebaseService.verifyTripExists(tripId);
+            if (!exists) {
+                console.log(`❌ Le voyage ${tripId} n'existe pas`);
+                setError("Voyage introuvable");
+                setLoading(false);
+                return;
+            }
+
+            // 1. Récupérer les données du voyage
+            const tripData = await firebaseService.getTripById(tripId);
+            if (!tripData) {
+                console.log(
+                    `❌ Impossible de charger les données du voyage ${tripId}`
+                );
+                setError("Voyage introuvable");
+                setLoading(false);
+                return;
+            }
+
+            // 2. Vérifier que l'utilisateur est membre
+            const isMember = tripData.members.some(
+                (member) => member.userId === user?.uid
+            );
+            if (!isMember) {
+                console.log(
+                    `❌ L'utilisateur ${user?.uid} n'est pas membre du voyage ${tripId}`
+                );
+                setError("Accès non autorisé à ce voyage");
+                setLoading(false);
+                return;
+            }
+
+            console.log(
+                `✅ Accès autorisé au voyage ${tripId} pour l'utilisateur ${user?.uid}`
+            );
+            setTrip(tripData);
+
+            // 3. S'abonner aux mises à jour temps réel avec gestion d'erreurs robuste
+            const listeners: { [key: string]: () => void } = {};
+
+            // Listener pour le voyage lui-même
+            listeners.trip = firebaseService.subscribeToTrip(
+                tripId,
+                (updatedTrip) => {
+                    if (!updatedTrip) {
+                        console.log(`❌ Le voyage ${tripId} a été supprimé`);
+                        executeCleanup("Trip deleted");
+                        return;
+                    }
+                    setTrip(updatedTrip);
+                },
+                createPermissionErrorHandler("trip")
+            );
+
+            // Autres listeners...
+            listeners.checklist = firebaseService.subscribeToChecklist(
+                tripId,
+                setChecklist,
+                createPermissionErrorHandler("checklist")
+            );
+
+            listeners.expenses = firebaseService.subscribeToExpenses(
+                tripId,
+                setExpenses,
+                createPermissionErrorHandler("expenses")
+            );
+
+            listeners.notes = firebaseService.subscribeToNotes(
+                tripId,
+                setNotes,
+                createPermissionErrorHandler("notes")
+            );
+
+            listeners.tripNotes = firebaseService.subscribeToTripNotes(
+                tripId,
+                setTripNotes,
+                createPermissionErrorHandler("tripNotes")
+            );
+
+            listeners.activities = firebaseService.subscribeToActivities(
+                tripId,
+                setActivities,
+                createPermissionErrorHandler("activities")
+            );
+
+            listeners.activityFeed = firebaseService.subscribeToActivityFeed(
+                tripId,
+                setActivityFeed,
+                createPermissionErrorHandler("activityFeed")
+            );
+
+            // Enregistrer les listeners
+            unsubscribeRefs.current = listeners;
+            tripListenersManager.registerListeners(tripId, listeners);
+
+            setLoading(false);
+        } catch (error) {
+            console.error(
+                `🚨 Erreur dans initializeSync pour le voyage ${tripId}:`,
+                error
+            );
+            setError("Erreur lors de l'initialisation du voyage");
+            setLoading(false);
+        }
+    }, [tripId, user?.uid, createPermissionErrorHandler, executeCleanup]);
+
+    // Effet pour initialiser la synchronisation
     useEffect(() => {
         if (!tripId || !user) {
             setLoading(false);
             return;
         }
 
-        const initializeSync = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-
-                // 1. Récupérer les données du voyage
-                const tripData = await firebaseService.getTripById(tripId);
-                if (!tripData) {
-                    setError("Voyage introuvable");
-                    setLoading(false);
-                    return;
-                }
-
-                // 2. Vérifier que l'utilisateur est membre
-                const isMember = tripData.members.some(
-                    (member) => member.userId === user.uid
-                );
-                if (!isMember) {
-                    setError("Accès non autorisé à ce voyage");
-                    setLoading(false);
-                    return;
-                }
-
-                setTrip(tripData);
-
-                // 3. S'abonner aux mises à jour temps réel avec gestion d'erreurs robuste
-                unsubscribeRefs.current.checklist =
-                    firebaseService.subscribeToChecklist(
-                        tripId,
-                        (checklistData) => {
-                            setChecklist(checklistData);
-                        },
-                        createPermissionErrorHandler("checklist")
-                    );
-
-                unsubscribeRefs.current.expenses =
-                    firebaseService.subscribeToExpenses(
-                        tripId,
-                        (expensesData) => {
-                            setExpenses(expensesData);
-                        },
-                        createPermissionErrorHandler("expenses")
-                    );
-
-                unsubscribeRefs.current.notes =
-                    firebaseService.subscribeToNotes(
-                        tripId,
-                        (notesData) => {
-                            setNotes(notesData);
-                        },
-                        createPermissionErrorHandler("notes")
-                    );
-
-                unsubscribeRefs.current.tripNotes =
-                    firebaseService.subscribeToTripNotes(
-                        tripId,
-                        (tripNotesData) => {
-                            setTripNotes(tripNotesData);
-                        },
-                        createPermissionErrorHandler("tripNotes")
-                    );
-
-                unsubscribeRefs.current.activities =
-                    firebaseService.subscribeToActivities(
-                        tripId,
-                        (activitiesData) => {
-                            setActivities(activitiesData);
-                        },
-                        createPermissionErrorHandler("activities")
-                    );
-
-                // 4. S'abonner au feed d'activités récentes
-                unsubscribeRefs.current.activityFeed =
-                    firebaseService.subscribeToActivityFeed(
-                        tripId,
-                        (feedData) => {
-                            setActivityFeed(feedData);
-                        },
-                        createPermissionErrorHandler("activityFeed")
-                    );
-
-                // 5. S'abonner au voyage principal avec gestion des suppressions
-                unsubscribeRefs.current.trip = firebaseService.subscribeToTrip(
-                    tripId,
-                    (updatedTrip: FirestoreTrip | null) => {
-                        if (updatedTrip) {
-                            setTrip(updatedTrip);
-                        } else {
-                            // Le voyage a été supprimé - nettoyer immédiatement
-                            console.log(
-                                "⚠️ Voyage supprimé détecté, nettoyage des listeners..."
-                            );
-
-                            // Nettoyer tous les listeners
-                            Object.values(unsubscribeRefs.current).forEach(
-                                (unsubscribe) => {
-                                    if (
-                                        unsubscribe &&
-                                        typeof unsubscribe === "function"
-                                    ) {
-                                        try {
-                                            unsubscribe();
-                                        } catch (error) {
-                                            console.warn(
-                                                "Erreur nettoyage listener:",
-                                                error
-                                            );
-                                        }
-                                    }
-                                }
-                            );
-                            unsubscribeRefs.current = {};
-
-                            // Nettoyer aussi dans le gestionnaire global
-                            tripListenersManager.removeListeners(tripId);
-
-                            // Réinitialiser l'état
-                            setTrip(null);
-                            setChecklist(null);
-                            setExpenses(null);
-                            setNotes(null);
-                            setTripNotes([]);
-                            setActivities(null);
-                            setActivityFeed([]);
-                            setError("Voyage supprimé");
-                        }
-                    },
-                    createPermissionErrorHandler("trip")
-                );
-
-                // Enregistrer tous les listeners dans le gestionnaire global
-                tripListenersManager.registerListeners(
-                    tripId,
-                    unsubscribeRefs.current
-                );
-
-                setLoading(false);
-            } catch (err) {
-                console.error("Erreur initialisation sync:", err);
-                setError("Erreur de synchronisation");
-                setLoading(false);
-            }
-        };
+        retryCountRef.current = 0;
+        deletionDetectedRef.current = false;
+        cleanupExecutedRef.current = false;
 
         initializeSync();
 
-        // Cleanup function sécurisée
+        // Cleanup function
         return () => {
-            console.log("🧹 Nettoyage des listeners pour voyage:", tripId);
-
-            // Nettoyer via le gestionnaire global d'abord
+            console.log("🧹 Nettoyage normal du useEffect");
             tripListenersManager.removeListeners(tripId);
-
-            // Nettoyer aussi localement par sécurité
             Object.values(unsubscribeRefs.current).forEach((unsubscribe) => {
-                if (unsubscribe && typeof unsubscribe === "function") {
-                    try {
-                        unsubscribe();
-                    } catch (error) {
-                        console.warn("Erreur nettoyage listener:", error);
-                    }
+                if (typeof unsubscribe === "function") {
+                    unsubscribe();
                 }
             });
-            unsubscribeRefs.current = {};
         };
-    }, [tripId, user, createPermissionErrorHandler]);
+    }, [tripId, user, initializeSync]);
 
     return {
         trip,

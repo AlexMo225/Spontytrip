@@ -419,14 +419,29 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const handleDeleteItem = async (itemId: string) => {
+        const itemToDelete = localItems.find((item) => item.id === itemId);
+
+        if (!itemToDelete || !user) return;
+
+        // Vérification des permissions
+        const canDelete =
+            isCreator ||
+            itemToDelete.assignedTo === user.uid ||
+            itemToDelete.createdBy === user.uid;
+
+        if (!canDelete) {
+            modal.showError(
+                "Permission refusée",
+                "Vous ne pouvez supprimer que les éléments qui vous sont assignés ou que vous avez créés."
+            );
+            return;
+        }
+
         modal.showDelete(
             "Supprimer l'élément",
             "Êtes-vous sûr de vouloir supprimer cet élément ?",
             async () => {
                 try {
-                    const itemToDelete = localItems.find(
-                        (item) => item.id === itemId
-                    );
                     const updatedItems = localItems.filter(
                         (item) => item.id !== itemId
                     );
@@ -438,23 +453,30 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                     await firebaseService.updateChecklist(
                         tripId,
                         updatedItems,
-                        user?.uid || ""
+                        user.uid
                     );
 
                     // 🔥 LOG POUR LE FEED LIVE - Suppression de tâche
-                    if (user && itemToDelete) {
-                        await firebaseService.logActivity(
-                            tripId,
-                            user.uid,
-                            user.displayName || user.email || "Utilisateur",
-                            "checklist_delete",
-                            { title: itemToDelete.title }
-                        );
-                    }
+                    await firebaseService.logActivity(
+                        tripId,
+                        user.uid,
+                        user.displayName || user.email || "Utilisateur",
+                        "checklist_delete",
+                        {
+                            title: itemToDelete.title,
+                            wasAssigned: itemToDelete.assignedTo ? true : false,
+                            assignedTo: itemToDelete.assignedTo || null,
+                        }
+                    );
                 } catch (error) {
+                    console.error("❌ Erreur suppression élément:", error);
                     if (checklist?.items) {
                         setLocalItems(checklist.items);
                     }
+                    modal.showError(
+                        "Erreur",
+                        "Impossible de supprimer l'élément. Vérifiez vos permissions."
+                    );
                 }
             }
         );
@@ -462,23 +484,42 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const getItemsByCategory = () => {
         const categories = [
-            { id: "transport", name: "🚗 Transport", color: "#6B73FF" },
-            { id: "accommodation", name: "🏨 Hébergement", color: "#9FE2BF" },
-            { id: "activities", name: "🎯 Activités", color: "#FF6B9D" },
-            { id: "food", name: "🍽️ Nourriture", color: "#FFFFBA" },
-            { id: "shopping", name: "🛍️ Shopping", color: "#E2CCFF" },
-            { id: "documents", name: "📄 Documents", color: "#BAE1FF" },
-            { id: "other", name: "📦 Autre", color: "#BAFFC9" },
+            { id: "essentials", name: "✨ Essentiels", color: "#6B73FF" },
+            { id: "beach", name: "🏖️ Plage", color: "#9FE2BF" },
+            { id: "electronics", name: "📱 Électronique", color: "#FF6B9D" },
+            { id: "transport", name: "🚗 Transport", color: "#FFFFBA" },
+            { id: "accommodation", name: "🏨 Hébergement", color: "#E2CCFF" },
+            { id: "activities", name: "🎯 Activités", color: "#BAE1FF" },
+            { id: "food", name: "🍽️ Nourriture", color: "#BAFFC9" },
+            { id: "shopping", name: "🛍️ Shopping", color: "#FFD700" },
+            { id: "documents", name: "📄 Documents", color: "#FF69B4" },
+            { id: "other", name: "📦 Autre", color: "#B0C4DE" },
         ];
 
-        return categories
-            .map((category) => ({
-                ...category,
-                items: localItems.filter(
-                    (item) => item.category === category.id
-                ),
-            }))
-            .filter((category) => category.items.length > 0);
+        // Créer une catégorie "Autre" pour les éléments avec des catégories inconnues
+        const itemsByCategory = categories.map((category) => ({
+            ...category,
+            items: localItems.filter((item) => item.category === category.id),
+        }));
+
+        // Ajouter les éléments avec des catégories inconnues à "other"
+        const unknownCategoryItems = localItems.filter(
+            (item) => !categories.find((cat) => cat.id === item.category)
+        );
+        if (unknownCategoryItems.length > 0) {
+            const otherCategory = itemsByCategory.find(
+                (cat) => cat.id === "other"
+            );
+            if (otherCategory) {
+                otherCategory.items = [
+                    ...otherCategory.items,
+                    ...unknownCategoryItems,
+                ];
+            }
+        }
+
+        // Ne retourner que les catégories qui ont des éléments
+        return itemsByCategory.filter((category) => category.items.length > 0);
     };
 
     const calculateProgress = () => {
