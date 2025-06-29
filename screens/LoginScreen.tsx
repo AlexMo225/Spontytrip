@@ -1,6 +1,7 @@
 import { StackNavigationProp } from "@react-navigation/stack";
-import React, { useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import {
+    Animated,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -11,6 +12,8 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import PasswordInput from "../components/PasswordInput";
+import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
 import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { Spacing } from "../constants/Spacing";
@@ -31,9 +34,23 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
     const modal = useModal();
     const quickModals = useQuickModals();
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerShown: false,
+        });
+
+        // Animation d'entrée
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+        }).start();
+    }, [navigation, fadeAnim]);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -84,98 +101,80 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Header avec logo */}
-                    <View style={styles.header}>
+                    <Animated.View
+                        style={[styles.content, { opacity: fadeAnim }]}
+                    >
                         <View style={styles.logoContainer}>
-                            <View style={styles.logoCircle}>
-                                <View style={styles.logoInnerCircle} />
+                            <SpontyTripLogoAnimated size="large" />
+                        </View>
+
+                        <View style={styles.form}>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Email</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Entrez votre email"
+                                    placeholderTextColor={Colors.textSecondary}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    editable={!isLoading}
+                                />
                             </View>
-                            <Text style={styles.logoText}>
-                                <Text style={styles.logoTextSponty}>
-                                    Sponty
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Mot de passe</Text>
+                                <PasswordInput
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    editable={!isLoading}
+                                    showStrengthIndicator={false}
+                                    placeholder="••••••••"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.forgotPasswordContainer}
+                                onPress={handleForgotPassword}
+                                disabled={isLoading}
+                            >
+                                <Text style={styles.forgotPasswordText}>
+                                    Mot de passe oublié ?
                                 </Text>
-                                {"\n"}
-                                <Text style={styles.logoTextTrip}>Trip</Text>
-                            </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.loginButton,
+                                    isLoading && styles.loginButtonDisabled,
+                                ]}
+                                onPress={handleLogin}
+                                disabled={isLoading}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.loginButtonText}>
+                                    {isLoading
+                                        ? "Connexion..."
+                                        : "Se connecter"}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
-                    </View>
-
-                    {/* Formulaire */}
-                    <View style={styles.form}>
-                        {/* Champ Email */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Email</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Entrez votre email"
-                                placeholderTextColor={Colors.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                editable={!isLoading}
-                            />
-                        </View>
-
-                        {/* Champ Mot de passe */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Mot de passe</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Entrez votre mot de passe"
-                                placeholderTextColor={Colors.textSecondary}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                editable={!isLoading}
-                            />
-                        </View>
-
-                        {/* Mot de passe oublié */}
-                        <TouchableOpacity
-                            style={styles.forgotPasswordContainer}
-                            onPress={handleForgotPassword}
-                            disabled={isLoading}
-                        >
-                            <Text style={styles.forgotPasswordText}>
-                                Mot de passe oublié ?
-                            </Text>
-                        </TouchableOpacity>
-
-                        {/* Bouton de connexion */}
-                        <TouchableOpacity
-                            style={[
-                                styles.loginButton,
-                                isLoading && styles.loginButtonDisabled,
-                            ]}
-                            onPress={handleLogin}
-                            disabled={isLoading}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.loginButtonText}>
-                                {isLoading ? "Connexion..." : "Se connecter"}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </ScrollView>
 
-                {/* Footer */}
-                <View style={styles.footer}>
+                <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
                     <TouchableOpacity
                         onPress={handleGoToRegister}
                         disabled={isLoading}
                     >
                         <Text style={styles.signUpText}>
                             Pas de compte ?{" "}
-                            <Text style={styles.signUpLink}>
-                                S&apos;inscrire
-                            </Text>
+                            <Text style={styles.signUpLink}>S'inscrire</Text>
                         </Text>
                     </TouchableOpacity>
-                </View>
+                </Animated.View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -194,53 +193,21 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
+        justifyContent: "center",
         paddingHorizontal: Spacing.md,
     },
-    header: {
-        paddingTop: Spacing.md,
-        paddingBottom: Spacing.lg,
-        alignItems: "center",
-    },
-    logoContainer: {
-        alignItems: "center",
-    },
-    logoCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: "#7ED957",
+    content: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        marginBottom: 16,
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        paddingVertical: Spacing.xl,
     },
-    logoInnerCircle: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: Colors.white,
-    },
-    logoText: {
-        textAlign: "center",
-        lineHeight: 32,
-    },
-    logoTextSponty: {
-        fontSize: 28,
-        fontWeight: "700",
-        color: "#4DA1A9",
-    },
-    logoTextTrip: {
-        fontSize: 28,
-        fontWeight: "700",
-        color: "#7ED957",
+    logoContainer: {
+        marginBottom: Spacing.xl * 2,
     },
     form: {
-        flex: 1,
-        paddingTop: Spacing.lg,
+        width: "100%",
+        maxWidth: 400,
     },
     inputGroup: {
         marginBottom: Spacing.lg,
@@ -256,14 +223,14 @@ const styles = StyleSheet.create({
         height: 56,
         backgroundColor: Colors.white,
         borderWidth: 1,
-        borderColor: "#DCE0E5",
+        borderColor: Colors.border,
         borderRadius: 12,
         paddingHorizontal: Spacing.md,
         color: Colors.textPrimary,
     },
     forgotPasswordContainer: {
-        alignItems: "flex-start",
-        marginBottom: Spacing.xl,
+        alignItems: "flex-end",
+        marginBottom: Spacing.lg,
     },
     forgotPasswordText: {
         ...TextStyles.body2,
@@ -271,34 +238,33 @@ const styles = StyleSheet.create({
         textDecorationLine: "underline",
     },
     loginButton: {
-        height: 48,
+        height: 56,
         backgroundColor: "#7ED957",
         borderRadius: 12,
         justifyContent: "center",
         alignItems: "center",
+        marginBottom: Spacing.md,
     },
     loginButtonDisabled: {
         opacity: 0.6,
     },
     loginButtonText: {
         ...TextStyles.button,
-        color: "#FFFFFF",
+        color: Colors.white,
         fontWeight: "600",
+        fontSize: 16,
     },
     footer: {
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.lg,
         alignItems: "center",
     },
     signUpText: {
-        ...TextStyles.body2,
+        ...TextStyles.body1,
         color: Colors.textSecondary,
-        textAlign: "center",
     },
     signUpLink: {
-        color: Colors.textPrimary,
+        color: Colors.primary,
         fontWeight: "600",
-        textDecorationLine: "underline",
     },
 });
 
