@@ -511,16 +511,19 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                         </Text>
                     </View>
                     <TouchableOpacity
-                        style={styles.quickAction}
+                        style={[
+                            styles.quickActionButton,
+                            styles.checklistButton,
+                        ]}
                         onPress={() => handleNavigateToFeature("Checklist")}
                     >
-                        <Text style={styles.quickActionText}>
+                        <Text style={styles.quickActionButtonText}>
                             Voir les tâches
                         </Text>
                         <Ionicons
                             name="arrow-forward"
                             size={14}
-                            color="#7ED957"
+                            color="#FFFFFF"
                         />
                     </TouchableOpacity>
                 </View>
@@ -537,14 +540,19 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                         Mes dépenses: {tripStats.myExpenses}€
                     </Text>
                     <TouchableOpacity
-                        style={styles.quickAction}
+                        style={[
+                            styles.quickActionButton,
+                            styles.expensesButton,
+                        ]}
                         onPress={() => handleNavigateToFeature("Expenses")}
                     >
-                        <Text style={styles.quickActionText}>Gérer budget</Text>
+                        <Text style={styles.quickActionButtonText}>
+                            Gérer budget
+                        </Text>
                         <Ionicons
                             name="arrow-forward"
                             size={14}
-                            color="#4DA1A9"
+                            color="#FFFFFF"
                         />
                     </TouchableOpacity>
                 </View>
@@ -561,16 +569,19 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                     </Text>
                     <Text style={styles.statSubtext}>Planifiées</Text>
                     <TouchableOpacity
-                        style={styles.quickAction}
+                        style={[
+                            styles.quickActionButton,
+                            styles.activitiesButton,
+                        ]}
                         onPress={() => handleNavigateToFeature("Activities")}
                     >
-                        <Text style={styles.quickActionText}>
+                        <Text style={styles.quickActionButtonText}>
                             Voir planning
                         </Text>
                         <Ionicons
                             name="arrow-forward"
                             size={14}
-                            color="#FF6B6B"
+                            color="#FFFFFF"
                         />
                     </TouchableOpacity>
                 </View>
@@ -602,10 +613,10 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                         </>
                     )}
                     <TouchableOpacity
-                        style={styles.quickAction}
+                        style={[styles.quickActionButton, styles.notesButton]}
                         onPress={() => handleNavigateToFeature("Notes")}
                     >
-                        <Text style={styles.quickActionText}>
+                        <Text style={styles.notesButtonText}>
                             {tripNotes && tripNotes.length > 0
                                 ? "Modifier"
                                 : "Créer"}
@@ -613,7 +624,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                         <Ionicons
                             name="arrow-forward"
                             size={14}
-                            color="#FFD93D"
+                            color="#FFFFFF"
                         />
                     </TouchableOpacity>
                 </View>
@@ -1448,11 +1459,57 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        minHeight: 40,
+        marginTop: 2,
     },
     quickActionText: {
-        fontSize: 12,
-        fontWeight: "500",
+        fontSize: 14,
+        fontWeight: "600",
         color: "#666",
+    },
+    quickActionButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        marginTop: 8,
+        minHeight: 44,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+    quickActionButtonText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        flex: 1,
+    },
+    checklistButton: {
+        backgroundColor: "#7ED957",
+    },
+    expensesButton: {
+        backgroundColor: "#4DA1A9",
+    },
+    activitiesButton: {
+        backgroundColor: "#FF6B6B",
+    },
+    notesButton: {
+        backgroundColor: "#FFD93D",
+    },
+    notesButtonText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        flex: 1,
     },
     teamSection: {
         backgroundColor: "#FFFFFF",
