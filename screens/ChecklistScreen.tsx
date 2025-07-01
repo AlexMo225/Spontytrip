@@ -305,16 +305,6 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
         <SafeAreaView style={styles.container}>
             {/* Header avec progression */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.text.primary}
-                    />
-                </TouchableOpacity>
                 <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>Checklist</Text>
                     <Text style={styles.headerSubtitle}>
@@ -475,10 +465,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
-    },
-    backButton: {
-        padding: 8,
-        marginRight: 8,
     },
     headerContent: {
         flex: 1,

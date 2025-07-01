@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -17,9 +16,6 @@ export const AddActivityHeader: React.FC<AddActivityHeaderProps> = ({
 }) => {
     return (
         <View style={styles.header}>
-            <TouchableOpacity onPress={onBackPress} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color="#4DA1A9" />
-            </TouchableOpacity>
             <Text style={styles.headerTitle}>
                 {isEditing ? "Modifier activité" : "Nouvelle activité"}
             </Text>

@@ -10,11 +10,9 @@ import {
     RefreshControl,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "../constants/Colors";
 import { useTripSync } from "../hooks/useTripSync";
 import { ActivityLogEntry, RootStackParamList } from "../types";
 
@@ -211,33 +209,18 @@ const FeedDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header animé */}
+            {/* Header */}
             <Animated.View
                 style={[
                     styles.header,
-                    {
-                        transform: [{ translateY: headerSlideAnim }],
-                    },
+                    { transform: [{ translateY: headerSlideAnim }] },
                 ]}
             >
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.primary}
-                    />
-                </TouchableOpacity>
-
-                <View style={styles.headerContent}>
-                    <Text style={styles.headerTitle}>🔥 Feed Live</Text>
-                    <Text style={styles.headerSubtitle}>
-                        {trip?.title || "Chargement..."} • {activityFeed.length}{" "}
-                        activités
-                    </Text>
-                </View>
+                <Text style={styles.headerTitle}>Activités</Text>
+                <Text style={styles.headerSubtitle}>
+                    {trip?.title} • {activityFeed.length} action
+                    {activityFeed.length > 1 ? "s" : ""}
+                </Text>
             </Animated.View>
 
             {/* Contenu principal animé */}
@@ -305,18 +288,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: "#F1F5F9",
         backgroundColor: "#FFFFFF",
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#F8FAFC",
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
-    },
-    headerContent: {
-        flex: 1,
     },
     headerTitle: {
         fontSize: 20,

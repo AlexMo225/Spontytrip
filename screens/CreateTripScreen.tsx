@@ -1,5 +1,4 @@
-﻿import { Ionicons } from "@expo/vector-icons";
-import { RouteProp } from "@react-navigation/native";
+﻿import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React from "react";
 import {
@@ -17,7 +16,6 @@ import {
     TripFormFields,
     TripInvitationModal,
 } from "../components/createTrip";
-import { Colors } from "../constants/Colors";
 import { TextStyles } from "../constants/Fonts";
 import { useCreateTripForm } from "../hooks/useCreateTripForm";
 import { RootStackParamList } from "../types";
@@ -92,22 +90,6 @@ const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={[
-                        styles.backButton,
-                        showInvitationModal && styles.backButtonDisabled,
-                    ]}
-                    onPress={() => navigation.goBack()}
-                    disabled={showInvitationModal}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={
-                            showInvitationModal ? "#CCCCCC" : Colors.textPrimary
-                        }
-                    />
-                </TouchableOpacity>
                 <Text style={styles.headerTitle}>Nouveau séjour</Text>
                 <View style={styles.headerSpacer} />
             </View>
@@ -215,17 +197,6 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         borderBottomWidth: 1,
         borderBottomColor: "#F0F0F0",
-    },
-    backButton: {
-        width: 44,
-        height: 44,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#F8F9FA",
-        borderRadius: 22,
-    },
-    backButtonDisabled: {
-        opacity: 0.5,
     },
     headerTitle: {
         flex: 1,

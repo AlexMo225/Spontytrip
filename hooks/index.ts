@@ -10,4 +10,5 @@ export * from "./useHome";
 export * from "./useModal";
 export * from "./useTripDetails";
 export * from "./useTripSync";
+export * from "./useNotes";
 export {};

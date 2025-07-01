@@ -101,16 +101,6 @@ const JoinTripScreen: React.FC<Props> = ({ navigation }) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={handleGoBack}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={Colors.textPrimary}
-                    />
-                </TouchableOpacity>
                 <Text style={styles.headerTitle}>Rejoindre un voyage</Text>
                 <View style={styles.headerSpacer} />
             </View>
@@ -215,14 +205,6 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Colors.lightGray,
-        justifyContent: "center",
-        alignItems: "center",
     },
     headerTitle: {
         ...TextStyles.h3,
