@@ -1963,6 +1963,57 @@ class FirebaseService {
         }
     }
 
+    async deleteActivity(
+        tripId: string,
+        activityId: string,
+        userId: string
+    ): Promise<void> {
+        try {
+            const querySnapshot = await this.db
+                .collection("activities")
+                .where("tripId", "==", tripId)
+                .limit(1)
+                .get();
+
+            if (!querySnapshot.empty) {
+                const docRef = querySnapshot.docs[0].ref;
+                const docData = querySnapshot.docs[0].data();
+                const activities = docData.activities || [];
+
+                const activityIndex = activities.findIndex(
+                    (activity: any) => activity.id === activityId
+                );
+
+                if (activityIndex !== -1) {
+                    // Supprimer l'activité de l'array
+                    const updatedActivities = activities.filter(
+                        (activity: any) => activity.id !== activityId
+                    );
+
+                    await docRef.update({
+                        activities: updatedActivities,
+                        updatedAt:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: userId,
+                    });
+
+                    console.log(
+                        `✅ Activité ${activityId} supprimée avec succès`
+                    );
+                } else {
+                    throw new Error("Activité introuvable");
+                }
+            } else {
+                throw new Error(
+                    "Document activities introuvable pour ce voyage"
+                );
+            }
+        } catch (error) {
+            console.error("Erreur suppression activité:", error);
+            throw new Error("Impossible de supprimer cette activité");
+        }
+    }
+
     // ==========================================
     // ACTIVITIES - HELPERS
     // ==========================================

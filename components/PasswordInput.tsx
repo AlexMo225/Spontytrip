@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     },
     strengthBars: {
         flexDirection: "row",
-        marginBottom: Spacing.xxs,
+        marginBottom: Spacing.xs,
     },
     strengthBar: {
         flex: 1,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     },
     strengthText: {
         ...TextStyles.caption,
-        marginBottom: Spacing.xxs,
+        marginBottom: Spacing.xs,
     },
     feedbackText: {
         ...TextStyles.caption,
