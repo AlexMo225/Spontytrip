@@ -2513,8 +2513,6 @@ class FirebaseService {
                 "expenses",
                 "notes",
                 "activities",
-                "messages",
-                "gallery",
                 "activity-feed",
             ];
 

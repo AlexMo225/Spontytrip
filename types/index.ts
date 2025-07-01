@@ -149,27 +149,6 @@ export interface Activity {
     updatedAt?: Date;
 }
 
-export interface ChatMessage {
-    id: string;
-    tripId: string;
-    userId: string;
-    userName: string;
-    content: string;
-    type: "text" | "image" | "system";
-    createdAt: Date;
-}
-
-export interface Gallery {
-    id: string;
-    tripId: string;
-    userId: string;
-    userName: string;
-    imageUrl: string;
-    caption?: string;
-    uploadedBy?: string;
-    createdAt: Date;
-}
-
 export interface CityDestination {
     id: string;
     name: string;
@@ -207,11 +186,9 @@ export type RootStackParamList = {
 
     // Trip Features
     Checklist: { tripId: string };
-    Gallery: { tripId: string };
     Activities: { tripId: string };
     Expenses: { tripId: string };
     Notes: { tripId: string };
-    Chat: { tripId: string };
     FeedDetails: { tripId: string };
 
     // Activity Management - À implémenter avec les maquettes

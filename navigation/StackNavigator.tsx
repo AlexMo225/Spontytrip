@@ -13,7 +13,6 @@ import {
     ActivitiesScreen,
     AddActivityScreen,
     AddChecklistItemScreen,
-    ChatScreen,
     ChecklistScreen,
     // Trip Management Screens
     CreateTripScreen,
@@ -23,7 +22,6 @@ import {
     EditTripScreen,
     ExploreScreen,
     ForgotPasswordScreen,
-    GalleryScreen,
     // Main Tab Screens
     HomeScreen,
     JoinTripScreen,
@@ -243,20 +241,6 @@ export default function StackNavigator() {
                     options={{
                         headerShown: false,
                         presentation: "modal",
-                    }}
-                />
-                <Stack.Screen
-                    name="Chat"
-                    component={ChatScreen}
-                    options={{
-                        headerShown: false,
-                    }}
-                />
-                <Stack.Screen
-                    name="Gallery"
-                    component={GalleryScreen}
-                    options={{
-                        headerShown: false,
                     }}
                 />
 

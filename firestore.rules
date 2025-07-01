@@ -85,15 +85,7 @@ service cloud.firestore {
         allow read, write: if isAuthenticated() && canAccessTrip(tripId);
       }
       
-      // Messages de chat de chaque voyage
-      match /messages/{messageId} {
-        allow read, write: if isAuthenticated() && canAccessTrip(tripId);
-      }
-      
-      // Galerie photos de chaque voyage
-      match /gallery/{galleryId} {
-        allow read, write: if isAuthenticated() && canAccessTrip(tripId);
-      }
+
     }
 
     // ===============================
@@ -152,31 +144,7 @@ service cloud.firestore {
         canAccessTrip(resource.data.tripId);
     }
 
-    // Messages globaux : accès seulement aux membres du voyage
-    match /messages/{messageId} {
-      allow read: if isAuthenticated() && 
-        resource.data.tripId != null && 
-        canAccessTrip(resource.data.tripId);
-      allow create: if isAuthenticated() && 
-        request.resource.data.tripId != null && 
-        canAccessTrip(request.resource.data.tripId);
-      allow update, delete: if isAuthenticated() && 
-        resource.data.tripId != null && 
-        canAccessTrip(resource.data.tripId);
-    }
 
-    // Galerie globale : accès seulement aux membres du voyage
-    match /gallery/{galleryId} {
-      allow read: if isAuthenticated() && 
-        resource.data.tripId != null && 
-        canAccessTrip(resource.data.tripId);
-      allow create: if isAuthenticated() && 
-        request.resource.data.tripId != null && 
-        canAccessTrip(request.resource.data.tripId);
-      allow update, delete: if isAuthenticated() && 
-        resource.data.tripId != null && 
-        canAccessTrip(resource.data.tripId);
-    }
 
     // Activity Feed : logs d'activités des voyages
     match /activity-feed/{activityId} {
