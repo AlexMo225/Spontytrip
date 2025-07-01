@@ -9,7 +9,7 @@ import Animated, {
     withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
-import { useSpontyTripLogoAnimatedStyle } from "../hooks/useSpontyTripLogoAnimatedStyle";
+import { useSpontyTripLogoAnimatedStyles } from "../styles/components";
 
 interface SpontyTripLogoAnimatedProps {
     size?: "small" | "medium" | "large";
@@ -24,7 +24,7 @@ const SpontyTripLogoAnimated: React.FC<SpontyTripLogoAnimatedProps> = ({
     autoPlay = true,
     style,
 }) => {
-    const styles = useSpontyTripLogoAnimatedStyle();
+    const styles = useSpontyTripLogoAnimatedStyles();
     const sizeConfig = {
         small: { circleSize: 50, fontSize: 28, spacing: 14, lineHeight: 30 },
         medium: { circleSize: 80, fontSize: 40, spacing: 20, lineHeight: 42 },

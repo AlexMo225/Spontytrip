@@ -18,7 +18,7 @@ import {
     TripDetailsTeam,
 } from "../components/tripDetails";
 import { useTripDetails } from "../hooks/useTripDetails";
-import { useTripDetailsScreenStyle } from "../hooks/useTripDetailsScreenStyle";
+import { useTripDetailsStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type TripDetailsScreenNavigationProp = StackNavigationProp<
@@ -53,7 +53,7 @@ const TripDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         calculateDuration,
     } = useTripDetails(tripId);
 
-    const styles = useTripDetailsScreenStyle();
+    const styles = useTripDetailsStyles();
 
     // Navigation handlers
     const handleBackPress = () => {

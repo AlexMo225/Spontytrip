@@ -8,7 +8,7 @@ import {
     HomeTripsList,
 } from "../components/home";
 import { useHome } from "../hooks/useHome";
-import { useHomeScreenStyle } from "../hooks/useHomeScreenStyle";
+import { useHomeStyles  } from "../styles/screens";
 import { FirestoreTrip } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
@@ -53,7 +53,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         inspirationalQuotes,
     } = useHome();
 
-    const styles = useHomeScreenStyle();
+    const styles = useHomeStyles();
 
     // Navigation handlers
     const handleCreateTrip = () => {

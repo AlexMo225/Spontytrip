@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { TextStyles } from "../constants";
+import { TextStyles } from "../../constants";
 
 export const useCreateTripScreenStyle = () => {
     return StyleSheet.create({

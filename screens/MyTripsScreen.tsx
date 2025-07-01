@@ -6,17 +6,15 @@ import {
     Image,
     SafeAreaView,
     ScrollView,
-    StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
 import { Colors } from "../constants/Colors";
-import { Fonts } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserTrips } from "../hooks/useTripSync";
 import { FirestoreTrip } from "../services/firebaseService";
+import { useMyTripsStyles } from "../styles/screens";
 import { MainTabParamList } from "../types";
 
 type MyTripsScreenNavigationProp = BottomTabNavigationProp<
@@ -29,6 +27,7 @@ interface Props {
 }
 
 const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
+    const styles = useMyTripsStyles();
     const { user } = useAuth();
     const { trips, loading, error, refreshTrips } = useUserTrips();
     const [selectedTab, setSelectedTab] = useState<"ongoing" | "completed">(
@@ -83,7 +82,7 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="people-outline"
                                 size={14}
-                                color="#637887"
+                                color={Colors.textSecondary}
                             />
                             <Text style={styles.membersText}>
                                 {trip.members.length} membre
@@ -108,7 +107,7 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
                             <Ionicons
                                 name="image-outline"
                                 size={32}
-                                color="#999"
+                                color={Colors.textSecondary}
                             />
                         </View>
                     )}
@@ -116,6 +115,37 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
         );
     };
+
+    const renderEmptyState = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons
+                name="map-outline"
+                size={64}
+                color={Colors.textSecondary}
+            />
+            <Text style={styles.emptyTitle}>
+                {selectedTab === "ongoing"
+                    ? "Aucun voyage en cours"
+                    : "Aucun voyage terminé"}
+            </Text>
+            <Text style={styles.emptyText}>
+                {selectedTab === "ongoing"
+                    ? "Commencez à planifier votre prochain voyage !"
+                    : "Vos voyages terminés apparaîtront ici."}
+            </Text>
+            {selectedTab === "ongoing" && (
+                <TouchableOpacity
+                    style={styles.createButton}
+                    onPress={() => navigation.navigate("CreateTrip" as any)}
+                >
+                    <Ionicons name="add" size={24} color={Colors.white} />
+                    <Text style={styles.createButtonText}>
+                        Créer un nouveau voyage
+                    </Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
 
     return (
         <SafeAreaView style={styles.container}>
@@ -126,7 +156,7 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
                     style={styles.addButton}
                     onPress={() => navigation.navigate("CreateTrip" as any)}
                 >
-                    <Ionicons name="add" size={24} color="#4DA1A9" />
+                    <Ionicons name="add" size={24} color={Colors.secondary} />
                 </TouchableOpacity>
             </View>
 
@@ -170,7 +200,7 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
             {/* Trips List */}
             {loading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#4DA1A9" />
+                    <ActivityIndicator size="large" color={Colors.primary} />
                     <Text style={styles.loadingText}>
                         Chargement de vos voyages...
                     </Text>
@@ -180,7 +210,7 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
                     <Ionicons
                         name="alert-circle-outline"
                         size={64}
-                        color="#FF6B6B"
+                        color={Colors.error}
                     />
                     <Text style={styles.errorTitle}>Erreur de chargement</Text>
                     <Text style={styles.errorText}>{error}</Text>
@@ -196,266 +226,13 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
                     style={styles.tripsContainer}
                     showsVerticalScrollIndicator={false}
                 >
-                    {filteredTrips.length > 0 ? (
-                        filteredTrips.map(renderTripCard)
-                    ) : (
-                        <View style={styles.emptyState}>
-                            <Ionicons
-                                name="airplane-outline"
-                                size={64}
-                                color="#E2E8F0"
-                            />
-                            <Text style={styles.emptyTitle}>
-                                {selectedTab === "ongoing"
-                                    ? "Aucun voyage en cours"
-                                    : "Aucun voyage terminé"}
-                            </Text>
-                            <Text style={styles.emptySubtitle}>
-                                {selectedTab === "ongoing"
-                                    ? "Créez votre premier voyage pour commencer l'aventure !"
-                                    : "Vos voyages passés apparaîtront ici"}
-                            </Text>
-                            {selectedTab === "ongoing" && (
-                                <TouchableOpacity
-                                    style={styles.createButton}
-                                    onPress={() =>
-                                        navigation.navigate("CreateTrip" as any)
-                                    }
-                                >
-                                    <Text style={styles.createButtonText}>
-                                        Créer un voyage
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-
-                    {/* Bottom spacing */}
-                    <View style={styles.bottomSpacing} />
+                    {filteredTrips.length > 0
+                        ? filteredTrips.map(renderTripCard)
+                        : renderEmptyState()}
                 </ScrollView>
             )}
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.backgroundColors.primary,
-    },
-    header: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: Spacing.medium,
-        paddingVertical: Spacing.large,
-        paddingTop: 16,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "700",
-        color: Colors.text.primary,
-    },
-    addButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#F0F8F0",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    tabsContainer: {
-        flexDirection: "row",
-        marginHorizontal: Spacing.medium,
-        marginBottom: 24,
-        backgroundColor: "#F0F2F5",
-        borderRadius: 12,
-        padding: 4,
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 8,
-        alignItems: "center",
-    },
-    activeTab: {
-        backgroundColor: Colors.backgroundColors.primary,
-    },
-    tabText: {
-        fontSize: 16,
-        fontFamily: Fonts.body.family,
-        fontWeight: "500",
-        color: "#637887",
-    },
-    activeTabText: {
-        color: Colors.text.primary,
-        fontWeight: "600",
-    },
-    tripsContainer: {
-        flex: 1,
-    },
-    tripCard: {
-        flexDirection: "row",
-        backgroundColor: Colors.backgroundColors.primary,
-        marginHorizontal: Spacing.medium,
-        marginBottom: Spacing.medium,
-        borderRadius: 12,
-        overflow: "hidden",
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    tripInfo: {
-        flex: 1,
-        padding: Spacing.medium,
-        justifyContent: "space-between",
-    },
-    tripTitle: {
-        fontSize: 14,
-        fontFamily: Fonts.body.family,
-        fontWeight: "500",
-        color: "#637887",
-        marginBottom: 4,
-    },
-    tripDestination: {
-        fontSize: 18,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        marginBottom: 4,
-    },
-    tripDates: {
-        fontSize: 14,
-        fontFamily: Fonts.body.family,
-        color: "#637887",
-        marginBottom: 12,
-    },
-    tripMetaContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    membersContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    membersText: {
-        fontSize: 12,
-        fontFamily: Fonts.body.family,
-        color: "#637887",
-        marginLeft: 4,
-    },
-    statusBadge: {
-        backgroundColor: "#E8F5E8",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    statusText: {
-        fontSize: 12,
-        fontFamily: Fonts.body.family,
-        fontWeight: "500",
-        color: "#4DA1A9",
-    },
-    tripImageContainer: {
-        width: 120,
-        height: 100,
-        margin: 12,
-    },
-    tripImage: {
-        width: "100%",
-        height: "100%",
-        borderRadius: 8,
-    },
-    defaultImage: {
-        backgroundColor: "#F8FAFC",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingTop: 100,
-    },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-        color: "#666",
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingTop: 100,
-        paddingHorizontal: 32,
-    },
-    errorTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: "#FF6B6B",
-        marginTop: 16,
-        marginBottom: 8,
-    },
-    errorText: {
-        fontSize: 14,
-        color: "#666",
-        textAlign: "center",
-        marginBottom: 24,
-    },
-    retryButton: {
-        backgroundColor: "#4DA1A9",
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    emptyState: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 32,
-        paddingVertical: 64,
-    },
-    emptyTitle: {
-        fontSize: 20,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        marginTop: 16,
-        marginBottom: 8,
-        textAlign: "center",
-    },
-    emptySubtitle: {
-        fontSize: 16,
-        fontFamily: Fonts.body.family,
-        color: "#637887",
-        textAlign: "center",
-        lineHeight: 24,
-        marginBottom: 24,
-    },
-    createButton: {
-        backgroundColor: "#4DA1A9",
-        borderRadius: 12,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-    },
-    createButtonText: {
-        fontSize: 16,
-        fontFamily: Fonts.body.family,
-        fontWeight: "600",
-        color: Colors.backgroundColors.primary,
-    },
-    bottomSpacing: {
-        height: 32,
-    },
-});
 
 export default MyTripsScreen;

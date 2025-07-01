@@ -8,7 +8,7 @@ import {
     ViewStyle,
 } from "react-native";
 import { Colors } from "../constants/Colors";
-import { usePasswordInputStyle } from "../hooks/usePasswordInputStyle";
+import { usePasswordInputStyles } from "../styles/components";
 import {
     PasswordStrength,
     getPasswordStrengthColor,
@@ -42,7 +42,7 @@ const PasswordInput: React.FC<Props> = ({
         feedback: "",
     });
 
-    const styles = usePasswordInputStyle();
+    const styles = usePasswordInputStyles();
 
     const handleChangeText = (text: string) => {
         onChangeText(text);

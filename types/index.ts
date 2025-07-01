@@ -166,6 +166,7 @@ export type RootStackParamList = {
     Onboarding: undefined;
 
     // Auth
+    Auth: undefined;
     Login: undefined;
     Register: undefined;
     ForgotPassword: undefined;
@@ -202,6 +203,13 @@ export type RootStackParamList = {
     // Profile
     Profile: undefined;
     EditProfile: undefined;
+    Preferences: undefined;
+
+    // About
+    About: undefined;
+    Notifications: undefined;
+    Privacy: undefined;
+    Help: undefined;
 };
 
 export type MainTabParamList = {
@@ -278,4 +286,14 @@ export interface TripActivityFeed {
     tripId: string;
     activities: ActivityLogEntry[];
     lastUpdated: Date;
+}
+
+export interface AuthUser {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
+    bio?: string;
+    location?: string;
+    createdAt: Date;
 }

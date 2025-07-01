@@ -1,15 +1,15 @@
 import { ImageStyle, ViewStyle } from "react-native";
-import { Colors } from "../constants/Colors";
+import { Colors } from "../../constants";
 
-interface UseAvatarStyleProps {
+interface UseAvatarStylesProps {
     size?: number;
     showBorder?: boolean;
 }
 
-export const useAvatarStyle = ({
+export const useAvatarStyles = ({
     size = 40,
     showBorder = false,
-}: UseAvatarStyleProps) => {
+}: UseAvatarStylesProps) => {
     const baseStyle = {
         width: size,
         height: size,

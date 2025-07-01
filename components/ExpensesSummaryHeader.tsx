@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Colors } from "../constants";
-import { useExpensesSummaryHeaderStyle } from "../hooks";
+import { useExpensesSummaryHeaderStyles } from "../styles/components";
 import { ExpensesSummary } from "../hooks/useExpenses";
 
 interface ExpensesSummaryHeaderProps {
@@ -20,7 +20,7 @@ export const ExpensesSummaryHeader: React.FC<ExpensesSummaryHeaderProps> = ({
     syncing,
     onRefresh,
 }) => {
-    const styles = useExpensesSummaryHeaderStyle();
+    const styles = useExpensesSummaryHeaderStyles();
 
     if (loading) {
         return (

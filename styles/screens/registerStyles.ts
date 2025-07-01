@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { Colors, Spacing, TextStyles } from "../constants";
+import { Colors, Spacing, TextStyles } from "../../constants";
 
 export const useRegisterScreenStyle = () => {
     return StyleSheet.create({

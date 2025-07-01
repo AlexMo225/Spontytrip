@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { Colors } from "../constants";
-import { useSettlementsSectionStyle } from "../hooks";
+import { useSettlementsSectionStyles } from "../styles/components";
 import {
     DebtSettlement,
     ExpensesSummary,
@@ -20,7 +20,7 @@ export const SettlementsSection: React.FC<SettlementsSectionProps> = ({
     summary,
     currentUserId,
 }) => {
-    const styles = useSettlementsSectionStyle();
+    const styles = useSettlementsSectionStyles();
     if (!summary || summary.settlements.length === 0) {
         return (
             <View style={styles.container}>
@@ -97,7 +97,7 @@ const PersonalSettlementCard: React.FC<{
     myCredits: DebtSettlement[];
     myBalance: MemberBalance | null;
 }> = ({ myDebts, myCredits, myBalance }) => {
-    const styles = useSettlementsSectionStyle();
+    const styles = useSettlementsSectionStyles();
     const myBalanceAmount = myBalance?.balance || 0;
     const totalIowe = myDebts.reduce((sum, debt) => sum + debt.amount, 0);
     const totalOwedToMe = myCredits.reduce(
@@ -173,7 +173,7 @@ const BalanceItem: React.FC<{
     balance: MemberBalance;
     isMe: boolean;
 }> = ({ balance, isMe }) => {
-    const styles = useSettlementsSectionStyle();
+    const styles = useSettlementsSectionStyles();
     const isPositive = balance.balance > 0.01;
     const isNegative = balance.balance < -0.01;
 
@@ -216,7 +216,7 @@ const SettlementItem: React.FC<{
     isMyDebt: boolean;
     isMyCredit: boolean;
 }> = ({ settlement, isMyDebt, isMyCredit }) => {
-    const styles = useSettlementsSectionStyle();
+    const styles = useSettlementsSectionStyles();
     const getItemStyle = () => {
         if (isMyDebt)
             return [styles.settlementItem, styles.settlementItemMyDebt];

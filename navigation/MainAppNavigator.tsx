@@ -10,6 +10,7 @@ import { MainTabParamList, RootStackParamList } from "../types";
 
 // Import all screens
 import {
+    AboutScreen,
     ActivitiesScreen,
     AddActivityScreen,
     AddChecklistItemScreen,
@@ -21,10 +22,14 @@ import {
     ExpensesScreen,
     ExploreScreen,
     FeedDetailsScreen,
+    HelpScreen,
     HomeScreen,
     JoinTripScreen,
     MyTripsScreen,
     NotesScreen,
+    NotificationsScreen,
+    PreferencesScreen,
+    PrivacyScreen,
     ProfileScreen,
     TripDetailsScreen,
 } from "../screens";
@@ -144,6 +149,8 @@ export default function MainAppNavigator() {
                         fontSize: 18,
                     },
                     gestureEnabled: true,
+                    headerBackTitle: " ",
+                    headerLeft: () => null,
                 }}
             >
                 {/* Main App */}
@@ -198,7 +205,6 @@ export default function MainAppNavigator() {
                     component={AddActivityScreen}
                     options={{
                         headerShown: false,
-                        presentation: "modal",
                     }}
                 />
                 <Stack.Screen
@@ -244,6 +250,63 @@ export default function MainAppNavigator() {
                     component={EditProfileScreen}
                     options={{
                         headerShown: false,
+                    }}
+                />
+
+                {/* Settings Screens */}
+                <Stack.Screen
+                    name="About"
+                    component={AboutScreen}
+                    options={{
+                        title: "À propos",
+                        headerShown: true,
+                        headerTitleAlign: "center",
+                        headerShadowVisible: false,
+                        headerLeft: () => null,
+                    }}
+                />
+                <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                    options={{
+                        title: "Notifications",
+                        headerShown: true,
+                        headerTitleAlign: "center",
+                        headerShadowVisible: false,
+                        headerLeft: () => null,
+                    }}
+                />
+                <Stack.Screen
+                    name="Privacy"
+                    component={PrivacyScreen}
+                    options={{
+                        title: "Confidentialité",
+                        headerShown: true,
+                        headerTitleAlign: "center",
+                        headerShadowVisible: false,
+                        headerLeft: () => null,
+                    }}
+                />
+                <Stack.Screen
+                    name="Preferences"
+                    component={PreferencesScreen}
+                    options={{
+                        title: "Préférences",
+                        headerShown: true,
+                        headerTitleAlign: "center",
+                        headerShadowVisible: false,
+                        headerLeft: () => null,
+                    }}
+                />
+                <Stack.Screen
+                    name="Help"
+                    component={HelpScreen}
+                    options={{
+                        title: "Aide",
+                        headerShown: true,
+                        headerTitleAlign: "center",
+                        headerShadowVisible: false,
+                        headerLeft: () => null,
                     }}
                 />
             </Stack.Navigator>

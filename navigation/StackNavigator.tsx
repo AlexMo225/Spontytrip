@@ -10,6 +10,7 @@ import { MainTabParamList, RootStackParamList } from "../types";
 
 // Import all screens from index
 import {
+    AboutScreen,
     ActivitiesScreen,
     AddActivityScreen,
     AddChecklistItemScreen,
@@ -22,13 +23,16 @@ import {
     EditTripScreen,
     ExploreScreen,
     ForgotPasswordScreen,
+    HelpScreen,
     // Main Tab Screens
     HomeScreen,
     JoinTripScreen,
     // Auth Screens
     LoginScreen,
     MyTripsScreen,
+    NotificationsScreen,
     OnboardingScreen,
+    PrivacyScreen,
     ProfileScreen,
     RegisterScreen,
     TripDetailsScreen,
@@ -252,6 +256,15 @@ export default function StackNavigator() {
                         headerShown: false,
                     }}
                 />
+
+                {/* About */}
+                <Stack.Screen name="About" component={AboutScreen} />
+                <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                />
+                <Stack.Screen name="Privacy" component={PrivacyScreen} />
+                <Stack.Screen name="Help" component={HelpScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

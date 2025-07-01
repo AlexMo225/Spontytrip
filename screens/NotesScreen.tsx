@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNotes } from "../hooks/useNotes";
-import { useNotesScreenStyle } from "../hooks/useNotesScreenStyle";
+import { useNotesStyles  } from "../styles/screens";
 import { TripNote } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
@@ -35,7 +35,7 @@ interface Props {
 const NotesScreen: React.FC<Props> = ({ navigation, route }) => {
     const { tripId } = route.params;
     const notes = useNotes(tripId);
-    const styles = useNotesScreenStyle();
+    const styles = useNotesStyles();
 
     React.useEffect(() => {
         if (

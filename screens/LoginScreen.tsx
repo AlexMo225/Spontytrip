@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import PasswordInput from "../components/PasswordInput";
 import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
 import { Colors } from "../constants";
-import { useLoginScreenStyle } from "../hooks";
+import { useLoginStyles  } from "../styles/screens";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { AuthService } from "../services/authService";
 import { RootStackParamList } from "../types";
@@ -36,7 +36,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     const modal = useModal();
     const quickModals = useQuickModals();
-    const styles = useLoginScreenStyle();
+    const styles = useLoginStyles();
 
     useLayoutEffect(() => {
         navigation.setOptions({

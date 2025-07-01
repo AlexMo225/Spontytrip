@@ -1,6 +1,6 @@
 import { TextStyle, ViewStyle } from "react-native";
-import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
+import { Colors } from "../../constants";
+import { TextStyles } from "../../constants";
 
 interface UseButtonStyleProps {
     variant?: "primary" | "secondary" | "outline" | "ghost";

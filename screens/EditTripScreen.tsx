@@ -2,7 +2,7 @@ import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React from "react";
 import { Text, View } from "react-native";
-import { useEditTripScreenStyle } from "../hooks/useEditTripScreenStyle";
+import { useEditTripStyles  } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type EditTripScreenNavigationProp = StackNavigationProp<
@@ -18,7 +18,7 @@ interface Props {
 
 const EditTripScreen: React.FC<Props> = ({ navigation, route }) => {
     const { tripId } = route.params;
-    const styles = useEditTripScreenStyle();
+    const styles = useEditTripStyles();
 
     return (
         <View style={styles.container}>

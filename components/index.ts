@@ -3,7 +3,7 @@
 export { default as ActivityFeed } from "./ActivityFeed";
 export { AddExpenseForm } from "./AddExpenseForm";
 export { default as AuthTest } from "./AuthTest";
-export { default as Avatar } from "./Avatar";
+export { Avatar } from "./Avatar";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
 export { default as ChecklistCelebration } from "./ChecklistCelebration";

@@ -1,10 +1,13 @@
 import { Dimensions, Platform, StyleSheet } from "react-native";
-import { Fonts } from "../constants/Fonts";
+import { Colors, Fonts } from "../../constants/index";
 
 const { width: screenWidth } = Dimensions.get("window");
 
-export const useProfileScreenStyle = () => {
-    const styles = StyleSheet.create({
+export const useProfileStyles = () => {
+    const colors = Colors;
+    const fonts = Fonts;
+
+    return StyleSheet.create({
         container: {
             flex: 1,
             backgroundColor: "#F9FAFB",
@@ -20,7 +23,7 @@ export const useProfileScreenStyle = () => {
             fontWeight: "800",
             color: "#FFFFFF",
             textAlign: "center",
-            fontFamily: Fonts.heading.family,
+            fontFamily: fonts.heading.family,
             textShadowColor: "rgba(0, 0, 0, 0.1)",
             textShadowOffset: { width: 0, height: 2 },
             textShadowRadius: 4,
@@ -55,32 +58,40 @@ export const useProfileScreenStyle = () => {
             flex: 1,
         },
         scrollContent: {
-            paddingBottom: 100,
+            paddingHorizontal: 20,
+            paddingBottom: 40,
         },
-        profileCard: {
-            backgroundColor: "#FFFFFF",
-            marginHorizontal: 20,
-            marginTop: -20,
-            borderRadius: 24,
-            padding: 24,
+        profileSection: {
+            borderRadius: 16,
+            marginBottom: 24,
+            overflow: "hidden",
             ...Platform.select({
                 ios: {
                     shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 4 },
+                    shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
-                    shadowRadius: 12,
+                    shadowRadius: 8,
                 },
                 android: {
-                    elevation: 8,
+                    elevation: 4,
                 },
             }),
         },
-        profileInfo: {
+        gradientBackground: {
+            width: "100%",
             alignItems: "center",
-            marginBottom: 20,
+            paddingVertical: 24,
+            paddingHorizontal: 20,
+        },
+        contentContainer: {
+            width: "100%",
+            alignItems: "center",
         },
         avatarContainer: {
             marginBottom: 16,
+            padding: 4,
+            borderRadius: 42,
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
         },
         avatarGlow: {
             padding: 8,
@@ -98,156 +109,154 @@ export const useProfileScreenStyle = () => {
                 },
             }),
         },
-        userInfo: {
-            alignItems: "center",
-        },
         userName: {
             fontSize: 24,
             fontWeight: "700",
-            color: "#1F2937",
+            color: colors.text.primary,
             marginBottom: 4,
-            fontFamily: Fonts.heading.family,
+            fontFamily: fonts.heading.family,
+            textShadowColor: "rgba(0, 0, 0, 0.1)",
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 2,
         },
         userEmail: {
             fontSize: 16,
-            color: "#6B7280",
+            color: colors.text.secondary,
             marginBottom: 12,
-            fontFamily: Fonts.body.family,
+            fontFamily: fonts.body.family,
         },
         joinDateBadge: {
             flexDirection: "row",
             alignItems: "center",
-            backgroundColor: "#F0FDF4",
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
             paddingHorizontal: 12,
             paddingVertical: 6,
             borderRadius: 20,
             borderWidth: 1,
             borderColor: "#BBF7D0",
+            marginBottom: 20,
         },
         joinDate: {
             fontSize: 12,
             color: "#15803D",
             marginLeft: 6,
-            fontFamily: Fonts.body.family,
+            fontFamily: fonts.body.family,
             fontWeight: "500",
         },
-        editButtonContainer: {
+        editButton: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderWidth: 1,
+            borderColor: "#BBF7D0",
+        },
+        editButtonText: {
+            marginLeft: 8,
+            fontSize: 14,
+            fontWeight: "600",
+            color: "#15803D",
+            fontFamily: fonts.body.family,
+        },
+        settingsSection: {
+            backgroundColor: colors.white,
             borderRadius: 16,
             overflow: "hidden",
+            marginBottom: 24,
             ...Platform.select({
                 ios: {
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
-                    shadowRadius: 4,
+                    shadowRadius: 8,
                 },
                 android: {
                     elevation: 4,
                 },
             }),
         },
-        editButton: {
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            paddingVertical: 16,
-            paddingHorizontal: 24,
-        },
-        editIcon: {
-            marginRight: 8,
-        },
-        editButtonText: {
-            color: "#FFFFFF",
-            fontSize: 16,
-            fontWeight: "600",
-            fontFamily: Fonts.body.family,
-        },
-        settingsSection: {
-            marginTop: 32,
-            paddingHorizontal: 20,
-        },
         sectionTitle: {
             fontSize: 20,
             fontWeight: "700",
-            color: "#1F2937",
-            marginBottom: 16,
-            fontFamily: Fonts.heading.family,
+            color: colors.text.primary,
+            marginVertical: 16,
+            paddingHorizontal: 20,
+            fontFamily: fonts.heading.family,
         },
-        settingsCard: {
-            backgroundColor: "#FFFFFF",
-            borderRadius: 16,
-            overflow: "hidden",
-            ...Platform.select({
-                ios: {
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 8,
-                },
-                android: {
-                    elevation: 3,
-                },
-            }),
-        },
-        optionItem: {
+        settingItem: {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
             paddingVertical: 16,
             paddingHorizontal: 20,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
         },
-        optionLeft: {
+        settingLeft: {
             flexDirection: "row",
             alignItems: "center",
             flex: 1,
         },
-        optionIcon: {
-            width: 24,
-            height: 24,
+        settingIcon: {
+            width: 40,
+            height: 40,
+            borderRadius: 20,
             justifyContent: "center",
             alignItems: "center",
+            marginRight: 16,
         },
-        optionText: {
+        settingInfo: {
+            flex: 1,
+        },
+        settingTitle: {
             fontSize: 16,
-            color: "#374151",
-            marginLeft: 16,
-            fontFamily: Fonts.body.family,
-            fontWeight: "500",
+            fontWeight: "600",
+            color: colors.text.primary,
+            marginBottom: 2,
+            fontFamily: fonts.body.family,
         },
-        optionSeparator: {
-            height: 1,
-            backgroundColor: "#F3F4F6",
-            marginLeft: 56,
+        settingDescription: {
+            fontSize: 14,
+            color: colors.text.secondary,
+            fontFamily: fonts.body.family,
         },
-        logoutSection: {
-            marginTop: 32,
-            paddingHorizontal: 20,
+        settingRight: {
+            flexDirection: "row",
+            alignItems: "center",
         },
-        logoutButtonContainer: {
-            borderRadius: 16,
-            overflow: "hidden",
-            backgroundColor: "#FEE2E2",
-            borderWidth: 1,
-            borderColor: "#FECACA",
+        badge: {
+            backgroundColor: "#7ED957",
+            borderRadius: 12,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            marginRight: 8,
+        },
+        badgeText: {
+            color: colors.white,
+            fontSize: 12,
+            fontWeight: "600",
+            fontFamily: fonts.body.family,
         },
         logoutButton: {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
+            backgroundColor: "#FEE2E2",
             paddingVertical: 16,
-            paddingHorizontal: 24,
+            borderRadius: 16,
+            marginTop: 8,
         },
-        logoutButtonText: {
-            color: "#DC2626",
+        logoutText: {
+            marginLeft: 8,
             fontSize: 16,
             fontWeight: "600",
-            marginLeft: 8,
-            fontFamily: Fonts.body.family,
+            color: "#EF4444",
+            fontFamily: fonts.body.family,
         },
         bottomSpacing: {
             height: 100,
         },
     });
-
-    return styles;
 };

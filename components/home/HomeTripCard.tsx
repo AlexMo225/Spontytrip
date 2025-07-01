@@ -1,18 +1,19 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
     Dimensions,
     Image,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
-import { TextStyles } from "../../constants/Fonts";
+import { Colors } from "../../constants";
 import { FirestoreTrip } from "../../services/firebaseService";
 
 const { width: screenWidth } = Dimensions.get("window");
+const CARD_WIDTH = screenWidth * 0.85;
 
 interface HomeTripCardProps {
     trip: FirestoreTrip;
@@ -37,63 +38,96 @@ export const HomeTripCard: React.FC<HomeTripCardProps> = ({
 }) => {
     const status = getTripStatus(trip);
 
+    const getStatusColor = () => {
+        switch (status.text.toLowerCase()) {
+            case "terminé":
+                return "#4CAF50";
+            case "en cours":
+                return "#2196F3";
+            case "à venir":
+                return "#FFC107";
+            default:
+                return Colors.primary;
+        }
+    };
+
     return (
         <TouchableOpacity
-            style={styles.modernTripCard}
+            style={styles.container}
             onPress={onPress}
-            activeOpacity={0.9}
+            activeOpacity={0.95}
         >
-            <View style={styles.modernTripImageContainer}>
-                {trip.coverImage ? (
-                    <Image
-                        source={{ uri: trip.coverImage }}
-                        style={styles.modernTripImage}
-                        resizeMode="cover"
-                    />
-                ) : (
-                    <LinearGradient
-                        colors={["#7ED957", "#4DA1A9"]}
-                        style={styles.modernTripImagePlaceholder}
-                    >
-                        <Text style={styles.modernTripImageEmoji}>
-                            {getTypeEmoji(trip.type)}
-                        </Text>
-                    </LinearGradient>
-                )}
+            <View style={styles.card}>
+                <View style={styles.imageSection}>
+                    {trip.coverImage ? (
+                        <Image
+                            source={{ uri: trip.coverImage }}
+                            style={styles.coverImage}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <LinearGradient
+                            colors={[Colors.primary, Colors.secondary]}
+                            style={styles.gradientPlaceholder}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <Text style={styles.placeholderEmoji}>
+                                {getTypeEmoji(trip.type)}
+                            </Text>
+                        </LinearGradient>
+                    )}
 
-                <View style={styles.modernStatusBadge}>
-                    <Text
-                        style={[
-                            styles.modernStatusText,
-                            { color: status.color },
-                        ]}
-                    >
-                        {status.emoji} {status.text}
-                    </Text>
+                    <LinearGradient
+                        colors={["rgba(0,0,0,0.4)", "transparent"]}
+                        style={styles.imageDarkOverlay}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 0.7 }}
+                    />
+
+                    <View style={styles.statusBadge}>
+                        <View
+                            style={[
+                                styles.statusIndicator,
+                                { backgroundColor: getStatusColor() },
+                            ]}
+                        />
+                        <Text style={styles.statusText}>{status.text}</Text>
+                    </View>
                 </View>
 
-                {trip.creatorId === currentUserId && (
-                    <View style={styles.modernCreatorBadge}>
-                        <Ionicons name="star" size={16} color="#FFA500" />
-                    </View>
-                )}
-            </View>
-
-            <View style={styles.modernTripInfo}>
-                <Text style={styles.modernTripTitle} numberOfLines={2}>
-                    {trip.title}
-                </Text>
-                <Text style={styles.modernTripDestination} numberOfLines={1}>
-                    📍 {trip.destination}
-                </Text>
-                <Text style={styles.modernTripDate}>
-                    📅 {formatDateRange(trip.startDate, trip.endDate)}
-                </Text>
-                <View style={styles.modernTripMembers}>
-                    <Text style={styles.modernMembersText}>
-                        👥 {trip.members?.length || 0} membre
-                        {(trip.members?.length || 0) > 1 ? "s" : ""}
+                <View style={styles.contentSection}>
+                    <Text style={styles.title} numberOfLines={1}>
+                        {trip.title}
                     </Text>
+
+                    <View style={styles.infoRow}>
+                        <View style={styles.infoItem}>
+                            <Text style={styles.infoText}>
+                                📍 {trip.destination}
+                            </Text>
+                        </View>
+                        <View style={styles.infoItem}>
+                            <Text style={styles.infoText}>
+                                📅{" "}
+                                {formatDateRange(trip.startDate, trip.endDate)}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.footer}>
+                        <Text style={styles.membersText}>
+                            👥 {trip.members?.length || 1} membre
+                            {trip.members?.length !== 1 ? "s" : ""}
+                        </Text>
+                        {trip.creatorId === currentUserId && (
+                            <View style={styles.creatorBadge}>
+                                <Text style={styles.creatorText}>
+                                    ✨ Organisateur
+                                </Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
         </TouchableOpacity>
@@ -101,93 +135,112 @@ export const HomeTripCard: React.FC<HomeTripCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-    // 🏞️ CARTES DE VOYAGE MODERNES
-    modernTripCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        overflow: "hidden",
-        elevation: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        width: screenWidth * 0.75,
-        marginBottom: 16,
+    container: {
+        width: CARD_WIDTH,
+        marginHorizontal: (screenWidth - CARD_WIDTH) / 2,
+        marginVertical: 8,
     },
-    modernTripImageContainer: {
-        height: 200,
+    card: {
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        overflow: "hidden",
+        ...Platform.select({
+            ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    imageSection: {
+        height: 140,
+        width: "100%",
         position: "relative",
     },
-    modernTripImage: {
+    coverImage: {
         width: "100%",
         height: "100%",
     },
-    modernTripImagePlaceholder: {
+    gradientPlaceholder: {
         width: "100%",
         height: "100%",
         justifyContent: "center",
         alignItems: "center",
     },
-    modernTripImageEmoji: {
-        fontSize: 48,
+    placeholderEmoji: {
+        fontSize: 40,
     },
-    modernStatusBadge: {
+    imageDarkOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "100%",
+    },
+    statusBadge: {
         position: "absolute",
         top: 12,
         left: 12,
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-    },
-    modernStatusText: {
-        fontSize: 12,
-        fontFamily: TextStyles.body.family,
-        fontWeight: "700",
-    },
-    modernCreatorBadge: {
-        position: "absolute",
-        top: 12,
-        right: 12,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: "rgba(255, 217, 61, 0.95)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modernTripInfo: {
-        padding: 20,
-    },
-    modernTripTitle: {
-        fontSize: 20,
-        fontFamily: TextStyles.heading.family,
-        fontWeight: "700",
-        color: "#2D3748",
-        marginBottom: 8,
-    },
-    modernTripDestination: {
-        fontSize: 16,
-        fontFamily: TextStyles.body.family,
-        fontWeight: "600",
-        color: "#64748B",
-        marginBottom: 6,
-    },
-    modernTripDate: {
-        fontSize: 14,
-        fontFamily: TextStyles.body.family,
-        fontWeight: "500",
-        color: "#94A3B8",
-        marginBottom: 12,
-    },
-    modernTripMembers: {
         flexDirection: "row",
         alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
     },
-    modernMembersText: {
-        fontSize: 14,
-        fontFamily: TextStyles.body.family,
+    statusIndicator: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+    statusText: {
+        fontSize: 12,
         fontWeight: "600",
-        color: "#4DA1A9",
+        color: "#1A1A1A",
+    },
+    contentSection: {
+        padding: 16,
+    },
+    title: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#1A1A1A",
+        marginBottom: 12,
+    },
+    infoRow: {
+        marginBottom: 12,
+    },
+    infoItem: {
+        marginBottom: 6,
+    },
+    infoText: {
+        fontSize: 14,
+        color: "#666666",
+    },
+    footer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 4,
+    },
+    membersText: {
+        fontSize: 14,
+        color: "#666666",
+    },
+    creatorBadge: {
+        backgroundColor: Colors.primary + "15",
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 12,
+    },
+    creatorText: {
+        fontSize: 12,
+        fontWeight: "500",
+        color: Colors.primary,
     },
 });

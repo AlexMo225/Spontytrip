@@ -1,0 +1,266 @@
+import { Platform, StyleSheet } from "react-native";
+import { Colors } from "../../constants";
+import { Fonts } from "../../constants";
+import { Spacing } from "../../constants";
+
+export const useChecklistScreenStyle = () => {
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: Colors.white,
+        },
+        header: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: Spacing.large,
+            paddingVertical: Spacing.medium,
+            backgroundColor: Colors.white,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.border,
+        },
+        headerContent: {
+            flex: 1,
+        },
+        headerTitle: {
+            fontSize: 20,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "600",
+            color: Colors.textPrimary,
+        },
+        headerSubtitle: {
+            fontSize: 14,
+            color: Colors.textSecondary,
+            marginTop: Spacing.small,
+        },
+        addButton: {
+            backgroundColor: Colors.primary + "10",
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            justifyContent: "center",
+            alignItems: "center",
+        },
+        progressContainer: {
+            paddingHorizontal: Spacing.large,
+            paddingVertical: Spacing.medium,
+            backgroundColor: Colors.white,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.border,
+        },
+        progressBar: {
+            height: 8,
+            backgroundColor: Colors.background,
+            borderRadius: 4,
+            overflow: "hidden",
+        },
+        progressFill: {
+            height: "100%",
+            backgroundColor: Colors.primary,
+            borderRadius: 4,
+        },
+        listContainer: {
+            flex: 1,
+            paddingBottom: Spacing.large,
+        },
+        loadingContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+        },
+        loadingText: {
+            marginTop: Spacing.medium,
+            fontSize: 16,
+            color: Colors.textSecondary,
+        },
+        errorContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: Spacing.large,
+        },
+        errorTitle: {
+            fontSize: 20,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "600",
+            color: Colors.error,
+            marginBottom: Spacing.small,
+            textAlign: "center",
+        },
+        errorText: {
+            fontSize: 16,
+            color: Colors.textSecondary,
+            textAlign: "center",
+            marginBottom: Spacing.large,
+            lineHeight: 24,
+        },
+        retryButton: {
+            backgroundColor: Colors.primary,
+            paddingHorizontal: Spacing.large,
+            paddingVertical: Spacing.medium,
+            borderRadius: 12,
+            ...Platform.select({
+                ios: {
+                    shadowColor: Colors.cardShadow,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                },
+                android: {
+                    elevation: 4,
+                },
+            }),
+        },
+        retryText: {
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: "600",
+        },
+        modalOverlay: {
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            justifyContent: "flex-end",
+        },
+        modalContent: {
+            backgroundColor: Colors.white,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: Spacing.large,
+            maxHeight: "70%",
+        },
+        modalTitle: {
+            fontSize: 18,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "600",
+            color: Colors.textPrimary,
+            marginBottom: Spacing.large,
+            textAlign: "center",
+        },
+        memberOption: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingVertical: Spacing.medium,
+            paddingHorizontal: Spacing.medium,
+            borderRadius: 12,
+            marginBottom: Spacing.small,
+            backgroundColor: Colors.background,
+        },
+        memberInfo: {
+            flexDirection: "row",
+            alignItems: "center",
+            flex: 1,
+        },
+        memberAvatar: {
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: Spacing.medium,
+            backgroundColor: Colors.background,
+        },
+        memberAvatarImage: {
+            width: "100%",
+            height: "100%",
+            borderRadius: 16,
+        },
+        memberAvatarText: {
+            fontSize: 14,
+            fontWeight: "600",
+            color: Colors.white,
+        },
+        memberName: {
+            fontSize: 16,
+            color: Colors.textPrimary,
+            fontWeight: "500",
+        },
+        modalActions: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginTop: Spacing.large,
+            gap: Spacing.medium,
+        },
+        unassignButton: {
+            flex: 1,
+            backgroundColor: Colors.background,
+            paddingVertical: Spacing.medium,
+            borderRadius: 12,
+            alignItems: "center",
+        },
+        unassignText: {
+            color: Colors.textSecondary,
+            fontSize: 16,
+            fontWeight: "500",
+        },
+        cancelButton: {
+            flex: 1,
+            backgroundColor: Colors.primary,
+            paddingVertical: Spacing.medium,
+            borderRadius: 12,
+            alignItems: "center",
+            ...Platform.select({
+                ios: {
+                    shadowColor: Colors.cardShadow,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                },
+                android: {
+                    elevation: 4,
+                },
+            }),
+        },
+        cancelText: {
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: "600",
+        },
+        emptyContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: Spacing.large,
+        },
+        emptyTitle: {
+            fontSize: 20,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "600",
+            color: Colors.textPrimary,
+            marginTop: Spacing.medium,
+            marginBottom: Spacing.small,
+            textAlign: "center",
+        },
+        emptyText: {
+            fontSize: 16,
+            color: Colors.textSecondary,
+            textAlign: "center",
+            marginBottom: Spacing.large,
+            lineHeight: 24,
+        },
+        autoAssignButton: {
+            backgroundColor: Colors.primary,
+            paddingHorizontal: Spacing.large,
+            paddingVertical: Spacing.medium,
+            borderRadius: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            ...Platform.select({
+                ios: {
+                    shadowColor: Colors.cardShadow,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                },
+                android: {
+                    elevation: 4,
+                },
+            }),
+        },
+        autoAssignText: {
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: "600",
+            marginLeft: Spacing.small,
+        },
+    });
+};

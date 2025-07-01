@@ -1,5 +1,5 @@
 import { Platform, StatusBar, StyleSheet } from "react-native";
-import { Colors } from "../constants";
+import { Colors } from "../../constants";
 
 export const useHomeScreenStyle = () => {
     const styles = StyleSheet.create({

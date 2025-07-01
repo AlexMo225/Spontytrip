@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { Colors, Fonts, Spacing } from "../constants";
+import { Colors, Fonts, Spacing } from "../../constants";
 
 export const useExploreScreenStyle = () => {
     return StyleSheet.create({

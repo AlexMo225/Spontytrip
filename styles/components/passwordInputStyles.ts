@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
-import { Colors } from "../constants/Colors";
-import { Fonts } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
+import { Colors } from "../../constants";
+import { Fonts } from "../../constants";
+import { Spacing } from "../../constants";
 
 const TextStyles = Fonts.styles;
 

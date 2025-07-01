@@ -11,7 +11,7 @@ import {
 } from "../components";
 import { useAuth } from "../contexts/AuthContext";
 import { useExpenses } from "../hooks/useExpenses";
-import { useExpensesScreenStyle } from "../hooks/useExpensesScreenStyle";
+import { useExpensesStyles  } from "../styles/screens";
 import { useTripSync } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
 
@@ -33,7 +33,7 @@ interface Props {
 const ExpensesScreen: React.FC<Props> = ({ route, navigation }) => {
     const { user } = useAuth();
     const { tripId } = route.params;
-    const styles = useExpensesScreenStyle();
+    const styles = useExpensesStyles();
     const {
         trip,
         loading: tripLoading,

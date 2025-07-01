@@ -1,395 +1,398 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import { CompositeNavigationProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
-    Dimensions,
+    Animated,
     ScrollView,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Avatar from "../components/Avatar";
+import { Avatar } from "../components/Avatar";
+import { Colors } from "../constants";
 import { useAuth } from "../contexts/AuthContext";
-import { useModal, useQuickModals } from "../hooks/useModal";
-import { useProfileScreenStyle } from "../hooks/useProfileScreenStyle";
-import { MainTabParamList, RootStackParamList } from "../types";
+import { useModal } from "../hooks/useModal";
+import { useProfileStyles } from "../styles/screens/profileStyles";
+import { RootStackParamList } from "../types";
 
-const { width: screenWidth } = Dimensions.get("window");
+type ProfileScreenProps = {
+    navigation: StackNavigationProp<RootStackParamList>;
+};
 
-type ProfileScreenNavigationProp = CompositeNavigationProp<
-    BottomTabNavigationProp<MainTabParamList, "Profile">,
-    StackNavigationProp<RootStackParamList>
->;
+const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString("fr-FR", {
+        month: "long",
+        year: "numeric",
+    });
+};
 
-interface Props {
-    navigation: ProfileScreenNavigationProp;
-}
-
-const ProfileScreen: React.FC<Props> = ({ navigation }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     const modal = useModal();
-    const quickModals = useQuickModals();
     const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
-    const styles = useProfileScreenStyle();
+    const styles = useProfileStyles();
 
-    // Debug : Afficher les données utilisateur
-    console.log("🔍 Données utilisateur dans ProfileScreen:", {
-        uid: user?.uid,
-        email: user?.email,
-        displayName: user?.displayName,
-        photoURL: user?.photoURL,
-    });
+    // Animation pour le dégradé
+    const animatedValue = new Animated.Value(0);
 
-    // Détecter les changements de données utilisateur
     useEffect(() => {
-        console.log("🔄 ProfileScreen - Données utilisateur mises à jour:", {
-            displayName: user?.displayName,
-            email: user?.email,
-            photoURL: user?.photoURL,
+        const animate = () => {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(animatedValue, {
+                        toValue: 1,
+                        duration: 3000,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(animatedValue, {
+                        toValue: 0,
+                        duration: 3000,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        };
+
+        animate();
+        return () => {
+            animatedValue.stopAnimation();
+        };
+    }, []);
+
+    const animatedColor = useMemo(() => {
+        return animatedValue.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: ["#7ED957", "#4DA1A9", "#7ED957"],
         });
-    }, [user?.displayName, user?.email, user?.photoURL]);
+    }, [animatedValue]);
 
     const handleEditProfile = () => {
         navigation.navigate("EditProfile");
     };
 
     const handleNotifications = () => {
-        // Navigation vers paramètres notifications
-        console.log("Notifications");
+        navigation.navigate("Notifications");
     };
 
     const handlePrivacy = () => {
-        // Navigation vers paramètres confidentialité
-        console.log("Confidentialité");
+        navigation.navigate("Privacy");
     };
 
     const handleSecurity = () => {
-        // Navigation vers paramètres sécurité
-        console.log("Sécurité");
+        navigation.navigate("Preferences");
     };
 
     const handleHelp = () => {
-        // Navigation vers aide
-        console.log("Aide");
+        navigation.navigate("Help");
     };
 
     const handleAbout = () => {
-        // Navigation vers à propos
-        console.log("À propos");
+        navigation.navigate("About");
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         modal.showConfirm(
             "Déconnexion",
             "Êtes-vous sûr de vouloir vous déconnecter ?",
             async () => {
-                // Action quand l'utilisateur confirme (Oui)
                 try {
                     await signOut();
-                    // La navigation sera gérée automatiquement par AuthNavigator
                 } catch (error) {
-                    modal.showError("Erreur", "Impossible de se déconnecter");
+                    console.error("Erreur lors de la déconnexion:", error);
+                    modal.showError(
+                        "Erreur",
+                        "Une erreur est survenue lors de la déconnexion. Veuillez réessayer."
+                    );
                 }
             },
-            () => {
-                // Action quand l'utilisateur annule (optionnel)
-                console.log("Déconnexion annulée");
-            },
-            "Oui, me déconnecter", // Texte du bouton de confirmation
-            "Annuler" // Texte du bouton d'annulation
+            () => {},
+            "Se déconnecter",
+            "Annuler"
         );
     };
 
     return (
         <View style={styles.container}>
-            {/* Header avec dégradé */}
-            <LinearGradient
-                colors={["#7ED957", "#4DA1A9"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.header, { paddingTop: insets.top }]}
-            >
-                <Text style={styles.headerTitle}>Profil</Text>
-                <View style={styles.headerDecoration}>
-                    <View style={styles.floatingElement} />
-                    <View
-                        style={[
-                            styles.floatingElement,
-                            styles.floatingElement2,
-                        ]}
-                    />
-                </View>
-            </LinearGradient>
-
             <ScrollView
                 style={styles.content}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    { paddingTop: insets.top },
+                ]}
             >
-                {/* Section Profil Utilisateur avec carte moderne */}
-                <View style={styles.profileCard}>
-                    <View style={styles.profileInfo}>
-                        {/* Photo de profil avec effet premium */}
-                        <View style={styles.avatarContainer}>
-                            <View style={styles.avatarGlow}>
+                {/* Section Profil Utilisateur */}
+                <View style={styles.profileSection}>
+                    <LinearGradient
+                        colors={["#7ED957", "#4DA1A9"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={styles.gradientBackground}
+                    >
+                        <Animated.View
+                            style={[
+                                styles.contentContainer,
+                                {
+                                    opacity: animatedValue.interpolate({
+                                        inputRange: [0, 0.5, 1],
+                                        outputRange: [0.8, 1, 0.8],
+                                    }),
+                                },
+                            ]}
+                        >
+                            <View style={styles.avatarContainer}>
                                 <Avatar
-                                    imageUrl={user?.photoURL}
-                                    size={100}
+                                    imageUrl={user?.photoURL || undefined}
+                                    size={80}
                                     showBorder={true}
                                 />
                             </View>
-                        </View>
-
-                        {/* Nom, email et date d'inscription */}
-                        <View style={styles.userInfo}>
                             <Text style={styles.userName}>
                                 {user?.displayName || "Utilisateur"}
                             </Text>
                             <Text style={styles.userEmail}>
                                 {user?.email || "email@example.com"}
                             </Text>
-                            <View style={styles.joinDateBadge}>
+                            {user?.createdAt && (
+                                <View style={styles.joinDateBadge}>
+                                    <Ionicons
+                                        name="calendar"
+                                        size={12}
+                                        color="#7ED957"
+                                    />
+                                    <Text style={styles.joinDate}>
+                                        Membre depuis{" "}
+                                        {formatDate(user.createdAt)}
+                                    </Text>
+                                </View>
+                            )}
+
+                            <TouchableOpacity
+                                style={styles.editButton}
+                                onPress={handleEditProfile}
+                                activeOpacity={0.8}
+                            >
                                 <Ionicons
-                                    name="calendar"
-                                    size={12}
+                                    name="pencil"
+                                    size={16}
                                     color="#7ED957"
                                 />
-                                <Text style={styles.joinDate}>
-                                    Membre depuis{" "}
-                                    {new Date().toLocaleDateString("fr-FR", {
-                                        month: "long",
-                                        year: "numeric",
-                                    })}
+                                <Text style={styles.editButtonText}>
+                                    Modifier le profil
                                 </Text>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Bouton Modifier le profil avec dégradé */}
-                    <TouchableOpacity
-                        style={styles.editButtonContainer}
-                        onPress={handleEditProfile}
-                        activeOpacity={0.8}
-                    >
-                        <LinearGradient
-                            colors={["#7ED957", "#4DA1A9"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.editButton}
-                        >
-                            <Ionicons
-                                name="pencil"
-                                size={16}
-                                color="#FFFFFF"
-                                style={styles.editIcon}
-                            />
-                            <Text style={styles.editButtonText}>
-                                Modifier le profil
-                            </Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </LinearGradient>
                 </View>
 
-                {/* Section Paramètres avec cartes modernes */}
+                {/* Section Paramètres */}
                 <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>Paramètres</Text>
 
-                    <View style={styles.settingsCard}>
-                        {/* Options des paramètres */}
-                        <TouchableOpacity
-                            style={styles.optionItem}
-                            onPress={handleNotifications}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.optionLeft}>
-                                <View
-                                    style={[
-                                        styles.optionIcon,
-                                        {
-                                            backgroundColor:
-                                                "rgba(126, 217, 87, 0.15)",
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="notifications"
-                                        size={20}
-                                        color="#7ED957"
-                                    />
-                                </View>
-                                <Text style={styles.optionText}>
+                    <TouchableOpacity
+                        style={styles.settingItem}
+                        onPress={handleNotifications}
+                    >
+                        <View style={styles.settingLeft}>
+                            <View
+                                style={[
+                                    styles.settingIcon,
+                                    {
+                                        backgroundColor:
+                                            "rgba(126, 217, 87, 0.1)",
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="notifications"
+                                    size={22}
+                                    color="#7ED957"
+                                />
+                            </View>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingTitle}>
                                     Notifications
                                 </Text>
-                            </View>
-                            <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color="#7ED957"
-                            />
-                        </TouchableOpacity>
-
-                        <View style={styles.optionSeparator} />
-
-                        <TouchableOpacity
-                            style={styles.optionItem}
-                            onPress={handlePrivacy}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.optionLeft}>
-                                <View
-                                    style={[
-                                        styles.optionIcon,
-                                        {
-                                            backgroundColor:
-                                                "rgba(77, 161, 169, 0.15)",
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="shield-checkmark"
-                                        size={20}
-                                        color="#4DA1A9"
-                                    />
-                                </View>
-                                <Text style={styles.optionText}>
-                                    Confidentialité
+                                <Text style={styles.settingDescription}>
+                                    Alertes de voyage et activités
                                 </Text>
                             </View>
-                            <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color="#4DA1A9"
-                            />
-                        </TouchableOpacity>
-
-                        <View style={styles.optionSeparator} />
-
-                        <TouchableOpacity
-                            style={styles.optionItem}
-                            onPress={handleSecurity}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.optionLeft}>
-                                <View
-                                    style={[
-                                        styles.optionIcon,
-                                        {
-                                            backgroundColor:
-                                                "rgba(255, 107, 107, 0.15)",
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="lock-closed"
-                                        size={20}
-                                        color="#FF6B6B"
-                                    />
-                                </View>
-                                <Text style={styles.optionText}>Sécurité</Text>
+                        </View>
+                        <View style={styles.settingRight}>
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>3</Text>
                             </View>
                             <Ionicons
                                 name="chevron-forward"
                                 size={20}
-                                color="#FF6B6B"
+                                color={Colors.text.secondary}
                             />
-                        </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
 
-                        <View style={styles.optionSeparator} />
-
-                        <TouchableOpacity
-                            style={styles.optionItem}
-                            onPress={handleHelp}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.optionLeft}>
-                                <View
-                                    style={[
-                                        styles.optionIcon,
-                                        {
-                                            backgroundColor:
-                                                "rgba(255, 217, 61, 0.15)",
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="help-circle"
-                                        size={20}
-                                        color="#FFD93D"
-                                    />
-                                </View>
-                                <Text style={styles.optionText}>Aide</Text>
-                            </View>
-                            <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color="#FFD93D"
-                            />
-                        </TouchableOpacity>
-
-                        <View style={styles.optionSeparator} />
-
-                        <TouchableOpacity
-                            style={styles.optionItem}
-                            onPress={handleAbout}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.optionLeft}>
-                                <View
-                                    style={[
-                                        styles.optionIcon,
-                                        {
-                                            backgroundColor:
-                                                "rgba(126, 217, 87, 0.15)",
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="information-circle"
-                                        size={20}
-                                        color="#7ED957"
-                                    />
-                                </View>
-                                <Text style={styles.optionText}>À propos</Text>
-                            </View>
-                            <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color="#7ED957"
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Section Déconnexion */}
-                <View style={styles.logoutSection}>
                     <TouchableOpacity
-                        style={styles.logoutButtonContainer}
-                        onPress={handleLogout}
-                        activeOpacity={0.8}
+                        style={styles.settingItem}
+                        onPress={handlePrivacy}
                     >
-                        <LinearGradient
-                            colors={["#FF6B6B", "#E74C3C"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.logoutButton}
-                        >
+                        <View style={styles.settingLeft}>
+                            <View
+                                style={[
+                                    styles.settingIcon,
+                                    {
+                                        backgroundColor:
+                                            "rgba(77, 161, 169, 0.1)",
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="lock-closed"
+                                    size={22}
+                                    color="#4DA1A9"
+                                />
+                            </View>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingTitle}>
+                                    Confidentialité
+                                </Text>
+                                <Text style={styles.settingDescription}>
+                                    Visibilité et partage
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.settingRight}>
                             <Ionicons
-                                name="log-out-outline"
+                                name="chevron-forward"
                                 size={20}
-                                color="#FFFFFF"
+                                color={Colors.text.secondary}
                             />
-                            <Text style={styles.logoutButtonText}>
-                                Se déconnecter
-                            </Text>
-                        </LinearGradient>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.settingItem}
+                        onPress={handleSecurity}
+                    >
+                        <View style={styles.settingLeft}>
+                            <View
+                                style={[
+                                    styles.settingIcon,
+                                    {
+                                        backgroundColor:
+                                            "rgba(245, 158, 11, 0.1)",
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="compass"
+                                    size={22}
+                                    color="#F59E0B"
+                                />
+                            </View>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingTitle}>
+                                    Préférences
+                                </Text>
+                                <Text style={styles.settingDescription}>
+                                    Style de voyage
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.settingRight}>
+                            <Ionicons
+                                name="chevron-forward"
+                                size={20}
+                                color={Colors.text.secondary}
+                            />
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.settingItem}
+                        onPress={handleHelp}
+                    >
+                        <View style={styles.settingLeft}>
+                            <View
+                                style={[
+                                    styles.settingIcon,
+                                    {
+                                        backgroundColor:
+                                            "rgba(99, 102, 241, 0.1)",
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="help-circle"
+                                    size={22}
+                                    color="#6366F1"
+                                />
+                            </View>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingTitle}>
+                                    Centre d'aide
+                                </Text>
+                                <Text style={styles.settingDescription}>
+                                    Guides et support
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.settingRight}>
+                            <Ionicons
+                                name="chevron-forward"
+                                size={20}
+                                color={Colors.text.secondary}
+                            />
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.settingItem}
+                        onPress={handleAbout}
+                    >
+                        <View style={styles.settingLeft}>
+                            <View
+                                style={[
+                                    styles.settingIcon,
+                                    {
+                                        backgroundColor:
+                                            "rgba(139, 92, 246, 0.1)",
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="information-circle"
+                                    size={22}
+                                    color="#8B5CF6"
+                                />
+                            </View>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingTitle}>
+                                    À propos
+                                </Text>
+                                <Text style={styles.settingDescription}>
+                                    v2.1.0
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.settingRight}>
+                            <Ionicons
+                                name="chevron-forward"
+                                size={20}
+                                color={Colors.text.secondary}
+                            />
+                        </View>
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.bottomSpacing} />
+                {/* Bouton Déconnexion */}
+                <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={handleLogout}
+                >
+                    <Ionicons name="log-out" size={20} color="#EF4444" />
+                    <Text style={styles.logoutText}>Se déconnecter</Text>
+                </TouchableOpacity>
             </ScrollView>
         </View>
     );

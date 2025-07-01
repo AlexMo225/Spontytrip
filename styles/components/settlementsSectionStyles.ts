@@ -1,5 +1,5 @@
 import { StyleSheet, TextStyle, ViewStyle } from "react-native";
-import { Colors } from "../constants";
+import { Colors } from "../../constants";
 
 interface SettlementsSectionStyles {
     container: ViewStyle;

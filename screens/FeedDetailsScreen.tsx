@@ -5,14 +5,14 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
-    Dimensions,
     FlatList,
     RefreshControl,
-    StyleSheet,
     Text,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "../constants";
+import { useFeedDetailsStyles  } from "../styles/screens";
 import { useTripSync } from "../hooks/useTripSync";
 import { ActivityLogEntry, RootStackParamList } from "../types";
 
@@ -28,9 +28,8 @@ interface Props {
     route: FeedDetailsScreenRouteProp;
 }
 
-const { width, height } = Dimensions.get("window");
-
 const FeedDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
+    const styles = useFeedDetailsStyles();
     const { tripId } = route.params;
     const { trip, activityFeed, loading } = useTripSync(tripId);
     const [refreshing, setRefreshing] = useState(false);
@@ -198,10 +197,7 @@ const FeedDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#7ED957" />
-                    <Text style={styles.loadingText}>
-                        Chargement du feed...
-                    </Text>
+                    <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             </SafeAreaView>
         );
@@ -213,20 +209,24 @@ const FeedDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
             <Animated.View
                 style={[
                     styles.header,
-                    { transform: [{ translateY: headerSlideAnim }] },
+                    {
+                        transform: [{ translateY: headerSlideAnim }],
+                    },
                 ]}
             >
-                <Text style={styles.headerTitle}>Activités</Text>
-                <Text style={styles.headerSubtitle}>
-                    {trip?.title} • {activityFeed.length} action
-                    {activityFeed.length > 1 ? "s" : ""}
-                </Text>
+                <Ionicons
+                    name="arrow-back"
+                    size={24}
+                    color={Colors.textPrimary}
+                    onPress={() => navigation.goBack()}
+                />
+                <Text style={styles.headerTitle}>Activités du voyage</Text>
             </Animated.View>
 
-            {/* Contenu principal animé */}
+            {/* Liste des activités */}
             <Animated.View
                 style={[
-                    styles.content,
+                    styles.activityList,
                     {
                         opacity: fadeAnim,
                         transform: [
@@ -236,158 +236,24 @@ const FeedDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
                     },
                 ]}
             >
-                {/* Feed List */}
-                {activityFeed.length > 0 ? (
-                    <FlatList
-                        data={activityFeed}
-                        renderItem={renderActivityItem}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.feedContainer}
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={handleRefresh}
-                                colors={["#7ED957"]}
-                                tintColor="#7ED957"
-                            />
-                        }
-                        // Animation simple au scroll
-                        onScrollBeginDrag={() => {}}
-                        scrollEventThrottle={16}
-                    />
-                ) : (
-                    renderEmptyState()
-                )}
+                <FlatList
+                    data={activityFeed}
+                    renderItem={renderActivityItem}
+                    keyExtractor={(item) => item.id}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={renderEmptyState}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={Colors.primary}
+                            colors={[Colors.primary]}
+                        />
+                    }
+                />
             </Animated.View>
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#FFFFFF",
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: "#6B7280",
-    },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F1F5F9",
-        backgroundColor: "#FFFFFF",
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#1E293B",
-        marginBottom: 2,
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        color: "#64748B",
-    },
-    feedContainer: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    activityItem: {
-        flexDirection: "row",
-        marginBottom: 20,
-    },
-    timelineContainer: {
-        width: 32,
-        alignItems: "center",
-        marginRight: 16,
-    },
-    timelineIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    timelineLine: {
-        flex: 1,
-        width: 2,
-        backgroundColor: "#E2E8F0",
-        marginTop: 8,
-        minHeight: 20,
-    },
-    activityContent: {
-        flex: 1,
-        paddingTop: 4,
-    },
-    activityDescription: {
-        fontSize: 16,
-        color: "#1E293B",
-        fontWeight: "500",
-        lineHeight: 22,
-        marginBottom: 8,
-    },
-    activityMeta: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    activityTime: {
-        fontSize: 14,
-        color: "#64748B",
-    },
-    actionBadge: {
-        backgroundColor: "#F1F5F9",
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 8,
-    },
-    actionBadgeText: {
-        fontSize: 10,
-        fontWeight: "600",
-        color: "#64748B",
-        letterSpacing: 0.5,
-    },
-    emptyState: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 40,
-    },
-    emptyIconContainer: {
-        marginBottom: 24,
-    },
-    emptyTitle: {
-        fontSize: 24,
-        fontWeight: "700",
-        color: "#1E293B",
-        marginBottom: 8,
-        textAlign: "center",
-    },
-    emptySubtitle: {
-        fontSize: 16,
-        color: "#64748B",
-        textAlign: "center",
-        lineHeight: 24,
-    },
-    content: {
-        flex: 1,
-    },
-});
 
 export default FeedDetailsScreen;

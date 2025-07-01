@@ -1,6 +1,6 @@
 import { ViewStyle } from "react-native";
-import { Colors } from "../constants/Colors";
-import { Spacing } from "../constants/Spacing";
+import { Colors } from "../../constants";
+import { Spacing } from "../../constants";
 
 interface UseCardStyleProps {
     padding?: number;

@@ -16,7 +16,7 @@ import {
     TripInvitationModal,
 } from "../components/createTrip";
 import { useCreateTripForm } from "../hooks/useCreateTripForm";
-import { useCreateTripScreenStyle } from "../hooks/useCreateTripScreenStyle";
+import { useCreateTripStyles  } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type CreateTripScreenNavigationProp = StackNavigationProp<
@@ -31,7 +31,7 @@ interface Props {
 }
 
 const CreateTripScreen: React.FC<Props> = ({ navigation, route }) => {
-    const styles = useCreateTripScreenStyle();
+    const styles = useCreateTripStyles();
 
     const {
         // États principaux

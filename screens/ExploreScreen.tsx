@@ -22,7 +22,7 @@ import {
 
 import CurrencyConverterModal from "../components/CurrencyConverterModal";
 import { Colors } from "../constants";
-import { useExploreScreenStyle } from "../hooks/useExploreScreenStyle";
+import { useExploreStyles  } from "../styles/screens";
 import { MainTabParamList } from "../types";
 
 type ExploreScreenNavigationProp = BottomTabNavigationProp<
@@ -52,7 +52,7 @@ const ExploreScreen: React.FC<Props> = ({ navigation }) => {
     const [destinationsApiLoading, setDestinationsApiLoading] = useState(false);
     const [placesLoading, setPlacesLoading] = useState(false);
 
-    const styles = useExploreScreenStyle();
+    const styles = useExploreStyles();
 
     // Charger les données des nouvelles APIs
     useEffect(() => {

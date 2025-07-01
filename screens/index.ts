@@ -32,3 +32,9 @@ export { default as ExpensesScreen } from "./ExpensesScreen";
 export { default as ExploreScreen } from "./ExploreScreen";
 export { default as FeedDetailsScreen } from "./FeedDetailsScreen";
 export { default as NotesScreen } from "./NotesScreen";
+
+export { default as AboutScreen } from "./AboutScreen";
+export { default as HelpScreen } from "./HelpScreen";
+export { default as NotificationsScreen } from "./NotificationsScreen";
+export { default as PreferencesScreen } from "./PreferencesScreen";
+export { default as PrivacyScreen } from "./PrivacyScreen";

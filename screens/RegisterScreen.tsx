@@ -15,7 +15,7 @@ import PasswordInput from "../components/PasswordInput";
 import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
 import { Colors } from "../constants/Colors";
 import { useModal } from "../hooks";
-import { useRegisterScreenStyle } from "../hooks/useRegisterScreenStyle";
+import { useRegisterStyles  } from "../styles/screens";
 import { AuthService } from "../services/authService";
 import { RootStackParamList } from "../types";
 import { validatePassword } from "../utils/passwordUtils";
@@ -41,7 +41,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
     const modal = useModal();
-    const styles = useRegisterScreenStyle();
+    const styles = useRegisterStyles();
 
     useLayoutEffect(() => {
         navigation.setOptions({

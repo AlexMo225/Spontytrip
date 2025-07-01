@@ -1,7 +1,7 @@
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, SafeAreaView, Text, View } from "react-native";
-import { useOnboardingScreenStyle } from "../hooks/useOnboardingScreenStyle";
+import { useOnboardingStyles  } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type OnboardingScreenNavigationProp = StackNavigationProp<
@@ -17,7 +17,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     const [logoOpacity] = useState(new Animated.Value(0));
     const [textOpacity] = useState(new Animated.Value(0));
     const circleAnimation = useRef(new Animated.Value(0)).current;
-    const styles = useOnboardingScreenStyle();
+    const styles = useOnboardingStyles();
 
     useEffect(() => {
         // Animation d'apparition du logo
@@ -147,7 +147,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 // Composant pour les points de chargement animés
 const LoadingDot: React.FC<{ delay: number }> = ({ delay }) => {
     const [opacity] = useState(new Animated.Value(0.3));
-    const styles = useOnboardingScreenStyle();
+    const styles = useOnboardingStyles();
 
     useEffect(() => {
         const animate = () => {

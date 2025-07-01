@@ -1,51 +1,39 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Image, ImageStyle, View, ViewStyle } from "react-native";
-import { useAvatarStyle } from "../hooks/useAvatarStyle";
+import { Image, View } from "react-native";
+import { useAvatarStyles } from "../styles/components";
 
 interface AvatarProps {
-    imageUrl?: string | null;
     size?: number;
-    style?: ViewStyle;
+    imageUrl?: string;
     showBorder?: boolean;
+    style?: any;
 }
 
-const Avatar: React.FC<AvatarProps> = ({
-    imageUrl,
+export const Avatar: React.FC<AvatarProps> = ({
     size = 40,
-    style,
+    imageUrl,
     showBorder = false,
+    style,
 }) => {
-    const { avatarImageStyle, placeholderStyle, iconSize, iconColor } =
-        useAvatarStyle({
-            size,
-            showBorder,
-        });
-
-    if (imageUrl) {
-        const imageStyle: ImageStyle = {
-            ...avatarImageStyle,
-            ...(style as ImageStyle),
-        };
-
-        return (
-            <Image
-                source={{ uri: imageUrl }}
-                style={imageStyle}
-                resizeMode="cover"
-            />
-        );
-    }
-
-    // Placeholder si pas d'image
-    const viewStyle: ViewStyle = {
-        ...placeholderStyle,
-        ...style,
-    };
+    const styles = useAvatarStyles({
+        size,
+        showBorder,
+    });
 
     return (
-        <View style={viewStyle}>
-            <Ionicons name="person" size={iconSize} color={iconColor} />
+        <View style={[styles.container, style]}>
+            {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={styles.image} />
+            ) : (
+                <View style={styles.placeholder}>
+                    <Ionicons
+                        name="person"
+                        size={styles.iconSize}
+                        color={styles.iconColor}
+                    />
+                </View>
+            )}
         </View>
     );
 };

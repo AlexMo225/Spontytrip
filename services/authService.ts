@@ -7,6 +7,7 @@ export interface AuthUser {
     email: string | null;
     displayName: string | null;
     photoURL: string | null;
+    createdAt?: Date;
 }
 
 export interface AuthResult {
@@ -21,6 +22,9 @@ const convertFirebaseUser = (user: firebase.User): AuthUser => ({
     email: user.email,
     displayName: user.displayName,
     photoURL: user.photoURL,
+    createdAt: user.metadata?.creationTime
+        ? new Date(user.metadata.creationTime)
+        : undefined,
 });
 
 // Gestion des erreurs Firebase

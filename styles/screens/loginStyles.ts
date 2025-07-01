@@ -1,5 +1,5 @@
 import { StyleSheet, TextStyle, ViewStyle } from "react-native";
-import { Colors, Spacing } from "../constants";
+import { Colors, Spacing } from "../../constants";
 
 const TextStyles = {
     body1: {

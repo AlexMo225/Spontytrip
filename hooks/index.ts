@@ -13,29 +13,37 @@ export * from "./useTripDetails";
 export * from "./useTripSync";
 
 // Style hooks
-export { useActivitiesScreenStyle } from "./useActivitiesScreenStyle";
-export { useAddActivityScreenStyle } from "./useAddActivityScreenStyle";
-export { useAvatarStyle } from "./useAvatarStyle";
-export { useButtonStyle } from "./useButtonStyle";
-export { useCardStyle } from "./useCardStyle";
-export { useChecklistScreenStyle } from "./useChecklistScreenStyle";
-export { useCreateTripScreenStyle } from "./useCreateTripScreenStyle";
-export { useDiscoverScreenStyle } from "./useDiscoverScreenStyle";
-export { useEditTripScreenStyle } from "./useEditTripScreenStyle";
-export { useExpensesScreenStyle } from "./useExpensesScreenStyle";
-export { useExpensesSummaryHeaderStyle } from "./useExpensesSummaryHeaderStyle";
-export { useExploreScreenStyle } from "./useExploreScreenStyle";
-export { useForgotPasswordScreenStyle } from "./useForgotPasswordScreenStyle";
-export { useHomeScreenStyle } from "./useHomeScreenStyle";
-export { useLoginScreenStyle } from "./useLoginScreenStyle";
-export { useMyTripsScreenStyle } from "./useMyTripsScreenStyle";
-export { useNotesScreenStyle } from "./useNotesScreenStyle";
-export { useOnboardingScreenStyle } from "./useOnboardingScreenStyle";
-export { usePasswordInputStyle } from "./usePasswordInputStyle";
-export { useProfileScreenStyle } from "./useProfileScreenStyle";
-export { useRegisterScreenStyle } from "./useRegisterScreenStyle";
-export { useSettlementsSectionStyle } from "./useSettlementsSectionStyle";
-export { useSpontyTripLogoAnimatedStyle } from "./useSpontyTripLogoAnimatedStyle";
-export { useTripDetailsScreenStyle } from "./useTripDetailsScreenStyle";
+export {
+    useActivitiesStyles,
+    useAddActivityStyles,
+    useChecklistStyles,
+    useCreateTripStyles,
+    useDiscoverStyles,
+    useEditProfileStyles,
+    useEditTripStyles,
+    useExpensesStyles,
+    useExploreStyles,
+    useFeedDetailsStyles,
+    useForgotPasswordStyles,
+    useHomeStyles,
+    useJoinTripStyles,
+    useLoginStyles,
+    useMyTripsStyles,
+    useNotesStyles,
+    useOnboardingStyles,
+    useProfileStyles,
+    useRegisterStyles,
+    useTripDetailsStyles
+} from "../styles/screens";
+
+export {
+    useAvatarStyles,
+    useButtonStyles,
+    useCardStyles,
+    useExpensesSummaryHeaderStyles,
+    usePasswordInputStyles,
+    useSettlementsSectionStyles,
+    useSpontyTripLogoAnimatedStyles
+} from "../styles/components";
 
 export {};

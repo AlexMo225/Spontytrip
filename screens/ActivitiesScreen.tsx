@@ -17,8 +17,8 @@ import {
     ActivityTimeline,
 } from "../components/activities";
 import { useActivities } from "../hooks/useActivities";
-import { useActivitiesScreenStyle } from "../hooks/useActivitiesScreenStyle";
 import { TripActivity } from "../services/firebaseService";
+import { useActivitiesStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type ActivitiesScreenNavigationProp = StackNavigationProp<
@@ -37,7 +37,7 @@ interface Props {
  */
 const ActivitiesScreen: React.FC<Props> = ({ navigation, route }) => {
     const { tripId } = route.params;
-    const styles = useActivitiesScreenStyle();
+    const styles = useActivitiesStyles();
 
     // 🎪 Hook central qui gère toute la logique métier
     const {

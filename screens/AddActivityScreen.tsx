@@ -23,7 +23,7 @@ import {
     AddActivityProgressBar,
 } from "../components/addActivity";
 import { useAddActivityForm } from "../hooks/useAddActivityForm";
-import { useAddActivityScreenStyle } from "../hooks/useAddActivityScreenStyle";
+import { useAddActivityStyles  } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type AddActivityScreenNavigationProp = StackNavigationProp<
@@ -39,7 +39,7 @@ interface Props {
 }
 
 const AddActivityScreen: React.FC<Props> = ({ navigation, route }) => {
-    const styles = useAddActivityScreenStyle();
+    const styles = useAddActivityStyles();
     const { tripId, editActivity } = route.params;
 
     const {

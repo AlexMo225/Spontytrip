@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { Colors, Layout, TextStyles } from "../constants";
+import { Colors, Layout, TextStyles } from "../../constants";
 
 export const useEditTripScreenStyle = () => {
     return StyleSheet.create({
