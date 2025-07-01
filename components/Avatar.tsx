@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Image, ImageStyle, StyleSheet, View, ViewStyle } from "react-native";
-import { Colors } from "../constants/Colors";
+import { Image, ImageStyle, View, ViewStyle } from "react-native";
+import { useAvatarStyle } from "../hooks/useAvatarStyle";
 
 interface AvatarProps {
     imageUrl?: string | null;
@@ -16,17 +16,15 @@ const Avatar: React.FC<AvatarProps> = ({
     style,
     showBorder = false,
 }) => {
-    const baseStyle = {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: showBorder ? 2 : 0,
-    };
+    const { avatarImageStyle, placeholderStyle, iconSize, iconColor } =
+        useAvatarStyle({
+            size,
+            showBorder,
+        });
 
     if (imageUrl) {
         const imageStyle: ImageStyle = {
-            ...styles.avatar,
-            ...baseStyle,
+            ...avatarImageStyle,
             ...(style as ImageStyle),
         };
 
@@ -41,32 +39,15 @@ const Avatar: React.FC<AvatarProps> = ({
 
     // Placeholder si pas d'image
     const viewStyle: ViewStyle = {
-        ...styles.placeholder,
-        ...baseStyle,
+        ...placeholderStyle,
         ...style,
     };
 
     return (
         <View style={viewStyle}>
-            <Ionicons
-                name="person"
-                size={size * 0.4}
-                color={Colors.textSecondary}
-            />
+            <Ionicons name="person" size={iconSize} color={iconColor} />
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    avatar: {
-        backgroundColor: Colors.lightGray,
-        borderColor: Colors.primary,
-    },
-    placeholder: {
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: Colors.lightGray,
-    },
-});
 
 export default Avatar;

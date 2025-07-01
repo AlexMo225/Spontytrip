@@ -1,7 +1,5 @@
 import React from "react";
 import { View, ViewStyle } from "react-native";
-import { Colors } from "../constants/Colors";
-import { Spacing } from "../constants/Spacing";
 
 interface CardProps {
     children: React.ReactNode;
@@ -14,16 +12,15 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({
     children,
     style,
-    padding = Spacing.cardPadding,
+    padding,
     shadow = true,
     borderRadius = "lg",
 }) => {
-    const cardStyle: ViewStyle = {
-        backgroundColor: Colors.white,
-        borderRadius: Spacing.borderRadius[borderRadius],
-        padding: padding,
-        ...(shadow && Spacing.shadow.medium),
-    };
+    const { cardStyle } = useCardStyle({
+        padding,
+        shadow,
+        borderRadius,
+    });
 
     return <View style={[cardStyle, style]}>{children}</View>;
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Text, View, ViewStyle } from "react-native";
 import Animated, {
     runOnJS,
     useAnimatedStyle,
@@ -9,6 +9,7 @@ import Animated, {
     withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import { useSpontyTripLogoAnimatedStyle } from "../hooks/useSpontyTripLogoAnimatedStyle";
 
 interface SpontyTripLogoAnimatedProps {
     size?: "small" | "medium" | "large";
@@ -23,6 +24,7 @@ const SpontyTripLogoAnimated: React.FC<SpontyTripLogoAnimatedProps> = ({
     autoPlay = true,
     style,
 }) => {
+    const styles = useSpontyTripLogoAnimatedStyle();
     const sizeConfig = {
         small: { circleSize: 50, fontSize: 28, spacing: 14, lineHeight: 30 },
         medium: { circleSize: 80, fontSize: 40, spacing: 20, lineHeight: 42 },
@@ -231,23 +233,5 @@ const SpontyTripLogoAnimated: React.FC<SpontyTripLogoAnimatedProps> = ({
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    logoContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    textContainer: {
-        alignItems: "flex-start",
-    },
-    logoText: {
-        fontWeight: "700",
-        fontFamily: "System",
-    },
-});
 
 export default SpontyTripLogoAnimated;

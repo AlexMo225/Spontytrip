@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { User } from "firebase/auth";
 import React from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { TextStyles } from "../../constants/Fonts";
 
 interface HomeHeaderProps {
-    user: any;
+    user: User | null;
     currentQuote: number;
     inspirationalQuotes: string[];
     fadeAnim: Animated.Value;
@@ -26,6 +27,17 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         return "Bonsoir";
     };
 
+    // Récupérer le prénom de l'email si displayName n'est pas défini
+    const getUserFirstName = (): string => {
+        if (user?.displayName) {
+            return user.displayName.split(" ")[0];
+        }
+        if (user?.email) {
+            return user.email.split("@")[0];
+        }
+        return "Voyageur";
+    };
+
     return (
         <Animated.View
             style={[
@@ -43,8 +55,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
                 <View style={styles.headerTop}>
                     <View style={styles.greetingSection}>
                         <Text style={styles.greetingText}>
-                            {getGreeting()}, {user?.firstName || "Voyageur"} !
-                            👋
+                            {getGreeting()}, {getUserFirstName()} ! 👋
                         </Text>
                         <Text style={styles.inspirationalText}>
                             {inspirationalQuotes[currentQuote]}
@@ -53,9 +64,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
                     <View style={styles.profileSection}>
                         <View style={styles.modernAvatar}>
                             <Text style={styles.modernAvatarText}>
-                                {(
-                                    user?.firstName?.charAt(0) || "V"
-                                ).toUpperCase()}
+                                {getUserFirstName().charAt(0).toUpperCase()}
                             </Text>
                         </View>
                     </View>
@@ -76,8 +85,8 @@ const styles = StyleSheet.create({
     // 🏠 HEADER MODERNE
     modernHeader: {
         marginHorizontal: 20,
-        marginTop: 10,
-        marginBottom: 24,
+        marginTop: 0,
+        marginBottom: 16,
         borderRadius: 20,
         overflow: "hidden",
         elevation: 8,
@@ -87,49 +96,49 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
     },
     headerGradient: {
-        paddingHorizontal: 24,
-        paddingVertical: 32,
+        paddingHorizontal: 20,
+        paddingVertical: 20,
         position: "relative",
     },
     headerTop: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "flex-start",
-        marginBottom: 20,
+        marginBottom: 12,
     },
     greetingSection: {
         flex: 1,
-        marginRight: 16,
+        marginRight: 12,
     },
     greetingText: {
-        fontSize: 24,
+        fontSize: 20,
         fontFamily: TextStyles.heading.family,
         fontWeight: "700",
         color: "#FFFFFF",
-        marginBottom: 6,
+        marginBottom: 4,
     },
     inspirationalText: {
-        fontSize: 16,
+        fontSize: 14,
         fontFamily: TextStyles.body.family,
         fontWeight: "500",
         color: "rgba(255, 255, 255, 0.9)",
-        lineHeight: 22,
+        lineHeight: 18,
     },
     profileSection: {
         alignItems: "center",
     },
     modernAvatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: "rgba(255, 255, 255, 0.2)",
         justifyContent: "center",
         alignItems: "center",
-        borderWidth: 3,
+        borderWidth: 2,
         borderColor: "rgba(255, 255, 255, 0.3)",
     },
     modernAvatarText: {
-        fontSize: 20,
+        fontSize: 16,
         fontFamily: TextStyles.heading.family,
         fontWeight: "700",
         color: "#FFFFFF",
@@ -138,16 +147,16 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "rgba(255, 255, 255, 0.15)",
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 16,
         alignSelf: "flex-start",
     },
     quoteBubbleText: {
-        fontSize: 14,
+        fontSize: 13,
         fontFamily: TextStyles.body.family,
         fontWeight: "600",
         color: "#FFFFFF",
-        marginLeft: 8,
+        marginLeft: 6,
     },
 });

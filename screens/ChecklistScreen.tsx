@@ -24,6 +24,7 @@ import {
 import { Colors, TaskAssignmentColors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
 import { useChecklist } from "../hooks/useChecklist";
+import { useChecklistScreenStyle } from "../hooks/useChecklistScreenStyle";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
 import { RootStackParamList } from "../types";
@@ -45,6 +46,7 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
     const { user } = useAuth();
     const { tripId } = route.params;
     const { trip, checklist, loading, error } = useTripSync(tripId);
+    const styles = useChecklistScreenStyle();
 
     // 🎯 Utilisation du hook useChecklist pour toute la logique
     const checklistLogic = useChecklist(

@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
+import { Platform } from "react-native";
 
 // Types
 import { MainTabParamList, RootStackParamList } from "../types";
@@ -29,8 +30,7 @@ import {
 } from "../screens";
 
 // Constants
-import { Colors } from "../constants/Colors";
-import { Spacing } from "../constants/Spacing";
+import { Colors } from "../constants";
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -68,24 +68,29 @@ function MainTabNavigator() {
                     return (
                         <Ionicons
                             name={iconName as any}
-                            size={size}
+                            size={size + 2}
                             color={color}
                         />
                     );
                 },
                 tabBarActiveTintColor: "#7ED957",
-                tabBarInactiveTintColor: Colors.text.muted,
+                tabBarInactiveTintColor: Colors.textMuted,
                 tabBarStyle: {
-                    height: Spacing.tabBarHeight,
-                    paddingBottom: 10,
-                    paddingTop: 10,
+                    height: Platform.OS === "ios" ? 88 : 70,
+                    paddingBottom: Platform.OS === "ios" ? 30 : 12,
+                    paddingTop: 12,
                     backgroundColor: Colors.white,
-                    borderTopWidth: 1,
-                    borderTopColor: Colors.border,
+                    borderTopWidth: 0,
+                    elevation: 8,
+                    shadowColor: Colors.cardShadow,
+                    shadowOffset: { width: 0, height: -2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
                     fontWeight: "600",
+                    marginTop: 4,
                 },
                 headerShown: false,
             })}
@@ -133,7 +138,7 @@ export default function MainAppNavigator() {
                         borderBottomWidth: 1,
                         borderBottomColor: Colors.border,
                     },
-                    headerTintColor: Colors.text.primary,
+                    headerTintColor: Colors.textPrimary,
                     headerTitleStyle: {
                         fontWeight: "600",
                         fontSize: 18,
@@ -212,15 +217,15 @@ export default function MainAppNavigator() {
                     }}
                 />
                 <Stack.Screen
-                    name="Notes"
-                    component={NotesScreen}
+                    name="Expenses"
+                    component={ExpensesScreen}
                     options={{
                         headerShown: false,
                     }}
                 />
                 <Stack.Screen
-                    name="Expenses"
-                    component={ExpensesScreen}
+                    name="Notes"
+                    component={NotesScreen}
                     options={{
                         headerShown: false,
                     }}

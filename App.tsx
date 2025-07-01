@@ -1,5 +1,5 @@
-import { StatusBar } from "expo-status-bar";
-import React from "react";
+// Constants
+import { Colors } from "./constants";
 
 // Navigation
 import AuthNavigator from "./navigation/AuthNavigator";
@@ -8,8 +8,9 @@ import AuthNavigator from "./navigation/AuthNavigator";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ModalProvider } from "./hooks/useModal";
 
-// Constants
-import { Colors } from "./constants/Colors";
+// Expo
+import { StatusBar } from "expo-status-bar";
+import React from "react";
 
 export default function App() {
     console.log("🚀 Démarrage de SpontyTrip avec polices système");
@@ -17,10 +18,7 @@ export default function App() {
     return (
         <ModalProvider>
             <AuthProvider>
-                <StatusBar
-                    style="auto"
-                    backgroundColor={Colors.backgroundColors.primary}
-                />
+                <StatusBar style="auto" backgroundColor={Colors.background} />
                 <AuthNavigator />
             </AuthProvider>
         </ModalProvider>

@@ -1,8 +1,7 @@
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { Colors } from "../constants/Colors";
-import { Fonts } from "../constants/Fonts";
+import { Animated, SafeAreaView, Text, View } from "react-native";
+import { useOnboardingScreenStyle } from "../hooks/useOnboardingScreenStyle";
 import { RootStackParamList } from "../types";
 
 type OnboardingScreenNavigationProp = StackNavigationProp<
@@ -18,6 +17,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     const [logoOpacity] = useState(new Animated.Value(0));
     const [textOpacity] = useState(new Animated.Value(0));
     const circleAnimation = useRef(new Animated.Value(0)).current;
+    const styles = useOnboardingScreenStyle();
 
     useEffect(() => {
         // Animation d'apparition du logo
@@ -147,6 +147,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 // Composant pour les points de chargement animés
 const LoadingDot: React.FC<{ delay: number }> = ({ delay }) => {
     const [opacity] = useState(new Animated.Value(0.3));
+    const styles = useOnboardingScreenStyle();
 
     useEffect(() => {
         const animate = () => {
@@ -170,89 +171,5 @@ const LoadingDot: React.FC<{ delay: number }> = ({ delay }) => {
 
     return <Animated.View style={[styles.dot, { opacity }]} />;
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.backgroundColors.primary,
-    },
-    content: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 32,
-    },
-    logoContainer: {
-        alignItems: "center",
-        marginBottom: 60,
-    },
-    logoCircle: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: "#7ED957",
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 24,
-        shadowColor: "#7ED957",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 8,
-    },
-    logoInnerCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.backgroundColors.primary,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    logoText: {
-        textAlign: "center",
-        lineHeight: 48,
-    },
-    logoTextSponty: {
-        fontSize: 42,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "700",
-        color: "#4DA1A9",
-    },
-    logoTextTrip: {
-        fontSize: 42,
-        fontFamily: Fonts.heading.family,
-        fontWeight: "700",
-        color: "#7ED957",
-    },
-    sloganContainer: {
-        alignItems: "center",
-    },
-    slogan: {
-        fontSize: 18,
-        fontFamily: Fonts.body.family,
-        fontWeight: "400",
-        color: Colors.text.secondary,
-        textAlign: "center",
-        lineHeight: 26,
-    },
-    footer: {
-        paddingBottom: 50,
-        alignItems: "center",
-    },
-    loadingDots: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#4DA1A9",
-        marginHorizontal: 4,
-    },
-});
 
 export default OnboardingScreen;

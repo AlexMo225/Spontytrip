@@ -1,6 +1,7 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Colors } from "../constants/Colors";
+import { Text, View } from "react-native";
+import { Colors } from "../constants";
+import { useSettlementsSectionStyle } from "../hooks";
 import {
     DebtSettlement,
     ExpensesSummary,
@@ -19,6 +20,7 @@ export const SettlementsSection: React.FC<SettlementsSectionProps> = ({
     summary,
     currentUserId,
 }) => {
+    const styles = useSettlementsSectionStyle();
     if (!summary || summary.settlements.length === 0) {
         return (
             <View style={styles.container}>
@@ -95,6 +97,7 @@ const PersonalSettlementCard: React.FC<{
     myCredits: DebtSettlement[];
     myBalance: MemberBalance | null;
 }> = ({ myDebts, myCredits, myBalance }) => {
+    const styles = useSettlementsSectionStyle();
     const myBalanceAmount = myBalance?.balance || 0;
     const totalIowe = myDebts.reduce((sum, debt) => sum + debt.amount, 0);
     const totalOwedToMe = myCredits.reduce(
@@ -105,7 +108,7 @@ const PersonalSettlementCard: React.FC<{
     const getStatusColor = () => {
         if (myBalanceAmount > 0.01) return Colors.success;
         if (myBalanceAmount < -0.01) return Colors.error;
-        return Colors.text.secondary;
+        return Colors.textSecondary;
     };
 
     const getStatusEmoji = () => {
@@ -170,6 +173,7 @@ const BalanceItem: React.FC<{
     balance: MemberBalance;
     isMe: boolean;
 }> = ({ balance, isMe }) => {
+    const styles = useSettlementsSectionStyle();
     const isPositive = balance.balance > 0.01;
     const isNegative = balance.balance < -0.01;
 
@@ -193,11 +197,11 @@ const BalanceItem: React.FC<{
                             ? Colors.success
                             : isNegative
                             ? Colors.error
-                            : Colors.text.secondary,
+                            : Colors.textSecondary,
                     },
                 ]}
             >
-                {isPositive ? "+" : ""}
+                {balance.balance > 0 ? "+" : ""}
                 {balance.balance.toFixed(2)}€
             </Text>
         </View>
@@ -212,6 +216,7 @@ const SettlementItem: React.FC<{
     isMyDebt: boolean;
     isMyCredit: boolean;
 }> = ({ settlement, isMyDebt, isMyCredit }) => {
+    const styles = useSettlementsSectionStyle();
     const getItemStyle = () => {
         if (isMyDebt)
             return [styles.settlementItem, styles.settlementItemMyDebt];
@@ -248,241 +253,3 @@ const SettlementItem: React.FC<{
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        paddingHorizontal: 20,
-        paddingBottom: 10,
-    },
-
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        marginBottom: 16,
-    },
-
-    // État vide
-    emptyCard: {
-        backgroundColor: Colors.backgroundColors.card,
-        padding: 20,
-        borderRadius: 16,
-        alignItems: "center",
-        shadowColor: Colors.cardShadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    emptyText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: Colors.success,
-        marginBottom: 8,
-    },
-    emptySubtext: {
-        fontSize: 14,
-        color: Colors.text.secondary,
-        textAlign: "center",
-    },
-
-    // Carte personnelle
-    personalCard: {
-        backgroundColor: Colors.backgroundColors.card,
-        padding: 20,
-        borderRadius: 16,
-        borderWidth: 2,
-        marginBottom: 16,
-        shadowColor: Colors.cardShadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    personalHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    personalEmoji: {
-        fontSize: 20,
-        marginRight: 8,
-    },
-    personalTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: Colors.text.primary,
-    },
-    personalSection: {
-        marginBottom: 12,
-    },
-    personalSectionTitle: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        marginBottom: 6,
-    },
-    debtText: {
-        fontSize: 14,
-        color: Colors.error,
-        marginBottom: 2,
-    },
-    creditText: {
-        fontSize: 14,
-        color: Colors.success,
-        marginBottom: 2,
-    },
-    totalDebt: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: Colors.error,
-        marginTop: 4,
-    },
-    totalCredit: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: Colors.success,
-        marginTop: 4,
-    },
-    balancedText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: Colors.success,
-        textAlign: "center",
-    },
-
-    // Vue d'ensemble
-    overviewCard: {
-        backgroundColor: Colors.backgroundColors.card,
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 16,
-        shadowColor: Colors.cardShadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    overviewTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        marginBottom: 12,
-    },
-
-    // Items de solde
-    balanceItem: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    balanceItemMe: {
-        backgroundColor: Colors.primary + "10",
-        marginHorizontal: -16,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        borderBottomWidth: 0,
-    },
-    balanceItemLeft: {
-        flex: 1,
-    },
-    balanceItemName: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: Colors.text.primary,
-    },
-    balanceItemDetails: {
-        fontSize: 12,
-        color: Colors.text.secondary,
-    },
-    balanceItemAmount: {
-        fontSize: 14,
-        fontWeight: "700",
-    },
-
-    // Tous les remboursements
-    allSettlementsCard: {
-        backgroundColor: Colors.backgroundColors.card,
-        padding: 16,
-        borderRadius: 16,
-        shadowColor: Colors.cardShadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    allSettlementsTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        marginBottom: 12,
-    },
-
-    // Items de remboursement
-    settlementItem: {
-        backgroundColor: Colors.backgroundColors.card,
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 8,
-        shadowColor: Colors.cardShadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    settlementItemContent: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-    settlementItemLeft: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginRight: 16,
-    },
-    settlementItemText: {
-        fontSize: 14,
-        color: Colors.text.primary,
-        flex: 1,
-    },
-    settlementItemFrom: {
-        fontWeight: "500",
-    },
-    settlementItemArrow: {
-        color: Colors.text.secondary,
-    },
-    settlementItemTo: {
-        fontWeight: "500",
-    },
-    settlementItemAmount: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: Colors.text.primary,
-        minWidth: 70,
-        textAlign: "right",
-    },
-    settlementItemBadge: {
-        backgroundColor: Colors.primary + "20",
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-    },
-    settlementItemBadgeText: {
-        fontSize: 12,
-        color: Colors.primary,
-        fontWeight: "500",
-    },
-    settlementItemMyDebt: {
-        borderColor: Colors.error,
-        borderWidth: 1,
-    },
-    settlementItemMyCredit: {
-        borderColor: Colors.success,
-        borderWidth: 1,
-    },
-});

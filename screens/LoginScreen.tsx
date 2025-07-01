@@ -5,7 +5,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -14,9 +13,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import PasswordInput from "../components/PasswordInput";
 import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
-import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
+import { Colors } from "../constants";
+import { useLoginScreenStyle } from "../hooks";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { AuthService } from "../services/authService";
 import { RootStackParamList } from "../types";
@@ -38,6 +36,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     const modal = useModal();
     const quickModals = useQuickModals();
+    const styles = useLoginScreenStyle();
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -179,93 +178,5 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.white,
-    },
-    keyboardAvoid: {
-        flex: 1,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: "center",
-        paddingHorizontal: Spacing.md,
-    },
-    content: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingVertical: Spacing.xl,
-    },
-    logoContainer: {
-        marginBottom: Spacing.xl * 2,
-    },
-    form: {
-        width: "100%",
-        maxWidth: 400,
-    },
-    inputGroup: {
-        marginBottom: Spacing.lg,
-    },
-    label: {
-        ...TextStyles.body1,
-        color: Colors.textPrimary,
-        fontWeight: "500",
-        marginBottom: Spacing.xs,
-    },
-    input: {
-        ...TextStyles.body1,
-        height: 56,
-        backgroundColor: Colors.white,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 12,
-        paddingHorizontal: Spacing.md,
-        color: Colors.textPrimary,
-    },
-    forgotPasswordContainer: {
-        alignItems: "flex-end",
-        marginBottom: Spacing.lg,
-    },
-    forgotPasswordText: {
-        ...TextStyles.body2,
-        color: Colors.textSecondary,
-        textDecorationLine: "underline",
-    },
-    loginButton: {
-        height: 56,
-        backgroundColor: "#7ED957",
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: Spacing.md,
-    },
-    loginButtonDisabled: {
-        opacity: 0.6,
-    },
-    loginButtonText: {
-        ...TextStyles.button,
-        color: Colors.white,
-        fontWeight: "600",
-        fontSize: 16,
-    },
-    footer: {
-        paddingVertical: Spacing.lg,
-        alignItems: "center",
-    },
-    signUpText: {
-        ...TextStyles.body1,
-        color: Colors.textSecondary,
-    },
-    signUpLink: {
-        color: Colors.primary,
-        fontWeight: "600",
-    },
-});
 
 export default LoginScreen;

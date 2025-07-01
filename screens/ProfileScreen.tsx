@@ -7,16 +7,15 @@ import React, { useEffect } from "react";
 import {
     Dimensions,
     ScrollView,
-    StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Avatar from "../components/Avatar";
-import { Spacing } from "../constants/Spacing";
 import { useAuth } from "../contexts/AuthContext";
 import { useModal, useQuickModals } from "../hooks/useModal";
+import { useProfileScreenStyle } from "../hooks/useProfileScreenStyle";
 import { MainTabParamList, RootStackParamList } from "../types";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -35,6 +34,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const quickModals = useQuickModals();
     const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
+    const styles = useProfileScreenStyle();
 
     // Debug : Afficher les données utilisateur
     console.log("🔍 Données utilisateur dans ProfileScreen:", {
@@ -394,199 +394,5 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#F8F9FA",
-    },
-    header: {
-        paddingHorizontal: Spacing.md,
-        paddingBottom: 20,
-        position: "relative",
-        overflow: "hidden",
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: "700",
-        color: "#FFFFFF",
-        textAlign: "center",
-        marginTop: 10,
-    },
-    headerDecoration: {
-        position: "absolute",
-        top: 0,
-        right: 0,
-        opacity: 0.3,
-    },
-    floatingElement: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        position: "absolute",
-        top: -20,
-        right: -20,
-    },
-    floatingElement2: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        top: 40,
-        right: 30,
-    },
-    content: {
-        flex: 1,
-        marginTop: -10,
-    },
-    scrollContent: {
-        paddingBottom: 20,
-    },
-    profileCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        padding: 24,
-        marginHorizontal: 16,
-        marginTop: 10,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    profileInfo: {
-        alignItems: "center",
-        marginBottom: 20,
-    },
-    avatarContainer: {
-        marginBottom: 16,
-    },
-    avatarGlow: {
-        padding: 4,
-        borderRadius: 60,
-        backgroundColor: "rgba(126, 217, 87, 0.1)",
-    },
-    userInfo: {
-        alignItems: "center",
-    },
-    userName: {
-        fontSize: 26,
-        fontWeight: "700",
-        color: "#1A1A1A",
-        marginBottom: 4,
-    },
-    userEmail: {
-        fontSize: 16,
-        color: "#666",
-        marginBottom: 8,
-    },
-    joinDateBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(126, 217, 87, 0.1)",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 6,
-    },
-    joinDate: {
-        fontSize: 12,
-        color: "#7ED957",
-        fontWeight: "600",
-    },
-    editButtonContainer: {
-        borderRadius: 25,
-        overflow: "hidden",
-    },
-    editButton: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-    },
-    editIcon: {},
-    editButtonText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#FFFFFF",
-    },
-    settingsSection: {
-        paddingHorizontal: 16,
-        marginTop: 24,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#1A1A1A",
-        marginBottom: 12,
-    },
-    settingsCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        paddingVertical: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    optionItem: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-    },
-    optionLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    optionIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
-    },
-    optionText: {
-        fontSize: 16,
-        fontWeight: "500",
-        color: "#1A1A1A",
-        flex: 1,
-    },
-    optionSeparator: {
-        height: 1,
-        backgroundColor: "#F0F0F0",
-        marginLeft: 68,
-        marginRight: 16,
-    },
-    logoutSection: {
-        paddingHorizontal: 16,
-        marginTop: 24,
-    },
-    logoutButtonContainer: {
-        borderRadius: 16,
-        overflow: "hidden",
-    },
-    logoutButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 16,
-        gap: 8,
-    },
-    logoutButtonText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#FFFFFF",
-    },
-    bottomSpacing: {
-        height: 20,
-    },
-});
 
 export default ProfileScreen;

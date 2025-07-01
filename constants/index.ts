@@ -1,5 +1,5 @@
 export { Colors } from "./Colors";
-export { Fonts } from "./Fonts";
+export { Fonts, TextStyles } from "./Fonts";
 export {
     checklistCategories,
     mockChecklistItems,

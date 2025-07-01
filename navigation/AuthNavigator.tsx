@@ -1,10 +1,18 @@
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
-import { Colors } from "../constants/Colors";
-import { Layout } from "../constants/Spacing";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Colors } from "../constants";
 import { useAuth } from "../contexts/AuthContext";
 import AuthStackNavigator from "./AuthStackNavigator";
 import MainAppNavigator from "./MainAppNavigator";
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: Colors.backgroundColors.primary,
+    },
+});
 
 const AuthNavigator: React.FC = () => {
     const { user, loading } = useAuth();
@@ -12,13 +20,7 @@ const AuthNavigator: React.FC = () => {
     // Affichage du loader pendant la vérification de l'état d'auth
     if (loading) {
         return (
-            <View
-                style={[
-                    Layout.container,
-                    Layout.centerContent,
-                    { backgroundColor: Colors.backgroundColors.primary },
-                ]}
-            >
+            <View style={styles.container}>
                 <ActivityIndicator size="large" color={Colors.primary} />
             </View>
         );

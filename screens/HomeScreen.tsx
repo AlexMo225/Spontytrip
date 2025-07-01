@@ -1,14 +1,14 @@
 import { StackNavigationProp } from "@react-navigation/stack";
 import React from "react";
-import { RefreshControl, ScrollView, StyleSheet } from "react-native";
+import { RefreshControl, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     HomeActionButtons,
-    HomeFunZone,
     HomeHeader,
     HomeTripsList,
 } from "../components/home";
 import { useHome } from "../hooks/useHome";
+import { useHomeScreenStyle } from "../hooks/useHomeScreenStyle";
 import { FirestoreTrip } from "../services/firebaseService";
 import { RootStackParamList } from "../types";
 
@@ -53,6 +53,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         inspirationalQuotes,
     } = useHome();
 
+    const styles = useHomeScreenStyle();
+
     // Navigation handlers
     const handleCreateTrip = () => {
         navigation.navigate("CreateTrip");
@@ -71,10 +73,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     return (
-        <SafeAreaView style={styles.modernContainer}>
+        <SafeAreaView style={styles.modernContainer} edges={["left", "right"]}>
             <ScrollView
                 style={styles.modernScrollView}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -102,13 +105,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     onJoinTrip={handleJoinTrip}
                 />
 
-                {/* ✨ Zone fun */}
-                <HomeFunZone
-                    currentQuote={currentQuote}
-                    inspirationalQuotes={inspirationalQuotes}
-                    scaleAnim={scaleAnim}
-                />
-
                 {/* 🗂️ Section des voyages */}
                 <HomeTripsList
                     trips={trips}
@@ -130,15 +126,5 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    modernContainer: {
-        flex: 1,
-        backgroundColor: "#FAFBFC",
-    },
-    modernScrollView: {
-        flex: 1,
-    },
-});
 
 export default HomeScreen;

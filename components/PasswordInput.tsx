@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -9,8 +8,7 @@ import {
     ViewStyle,
 } from "react-native";
 import { Colors } from "../constants/Colors";
-import { TextStyles } from "../constants/Fonts";
-import { Spacing } from "../constants/Spacing";
+import { usePasswordInputStyle } from "../hooks/usePasswordInputStyle";
 import {
     PasswordStrength,
     getPasswordStrengthColor,
@@ -43,6 +41,8 @@ const PasswordInput: React.FC<Props> = ({
         isStrong: false,
         feedback: "",
     });
+
+    const styles = usePasswordInputStyle();
 
     const handleChangeText = (text: string) => {
         onChangeText(text);
@@ -137,60 +137,5 @@ const PasswordInput: React.FC<Props> = ({
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        width: "100%",
-    },
-    inputContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: Colors.white,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 12,
-        height: 56,
-    },
-    inputContainerError: {
-        borderColor: Colors.error,
-    },
-    input: {
-        flex: 1,
-        ...TextStyles.body1,
-        height: "100%",
-        paddingHorizontal: Spacing.md,
-        color: Colors.textPrimary,
-    },
-    eyeButton: {
-        padding: Spacing.sm,
-        marginRight: Spacing.xs,
-    },
-    strengthContainer: {
-        marginTop: Spacing.xs,
-    },
-    strengthBars: {
-        flexDirection: "row",
-        marginBottom: Spacing.xs,
-    },
-    strengthBar: {
-        flex: 1,
-        height: 4,
-        borderRadius: 2,
-        marginHorizontal: 2,
-    },
-    strengthText: {
-        ...TextStyles.caption,
-        marginBottom: Spacing.xs,
-    },
-    feedbackText: {
-        ...TextStyles.caption,
-        color: Colors.textSecondary,
-    },
-    errorText: {
-        ...TextStyles.caption,
-        color: Colors.error,
-        marginTop: Spacing.xs,
-    },
-});
 
 export default PasswordInput;

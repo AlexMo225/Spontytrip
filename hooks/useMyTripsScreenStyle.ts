@@ -1,0 +1,201 @@
+import { StyleSheet } from "react-native";
+import { Colors, Fonts, Spacing } from "../constants";
+
+export const useMyTripsScreenStyle = () => {
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: Colors.backgroundColors.primary,
+        },
+        header: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingHorizontal: Spacing.medium,
+            paddingVertical: Spacing.large,
+            paddingTop: 16,
+        },
+        headerTitle: {
+            fontSize: 28,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "700",
+            color: Colors.text.primary,
+        },
+        addButton: {
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: "#F0F8F0",
+            justifyContent: "center",
+            alignItems: "center",
+        },
+        tabsContainer: {
+            flexDirection: "row",
+            marginHorizontal: Spacing.medium,
+            marginBottom: 24,
+            backgroundColor: "#F0F2F5",
+            borderRadius: 12,
+            padding: 4,
+        },
+        tab: {
+            flex: 1,
+            paddingVertical: 12,
+            borderRadius: 8,
+            alignItems: "center",
+        },
+        activeTab: {
+            backgroundColor: Colors.backgroundColors.primary,
+        },
+        tabText: {
+            fontSize: 16,
+            fontFamily: Fonts.body.family,
+            fontWeight: "500",
+            color: "#637887",
+        },
+        activeTabText: {
+            color: Colors.text.primary,
+            fontWeight: "600",
+        },
+        tripsContainer: {
+            flex: 1,
+        },
+        tripCard: {
+            flexDirection: "row",
+            backgroundColor: Colors.backgroundColors.primary,
+            marginHorizontal: Spacing.medium,
+            marginBottom: Spacing.medium,
+            borderRadius: 12,
+            overflow: "hidden",
+            elevation: 2,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+        },
+        tripInfo: {
+            flex: 1,
+            padding: Spacing.medium,
+            justifyContent: "space-between",
+        },
+        tripTitle: {
+            fontSize: 14,
+            fontFamily: Fonts.body.family,
+            fontWeight: "500",
+            color: "#637887",
+            marginBottom: 4,
+        },
+        tripDestination: {
+            fontSize: 18,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "600",
+            color: Colors.text.primary,
+            marginBottom: 4,
+        },
+        tripDates: {
+            fontSize: 14,
+            fontFamily: Fonts.body.family,
+            color: "#637887",
+            marginBottom: 12,
+        },
+        tripMetaContainer: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+        },
+        membersContainer: {
+            flexDirection: "row",
+            alignItems: "center",
+        },
+        membersText: {
+            fontSize: 12,
+            fontFamily: Fonts.body.family,
+            color: "#637887",
+            marginLeft: 4,
+        },
+        statusBadge: {
+            backgroundColor: "#E8F5E8",
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 8,
+        },
+        statusText: {
+            fontSize: 12,
+            fontFamily: Fonts.body.family,
+            fontWeight: "500",
+            color: "#4DA1A9",
+        },
+        tripImageContainer: {
+            width: 120,
+            height: 100,
+            margin: 12,
+        },
+        tripImage: {
+            width: "100%",
+            height: "100%",
+            borderRadius: 8,
+        },
+        defaultImage: {
+            backgroundColor: "#F8FAFC",
+            justifyContent: "center",
+            alignItems: "center",
+        },
+        loadingContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingTop: 100,
+        },
+        loadingText: {
+            marginTop: 16,
+            fontSize: 16,
+            color: "#666",
+        },
+        errorContainer: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingTop: 100,
+            paddingHorizontal: 32,
+        },
+        errorTitle: {
+            fontSize: 18,
+            fontWeight: "600",
+            color: "#FF6B6B",
+            marginTop: 16,
+            marginBottom: 8,
+        },
+        errorText: {
+            fontSize: 14,
+            color: "#666",
+            textAlign: "center",
+            marginBottom: 24,
+        },
+        retryButton: {
+            backgroundColor: "#4DA1A9",
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 8,
+        },
+        retryButtonText: {
+            color: "#FFFFFF",
+            fontSize: 16,
+            fontWeight: "600",
+        },
+        emptyState: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 32,
+            paddingVertical: 64,
+        },
+        emptyTitle: {
+            fontSize: 20,
+            fontFamily: Fonts.heading.family,
+            fontWeight: "600",
+            color: Colors.text.primary,
+            marginTop: 16,
+            marginBottom: 8,
+            textAlign: "center",
+        },
+    });
+};

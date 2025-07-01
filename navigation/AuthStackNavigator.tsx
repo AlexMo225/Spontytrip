@@ -14,7 +14,7 @@ import {
 } from "../screens";
 
 // Constants
-import { Colors } from "../constants/Colors";
+import { Colors } from "../constants";
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -32,7 +32,7 @@ export default function AuthStackNavigator() {
                         borderBottomWidth: 1,
                         borderBottomColor: Colors.border,
                     },
-                    headerTintColor: Colors.text.primary,
+                    headerTintColor: Colors.textPrimary,
                     headerTitleStyle: {
                         fontWeight: "600",
                         fontSize: 18,
