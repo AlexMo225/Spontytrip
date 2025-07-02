@@ -52,6 +52,8 @@ const getErrorMessage = (error: any): string => {
             return "Cette méthode de connexion n'est pas autorisée.";
         case "auth/requires-recent-login":
             return "Veuillez vous reconnecter pour effectuer cette action.";
+        case "auth/user-token-expired":
+            return "Votre session a expiré. Veuillez vous reconnecter.";
         default:
             return "Email ou mot de passe incorrect.";
     }
@@ -282,6 +284,36 @@ export class AuthService {
                 user: convertFirebaseUser(user),
             };
         } catch (error) {
+            return {
+                success: false,
+                error: getErrorMessage(error),
+            };
+        }
+    }
+
+    // Supprimer le compte utilisateur (conforme RGPD)
+    static async deleteAccount(): Promise<AuthResult> {
+        try {
+            const user = auth.currentUser;
+            if (!user) {
+                return {
+                    success: false,
+                    error: "Aucun utilisateur connecté",
+                };
+            }
+
+            console.log("🗑️ Suppression du compte utilisateur:", user.uid);
+
+            // Supprimer le compte Firebase Auth
+            await user.delete();
+
+            console.log("✅ Compte utilisateur supprimé avec succès");
+
+            return {
+                success: true,
+            };
+        } catch (error) {
+            console.error("❌ Erreur lors de la suppression du compte:", error);
             return {
                 success: false,
                 error: getErrorMessage(error),

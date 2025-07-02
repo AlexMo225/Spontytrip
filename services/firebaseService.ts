@@ -2558,6 +2558,290 @@ class FirebaseService {
             return false;
         }
     }
+
+    // ==========================================
+    // SUPPRESSION DE COMPTE (CONFORME RGPD)
+    // ==========================================
+
+    /**
+     * Supprime toutes les données utilisateur de Firestore (conforme RGPD)
+     * @param userId - ID de l'utilisateur à supprimer
+     */
+    async deleteUserData(userId: string): Promise<void> {
+        try {
+            console.log(
+                "🗑️ Début de la suppression des données utilisateur:",
+                userId
+            );
+
+            // 1. Trouver tous les voyages où l'utilisateur est membre
+            const userTripsQuery = await this.db
+                .collection("trips")
+                .where("memberIds", "array-contains", userId)
+                .get();
+
+            console.log(
+                `📋 ${userTripsQuery.docs.length} voyages trouvés pour l'utilisateur`
+            );
+
+            // Traiter chaque voyage
+            for (const tripDoc of userTripsQuery.docs) {
+                const tripData = tripDoc.data() as FirestoreTrip;
+                const tripId = tripDoc.id;
+
+                // Si l'utilisateur est le créateur du voyage
+                if (tripData.creatorId === userId) {
+                    console.log(
+                        `🗑️ Suppression complète du voyage ${tripId} (créateur)`
+                    );
+                    await this.deleteTrip(tripId, userId);
+                } else {
+                    console.log(
+                        `🧹 Nettoyage des références utilisateur dans le voyage ${tripId}`
+                    );
+                    await this.removeUserFromTrip(tripId, userId, tripData);
+                }
+            }
+
+            console.log("✅ Suppression des données utilisateur terminée");
+        } catch (error) {
+            console.error(
+                "❌ Erreur lors de la suppression des données utilisateur:",
+                error
+            );
+            throw new Error("Impossible de supprimer les données utilisateur");
+        }
+    }
+
+    /**
+     * Retire un utilisateur d'un voyage et nettoie ses références
+     */
+    private async removeUserFromTrip(
+        tripId: string,
+        userId: string,
+        tripData: FirestoreTrip
+    ): Promise<void> {
+        try {
+            const batch = this.db.batch();
+
+            // 1. Retirer l'utilisateur du voyage principal
+            const updatedMembers = tripData.members.filter(
+                (member) => member.userId !== userId
+            );
+            const updatedMemberIds =
+                tripData.memberIds?.filter((id) => id !== userId) || [];
+
+            batch.update(this.db.collection("trips").doc(tripId), {
+                members: updatedMembers,
+                memberIds: updatedMemberIds,
+                updatedAt: new Date(),
+            });
+
+            // 2. Nettoyer les références dans la checklist
+            await this.cleanUserFromChecklist(tripId, userId, batch);
+
+            // 3. Nettoyer les références dans les dépenses
+            await this.cleanUserFromExpenses(tripId, userId, batch);
+
+            // 4. Supprimer les notes créées par l'utilisateur
+            await this.cleanUserFromNotes(tripId, userId, batch);
+
+            // 5. Nettoyer les références dans les activités
+            await this.cleanUserFromActivities(tripId, userId, batch);
+
+            // 6. Supprimer les entrées du feed créées par l'utilisateur
+            await this.cleanUserFromActivityFeed(tripId, userId, batch);
+
+            // Commit toutes les modifications
+            await batch.commit();
+            console.log(`✅ Utilisateur retiré du voyage ${tripId}`);
+        } catch (error) {
+            console.error(
+                `❌ Erreur lors du retrait de l'utilisateur du voyage ${tripId}:`,
+                error
+            );
+        }
+    }
+
+    /**
+     * Nettoie les références utilisateur de la checklist
+     */
+    private async cleanUserFromChecklist(
+        tripId: string,
+        userId: string,
+        batch: firebase.firestore.WriteBatch
+    ): Promise<void> {
+        const checklistRef = this.db
+            .collection("trips")
+            .doc(tripId)
+            .collection("checklist")
+            .doc("items");
+        const checklistDoc = await checklistRef.get();
+
+        if (checklistDoc.exists) {
+            const checklistData = checklistDoc.data() as TripChecklist;
+            const cleanedItems = checklistData.items.map((item) => ({
+                ...item,
+                assignedTo:
+                    item.assignedTo === userId ? undefined : item.assignedTo,
+                completedBy:
+                    item.completedBy === userId ? undefined : item.completedBy,
+                createdBy:
+                    item.createdBy === userId
+                        ? "Utilisateur supprimé"
+                        : item.createdBy,
+            }));
+
+            batch.update(checklistRef, {
+                items: cleanedItems,
+                updatedAt: new Date(),
+                updatedBy:
+                    checklistData.updatedBy === userId
+                        ? "Utilisateur supprimé"
+                        : checklistData.updatedBy,
+            });
+        }
+    }
+
+    /**
+     * Nettoie les références utilisateur des dépenses
+     */
+    private async cleanUserFromExpenses(
+        tripId: string,
+        userId: string,
+        batch: firebase.firestore.WriteBatch
+    ): Promise<void> {
+        const expensesRef = this.db
+            .collection("trips")
+            .doc(tripId)
+            .collection("expenses")
+            .doc("items");
+        const expensesDoc = await expensesRef.get();
+
+        if (expensesDoc.exists) {
+            const expensesData = expensesDoc.data() as TripExpenses;
+
+            // Supprimer les dépenses créées par l'utilisateur ou payées par lui
+            // Nettoyer les participations dans les autres dépenses
+            const cleanedExpenses = expensesData.expenses
+                .filter(
+                    (expense) =>
+                        expense.paidBy !== userId &&
+                        expense.createdBy !== userId
+                )
+                .map((expense) => {
+                    const participantIndex =
+                        expense.participants.indexOf(userId);
+                    if (participantIndex > -1) {
+                        const newParticipants = [...expense.participants];
+                        const newParticipantNames = [
+                            ...expense.participantNames,
+                        ];
+                        newParticipants.splice(participantIndex, 1);
+                        newParticipantNames.splice(participantIndex, 1);
+
+                        return {
+                            ...expense,
+                            participants: newParticipants,
+                            participantNames: newParticipantNames,
+                        };
+                    }
+                    return expense;
+                });
+
+            batch.update(expensesRef, {
+                expenses: cleanedExpenses,
+                updatedAt: new Date(),
+                updatedBy:
+                    expensesData.updatedBy === userId
+                        ? "Utilisateur supprimé"
+                        : expensesData.updatedBy,
+            });
+        }
+    }
+
+    /**
+     * Supprime les notes créées par l'utilisateur
+     */
+    private async cleanUserFromNotes(
+        tripId: string,
+        userId: string,
+        batch: firebase.firestore.WriteBatch
+    ): Promise<void> {
+        const notesRef = this.db
+            .collection("trips")
+            .doc(tripId)
+            .collection("notes");
+        const notesSnapshot = await notesRef
+            .where("createdBy", "==", userId)
+            .get();
+
+        notesSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+    }
+
+    /**
+     * Nettoie les références utilisateur des activités
+     */
+    private async cleanUserFromActivities(
+        tripId: string,
+        userId: string,
+        batch: firebase.firestore.WriteBatch
+    ): Promise<void> {
+        const activitiesRef = this.db
+            .collection("trips")
+            .doc(tripId)
+            .collection("activities")
+            .doc("items");
+        const activitiesDoc = await activitiesRef.get();
+
+        if (activitiesDoc.exists) {
+            const activitiesData = activitiesDoc.data() as TripActivities;
+            const cleanedActivities = activitiesData.activities.map(
+                (activity) => ({
+                    ...activity,
+                    votes: activity.votes.filter((id) => id !== userId),
+                    createdBy:
+                        activity.createdBy === userId
+                            ? "Utilisateur supprimé"
+                            : activity.createdBy,
+                    createdByName:
+                        activity.createdBy === userId
+                            ? "Utilisateur supprimé"
+                            : activity.createdByName,
+                })
+            );
+
+            batch.update(activitiesRef, {
+                activities: cleanedActivities,
+                updatedAt: new Date(),
+                updatedBy:
+                    activitiesData.updatedBy === userId
+                        ? "Utilisateur supprimé"
+                        : activitiesData.updatedBy,
+            });
+        }
+    }
+
+    /**
+     * Supprime les entrées du feed d'activité créées par l'utilisateur
+     */
+    private async cleanUserFromActivityFeed(
+        tripId: string,
+        userId: string,
+        batch: firebase.firestore.WriteBatch
+    ): Promise<void> {
+        const feedRef = this.db.collection("activity-feed");
+        const feedSnapshot = await feedRef
+            .where("tripId", "==", tripId)
+            .where("userId", "==", userId)
+            .get();
+
+        feedSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+    }
 }
 
 const firebaseService = new FirebaseService();

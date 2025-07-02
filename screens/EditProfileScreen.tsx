@@ -37,7 +37,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 }) => {
     const styles = useEditProfileStyles();
     const modal = useModal();
-    const { user, updateProfile, updateEmail } = useAuth();
+    const { user, updateProfile, updateEmail, deleteAccount } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         displayName: "",
@@ -140,15 +140,70 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 
     const handleDeleteAccount = () => {
         modal.showConfirm(
-            "Supprimer le compte",
-            "Cette action est irréversible. Toutes vos données seront définitivement supprimées.",
-            () => {
-                // Logique de suppression du compte
+            "⚠️ Supprimer mon compte",
+            "Cette action est irréversible et conforme au RGPD.\n\n• Tous vos voyages créés seront supprimés\n• Vous serez retiré des voyages d'autres utilisateurs\n• Toutes vos données seront définitivement effacées\n\nÊtes-vous sûr de vouloir continuer ?",
+            async () => {
+                await processAccountDeletion();
             },
             () => {},
-            "Supprimer",
+            "Supprimer définitivement",
             "Annuler"
         );
+    };
+
+    const processAccountDeletion = async () => {
+        if (!user) return;
+
+        try {
+            // Afficher un indicateur de chargement en utilisant l'état local
+            setIsLoading(true);
+
+            // Afficher une info modal sans fermeture automatique pendant le processus
+            modal.showInfo(
+                "Suppression en cours...",
+                "Veuillez patienter pendant que nous supprimons vos données. Cette opération peut prendre quelques instants.",
+                false
+            );
+
+            // Supprimer le compte
+            const result = await deleteAccount();
+
+            // Cacher le modal de chargement
+            modal.hideModal();
+
+            if (result.success) {
+                // Succès - Redirection automatique via AuthNavigator
+                modal.showSuccess(
+                    "Compte supprimé",
+                    "Votre compte et toutes vos données ont été supprimés avec succès. Au revoir ! 👋"
+                );
+            } else {
+                // Gestion des erreurs spécifiques
+                let errorMessage =
+                    result.error || "Une erreur inattendue s'est produite.";
+
+                if (errorMessage.includes("requires-recent-login")) {
+                    modal.showError(
+                        "Reconnexion requise",
+                        "Pour supprimer votre compte, vous devez vous reconnecter récemment. Veuillez vous déconnecter puis vous reconnecter avant de réessayer."
+                    );
+                } else {
+                    modal.showError(
+                        "Erreur de suppression",
+                        `Impossible de supprimer le compte : ${errorMessage}`
+                    );
+                }
+            }
+        } catch (error) {
+            console.error("Erreur critique lors de la suppression:", error);
+            modal.hideModal();
+            modal.showError(
+                "Erreur critique",
+                "Une erreur critique s'est produite. Veuillez contacter le support si le problème persiste."
+            );
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

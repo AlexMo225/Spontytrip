@@ -6,6 +6,7 @@ import React, {
     useState,
 } from "react";
 import { AuthService, AuthUser } from "../services/authService";
+import FirebaseServiceInstance from "../services/firebaseService";
 
 interface AuthContextType {
     user: AuthUser | null;
@@ -24,6 +25,7 @@ interface AuthContextType {
     }) => Promise<boolean>;
     updateEmail: (newEmail: string) => Promise<boolean>;
     updatePassword: (newPassword: string) => Promise<boolean>;
+    deleteAccount: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -170,6 +172,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
+    const deleteAccount = async (): Promise<{
+        success: boolean;
+        error?: string;
+    }> => {
+        try {
+            if (!user) {
+                return {
+                    success: false,
+                    error: "Aucun utilisateur connecté",
+                };
+            }
+
+            console.log("🗑️ Début de la suppression du compte:", user.uid);
+
+            // 1. Supprimer toutes les données Firestore de l'utilisateur
+            await FirebaseServiceInstance.deleteUserData(user.uid);
+
+            // 2. Supprimer le compte Firebase Auth
+            const result = await AuthService.deleteAccount();
+
+            if (result.success) {
+                console.log("✅ Compte supprimé avec succès");
+                // Le listener onAuthStateChanged se chargera de mettre à jour l'état
+                return { success: true };
+            } else {
+                return {
+                    success: false,
+                    error:
+                        result.error ||
+                        "Erreur lors de la suppression du compte",
+                };
+            }
+        } catch (error) {
+            console.error("❌ Erreur suppression compte:", error);
+            return {
+                success: false,
+                error: "Une erreur inattendue s'est produite",
+            };
+        }
+    };
+
     const value: AuthContextType = {
         user,
         loading,
@@ -180,6 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updateProfile,
         updateEmail,
         updatePassword,
+        deleteAccount,
     };
 
     return (

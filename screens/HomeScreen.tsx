@@ -8,8 +8,8 @@ import {
     HomeTripsList,
 } from "../components/home";
 import { useHome } from "../hooks/useHome";
-import { useHomeStyles  } from "../styles/screens";
 import { FirestoreTrip } from "../services/firebaseService";
+import { useHomeStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type HomeScreenNavigationProp = StackNavigationProp<
