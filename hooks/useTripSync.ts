@@ -450,7 +450,7 @@ export const useCreateTrip = () => {
         endDate: Date;
         type: "plage" | "montagne" | "citytrip" | "campagne";
         coverImage?: string;
-    }): Promise<string | null> => {
+    }): Promise<{ tripId: string; inviteCode: string } | null> => {
         if (!user) {
             setError("Utilisateur non connecté");
             return null;
@@ -479,7 +479,7 @@ export const useCreateTrip = () => {
             };
 
             const tripId = await firebaseService.createTrip(newTrip);
-            return tripId;
+            return { tripId, inviteCode };
         } catch (err) {
             console.error("Erreur création voyage:", err);
             setError("Impossible de créer le voyage");

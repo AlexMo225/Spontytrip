@@ -11,9 +11,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
-import { useJoinTripStyles  } from "../styles/screens";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { useJoinTrip } from "../hooks/useTripSync";
+import { useJoinTripStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 // Import de l'emitter pour déclencher le refresh

@@ -309,11 +309,6 @@ export const useCreateTripForm = (
         setCoverImage(null);
     };
 
-    // Génération code invitation
-    const generateInvitationCode = (): string => {
-        return Math.random().toString(36).substring(2, 8).toUpperCase();
-    };
-
     // Handler création voyage
     const handleCreateTrip = async () => {
         if (!isFormValid) {
@@ -340,10 +335,14 @@ export const useCreateTripForm = (
 
             const result = await createTrip(tripData);
 
-            if (result && typeof result === "string") {
-                setCreatedTripId(result);
-                const code = generateInvitationCode();
-                setInvitationCode(code);
+            if (
+                result &&
+                typeof result === "object" &&
+                result.tripId &&
+                result.inviteCode
+            ) {
+                setCreatedTripId(result.tripId);
+                setInvitationCode(result.inviteCode);
                 setShowInvitationModal(true);
             } else {
                 throw new Error("Erreur lors de la création");
@@ -479,7 +478,7 @@ export const useCreateTripForm = (
         handleCopyCode,
         handleShareInvitation,
         handleCloseInvitationModal,
-        generateInvitationCode,
+        generateInvitationCode: () => "",
 
         // Hooks externes
         createTrip,

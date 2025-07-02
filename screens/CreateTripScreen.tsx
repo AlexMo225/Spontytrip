@@ -16,7 +16,7 @@ import {
     TripInvitationModal,
 } from "../components/createTrip";
 import { useCreateTripForm } from "../hooks/useCreateTripForm";
-import { useCreateTripStyles  } from "../styles/screens";
+import { useCreateTripStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type CreateTripScreenNavigationProp = StackNavigationProp<
