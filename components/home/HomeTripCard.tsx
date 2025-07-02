@@ -13,7 +13,7 @@ import { Colors } from "../../constants";
 import { FirestoreTrip } from "../../services/firebaseService";
 
 const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.85;
+const CARD_WIDTH = screenWidth * 0.8;
 
 interface HomeTripCardProps {
     trip: FirestoreTrip;
@@ -137,29 +137,33 @@ export const HomeTripCard: React.FC<HomeTripCardProps> = ({
 const styles = StyleSheet.create({
     container: {
         width: CARD_WIDTH,
-        marginHorizontal: (screenWidth - CARD_WIDTH) / 2,
-        marginVertical: 8,
+        alignSelf: "center",
+        marginVertical: 12,
     },
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 16,
+        borderRadius: 24,
         overflow: "hidden",
+        borderWidth: 2,
+        borderColor: "#7FBDC3",
         ...Platform.select({
             ios: {
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
+                shadowColor: Colors.primary,
+                shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.1,
-                shadowRadius: 8,
+                shadowRadius: 12,
             },
             android: {
-                elevation: 4,
+                elevation: 6,
             },
         }),
     },
     imageSection: {
-        height: 140,
+        height: 160,
         width: "100%",
         position: "relative",
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.backgroundColors.secondary,
     },
     coverImage: {
         width: "100%",
@@ -170,9 +174,11 @@ const styles = StyleSheet.create({
         height: "100%",
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: Colors.backgroundColors.secondary,
     },
     placeholderEmoji: {
-        fontSize: 40,
+        fontSize: 48,
+        opacity: 0.9,
     },
     imageDarkOverlay: {
         position: "absolute",
@@ -180,23 +186,35 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: "100%",
+        backgroundColor: "rgba(0,0,0,0.2)",
     },
     statusBadge: {
         position: "absolute",
-        top: 12,
-        left: 12,
+        top: 16,
+        left: 16,
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        paddingVertical: 6,
-        paddingHorizontal: 12,
+        backgroundColor: Colors.white,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
         borderRadius: 20,
+        ...Platform.select({
+            ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 3,
+            },
+        }),
     },
     statusIndicator: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 6,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: 8,
     },
     statusText: {
         fontSize: 12,
@@ -204,43 +222,61 @@ const styles = StyleSheet.create({
         color: "#1A1A1A",
     },
     contentSection: {
-        padding: 16,
+        padding: 20,
     },
     title: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: "#1A1A1A",
-        marginBottom: 12,
+        fontSize: 24,
+        fontFamily: Platform.select({
+            ios: "System",
+            android: "Roboto",
+        }),
+        fontWeight: "700",
+        color: Colors.text.primary,
+        marginBottom: 16,
     },
     infoRow: {
-        marginBottom: 12,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 20,
+        backgroundColor: Colors.backgroundColors.secondary,
+        padding: 12,
+        borderRadius: 16,
     },
     infoItem: {
-        marginBottom: 6,
+        flex: 1,
+        alignItems: "center",
     },
     infoText: {
-        fontSize: 14,
-        color: "#666666",
+        fontSize: 15,
+        color: Colors.text.secondary,
+        fontWeight: "600",
+        textAlign: "center",
     },
     footer: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
+        justifyContent: "space-between",
         marginTop: 4,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: Colors.backgroundColors.secondary,
     },
     membersText: {
-        fontSize: 14,
-        color: "#666666",
+        fontSize: 15,
+        color: Colors.text.secondary,
+        fontWeight: "600",
     },
     creatorBadge: {
-        backgroundColor: Colors.primary + "15",
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        borderRadius: 12,
+        backgroundColor: Colors.backgroundColors.primary,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Colors.primary,
     },
     creatorText: {
-        fontSize: 12,
-        fontWeight: "500",
+        fontSize: 13,
         color: Colors.primary,
+        fontWeight: "700",
     },
 });

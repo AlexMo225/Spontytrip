@@ -1,4 +1,5 @@
 import { Dimensions, Platform, StyleSheet } from "react-native";
+import { Colors } from "../../constants";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_PADDING = 16;
@@ -9,13 +10,15 @@ export const useDiscoverScreenStyle = () => {
     return StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: Colors.lightGray,
         },
         header: {
             paddingHorizontal: 16,
             paddingTop: 8,
             paddingBottom: 16,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: Colors.white,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.border,
         },
         headerTitle: {
             fontSize: 32,
@@ -61,7 +64,7 @@ export const useDiscoverScreenStyle = () => {
         },
         gridList: {
             flex: 1,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: Colors.lightGray,
         },
         gridContainer: {
             paddingHorizontal: CARD_PADDING,

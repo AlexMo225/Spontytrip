@@ -1,11 +1,13 @@
-import { Platform, StyleSheet } from "react-native";
+import { Dimensions, Platform, StyleSheet } from "react-native";
 import { Colors, Spacing, TextStyles } from "../../constants";
+
+const screenWidth = Dimensions.get("window").width;
 
 export const useMyTripsScreenStyle = () => {
     return StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.lightGray,
         },
         header: {
             flexDirection: "row",
@@ -60,8 +62,11 @@ export const useMyTripsScreenStyle = () => {
         },
         tripsContainer: {
             flex: 1,
-            paddingHorizontal: Spacing.large,
+        },
+        tripsContentContainer: {
+            alignItems: "center",
             paddingTop: Spacing.medium,
+            paddingBottom: Spacing.large,
         },
         tripCard: {
             flexDirection: "row",
@@ -69,6 +74,9 @@ export const useMyTripsScreenStyle = () => {
             borderRadius: 16,
             marginBottom: Spacing.medium,
             padding: Spacing.medium,
+            width: screenWidth * 0.8,
+            borderWidth: 2,
+            borderColor: "#7FBDC3",
             ...Platform.select({
                 ios: {
                     shadowColor: Colors.cardShadow,

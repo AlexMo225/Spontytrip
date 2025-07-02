@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 
 // Types
 import { MainTabParamList, RootStackParamList } from "../types";
@@ -81,17 +82,57 @@ function MainTabNavigator() {
                 tabBarActiveTintColor: "#7ED957",
                 tabBarInactiveTintColor: Colors.textMuted,
                 tabBarStyle: {
-                    height: Platform.OS === "ios" ? 88 : 70,
-                    paddingBottom: Platform.OS === "ios" ? 30 : 12,
-                    paddingTop: 12,
+                    height: Platform.OS === "ios" ? 88 : 80,
+                    paddingBottom: Platform.OS === "ios" ? 30 : 16,
+                    paddingTop: Platform.OS === "ios" ? 12 : 16,
                     backgroundColor: Colors.white,
                     borderTopWidth: 0,
-                    elevation: 8,
-                    shadowColor: Colors.cardShadow,
-                    shadowOffset: { width: 0, height: -2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
+                    elevation: 0,
+                    shadowColor: "transparent",
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0,
+                    shadowRadius: 0,
+                    position: "relative",
+                    overflow: "hidden",
                 },
+                tabBarBackground: () => (
+                    <>
+                        <LinearGradient
+                            colors={["#9BE97F", "#7ED957"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 4,
+                                zIndex: 2,
+                            }}
+                        />
+                        <View
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: Colors.white,
+                                ...Platform.select({
+                                    android: {
+                                        elevation: 8,
+                                    },
+                                    ios: {
+                                        shadowColor: Colors.cardShadow,
+                                        shadowOffset: { width: 0, height: -2 },
+                                        shadowOpacity: 0.1,
+                                        shadowRadius: 4,
+                                    },
+                                }),
+                            }}
+                        />
+                    </>
+                ),
                 tabBarLabelStyle: {
                     fontSize: 12,
                     fontWeight: "600",

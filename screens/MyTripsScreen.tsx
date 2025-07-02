@@ -224,6 +224,7 @@ const MyTripsScreen: React.FC<Props> = ({ navigation }) => {
             ) : (
                 <ScrollView
                     style={styles.tripsContainer}
+                    contentContainerStyle={styles.tripsContentContainer}
                     showsVerticalScrollIndicator={false}
                 >
                     {filteredTrips.length > 0

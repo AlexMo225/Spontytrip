@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
     ActivityIndicator,
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -117,17 +116,20 @@ export const HomeTripsList: React.FC<HomeTripsListProps> = ({
             )}
 
             {!loading && !error && trips.length > 0 && (
-                <FlatList
-                    data={trips.slice(0, 3)}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderTripCard}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.modernTripsHorizontalList}
-                    ItemSeparatorComponent={() => (
-                        <View style={{ width: 16 }} />
-                    )}
-                />
+                <View style={styles.modernTripsHorizontalList}>
+                    {trips.slice(0, 3).map((trip) => (
+                        <View key={trip.id} style={styles.tripCardContainer}>
+                            <HomeTripCard
+                                trip={trip}
+                                formatDateRange={formatDateRange}
+                                getTripStatus={getTripStatus}
+                                getTypeEmoji={getTypeEmoji}
+                                currentUserId={currentUserId}
+                                onPress={() => onTripPress(trip)}
+                            />
+                        </View>
+                    ))}
+                </View>
             )}
         </View>
     );
@@ -158,7 +160,12 @@ const styles = StyleSheet.create({
         color: "#4DA1A9",
     },
     modernTripsHorizontalList: {
-        paddingHorizontal: 20,
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    tripCardContainer: {
+        marginBottom: 8,
     },
 
     // 🔄 ÉTATS DE CHARGEMENT MODERNES

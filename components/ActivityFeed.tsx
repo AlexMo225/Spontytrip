@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -48,21 +49,24 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
     const renderActivityItem = (activity: ActivityLogEntry, index: number) => (
         <View key={activity.id} style={styles.activityItem}>
-            {/* Icône colorée */}
-            <View
-                style={[
-                    styles.activityIcon,
-                    { backgroundColor: activity.color },
-                ]}
-            >
-                <Ionicons
-                    name={activity.icon as any}
-                    size={16}
-                    color="#FFFFFF"
-                />
+            <View style={styles.timelineContainer}>
+                <View
+                    style={[
+                        styles.activityIcon,
+                        { backgroundColor: activity.color },
+                    ]}
+                >
+                    <Ionicons
+                        name={activity.icon as any}
+                        size={16}
+                        color="#FFFFFF"
+                    />
+                </View>
+                {index < Math.min(activities.length, maxItems) - 1 && (
+                    <View style={styles.connectionLine} />
+                )}
             </View>
 
-            {/* Contenu */}
             <View style={styles.activityContent}>
                 <Text style={styles.activityDescription} numberOfLines={2}>
                     {activity.description}
@@ -71,11 +75,6 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                     {formatTimeAgo(activity.timestamp)}
                 </Text>
             </View>
-
-            {/* Ligne de connexion si pas le dernier élément */}
-            {index < Math.min(activities.length, maxItems) - 1 && (
-                <View style={styles.connectionLine} />
-            )}
         </View>
     );
 
@@ -103,6 +102,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
             <ScrollView
                 style={styles.feedContainer}
+                contentContainerStyle={styles.feedContentContainer}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
             >
@@ -110,9 +110,13 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
             </ScrollView>
 
             {activities.length > maxItems && onSeeAll && (
-                <TouchableOpacity style={styles.moreButton} onPress={onSeeAll}>
+                <TouchableOpacity
+                    style={styles.moreButton}
+                    onPress={onSeeAll}
+                    activeOpacity={0.7}
+                >
                     <Text style={styles.moreText}>
-                        Et {activities.length - maxItems} autres activités...
+                        Voir {activities.length - maxItems} autres activités
                     </Text>
                 </TouchableOpacity>
             )}
@@ -122,37 +126,48 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 16,
         padding: 20,
         marginBottom: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 3,
+        ...Platform.select({
+            ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
     },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 16,
+        marginBottom: 20,
     },
     sectionTitle: {
         fontSize: 18,
-        fontFamily: "System",
         fontWeight: "700",
         color: Colors.text.primary,
+        letterSpacing: -0.5,
     },
-
     feedContainer: {
-        maxHeight: 300, // Limiter la hauteur pour éviter le scroll infini
+        maxHeight: 320,
+    },
+    feedContentContainer: {
+        paddingRight: 8,
     },
     activityItem: {
         flexDirection: "row",
-        alignItems: "flex-start",
-        position: "relative",
-        paddingBottom: 16,
+        marginBottom: 16,
+    },
+    timelineContainer: {
+        width: 32,
+        alignItems: "center",
+        marginRight: 12,
     },
     activityIcon: {
         width: 32,
@@ -160,20 +175,25 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        elevation: 3,
+        ...Platform.select({
+            ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 3,
+            },
+        }),
     },
     activityContent: {
         flex: 1,
-        paddingTop: 2,
+        paddingTop: 4,
+        backgroundColor: Colors.white,
     },
     activityDescription: {
         fontSize: 14,
-        fontFamily: "System",
         fontWeight: "500",
         color: Colors.text.primary,
         lineHeight: 20,
@@ -181,16 +201,14 @@ const styles = StyleSheet.create({
     },
     activityTime: {
         fontSize: 12,
-        fontFamily: "System",
         fontWeight: "400",
         color: "#94A3B8",
     },
     connectionLine: {
         position: "absolute",
-        left: 15.5,
+        width: 2,
         top: 32,
-        bottom: 0,
-        width: 1,
+        bottom: -16,
         backgroundColor: "#E2E8F0",
     },
     emptyState: {
@@ -199,26 +217,22 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        fontFamily: "System",
         fontWeight: "500",
         color: "#94A3B8",
         marginTop: 12,
         textAlign: "center",
     },
     moreButton: {
-        marginTop: 8,
+        marginTop: 12,
         paddingTop: 12,
-        paddingBottom: 4,
         borderTopWidth: 1,
         borderTopColor: "#F1F5F9",
     },
     moreText: {
         fontSize: 13,
-        fontFamily: "System",
         fontWeight: "600",
         color: "#4DA1A9",
         textAlign: "center",
-        textDecorationLine: "underline",
     },
 });
 
