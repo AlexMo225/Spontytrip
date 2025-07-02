@@ -4,7 +4,7 @@ export { useChecklistScreenStyle as useChecklistStyles } from "./checklistStyles
 export { useCreateTripScreenStyle as useCreateTripStyles } from "./createTripStyles";
 export { useDiscoverScreenStyle as useDiscoverStyles } from "./discoverStyles";
 export { useEditProfileScreenStyle as useEditProfileStyles } from "./editProfileStyles";
-export { useEditTripScreenStyle as useEditTripStyles } from "./editTripStyles";
+export { useEditTripStyles } from "./editTripStyles";
 export { useExpensesScreenStyle as useExpensesStyles } from "./expensesStyles";
 export { useExploreScreenStyle as useExploreStyles } from "./exploreStyles";
 export { useFeedDetailsScreenStyle as useFeedDetailsStyles } from "./feedDetailsStyles";

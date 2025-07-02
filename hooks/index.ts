@@ -5,6 +5,7 @@ export * from "./useActivities";
 export { useAddActivityForm } from "./useAddActivityForm";
 export * from "./useChecklist";
 export { useCreateTripForm } from "./useCreateTripForm";
+export { useEditTrip } from "./useEditTrip";
 export * from "./useExpenses";
 export * from "./useHome";
 export * from "./useModal";
@@ -33,7 +34,7 @@ export {
     useOnboardingStyles,
     useProfileStyles,
     useRegisterStyles,
-    useTripDetailsStyles
+    useTripDetailsStyles,
 } from "../styles/screens";
 
 export {
@@ -43,7 +44,7 @@ export {
     useExpensesSummaryHeaderStyles,
     usePasswordInputStyles,
     useSettlementsSectionStyles,
-    useSpontyTripLogoAnimatedStyles
+    useSpontyTripLogoAnimatedStyles,
 } from "../styles/components";
 
 export {};

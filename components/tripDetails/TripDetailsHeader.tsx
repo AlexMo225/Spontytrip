@@ -40,12 +40,6 @@ export const TripDetailsHeader: React.FC<TripDetailsHeaderProps> = ({
 }) => {
     const insets = useSafeAreaInsets();
 
-    const headerOpacity = scrollY.interpolate({
-        inputRange: [0, 200],
-        outputRange: [0, 1],
-        extrapolate: "clamp",
-    });
-
     const imageScale = scrollY.interpolate({
         inputRange: [-100, 0, 100],
         outputRange: [1.2, 1, 0.9],
@@ -58,79 +52,8 @@ export const TripDetailsHeader: React.FC<TripDetailsHeaderProps> = ({
         extrapolate: "clamp",
     });
 
-    // Calculer si l'overlay doit être visible (inverse du header fixe)
-    const overlayOpacity = scrollY.interpolate({
-        inputRange: [0, 100],
-        outputRange: [1, 0],
-        extrapolate: "clamp",
-    });
-
     return (
         <>
-            {/* Header fixe animé */}
-            <Animated.View
-                style={[
-                    styles.fixedHeader,
-                    {
-                        paddingTop: insets.top,
-                        opacity: headerOpacity,
-                    },
-                ]}
-            >
-                <LinearGradient
-                    colors={["#7ED957", "#4DA1A9"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                        styles.fixedHeaderGradient,
-                        { paddingTop: insets.top + 10 },
-                    ]}
-                >
-                    <View style={styles.fixedHeaderContent}>
-                        <TouchableOpacity
-                            onPress={onBackPress}
-                            style={styles.backButton}
-                        >
-                            <Ionicons
-                                name="arrow-back"
-                                size={24}
-                                color="#FFFFFF"
-                            />
-                        </TouchableOpacity>
-                        <Text style={styles.fixedHeaderTitle} numberOfLines={1}>
-                            {trip.title}
-                        </Text>
-                        {isCreator && (
-                            <View style={styles.headerRightActions}>
-                                <TouchableOpacity
-                                    onPress={onEditPress}
-                                    style={styles.editButton}
-                                >
-                                    <Ionicons
-                                        name="create"
-                                        size={20}
-                                        color="#FFFFFF"
-                                    />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={onDeletePress}
-                                    style={[
-                                        styles.editButton,
-                                        styles.deleteButtonHeader,
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="trash"
-                                        size={20}
-                                        color="#FFFFFF"
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
-                </LinearGradient>
-            </Animated.View>
-
             {/* Image de couverture */}
             <TouchableOpacity
                 style={styles.coverImageContainer}
@@ -166,15 +89,8 @@ export const TripDetailsHeader: React.FC<TripDetailsHeaderProps> = ({
                     )}
                 </Animated.View>
 
-                {/* Overlay avec boutons - visible seulement quand header fixe invisible */}
-                <Animated.View
-                    style={[
-                        styles.headerOverlay,
-                        {
-                            opacity: overlayOpacity,
-                        },
-                    ]}
-                >
+                {/* Overlay avec boutons - toujours visible */}
+                <View style={styles.headerOverlay}>
                     <LinearGradient
                         colors={["transparent", "rgba(0,0,0,0.7)"]}
                         style={styles.overlayGradient}
@@ -228,7 +144,7 @@ export const TripDetailsHeader: React.FC<TripDetailsHeaderProps> = ({
                             )}
                         </View>
                     </LinearGradient>
-                </Animated.View>
+                </View>
             </TouchableOpacity>
 
             {/* Informations du voyage */}
@@ -283,47 +199,6 @@ export const TripDetailsHeader: React.FC<TripDetailsHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
-    // Header fixe
-    fixedHeader: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-    },
-    fixedHeaderGradient: {
-        paddingBottom: 16,
-    },
-    fixedHeaderContent: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-    },
-    fixedHeaderTitle: {
-        flex: 1,
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#FFFFFF",
-        textAlign: "center",
-        marginHorizontal: 10,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    editButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-
     // Image de couverture
     coverImageContainer: {
         height: 300,
@@ -393,9 +268,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     deleteButton: {
-        backgroundColor: "rgba(255,107,107,0.8)",
-    },
-    deleteButtonHeader: {
         backgroundColor: "rgba(255,107,107,0.8)",
     },
 

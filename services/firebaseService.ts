@@ -1816,6 +1816,84 @@ class FirebaseService {
         }
     }
 
+    // 🔄 Mettre à jour les informations principales d'un voyage
+    async updateTrip(
+        tripId: string,
+        updates: {
+            title?: string;
+            destination?: string;
+            description?: string;
+            startDate?: Date;
+            endDate?: Date;
+            type?: "plage" | "montagne" | "citytrip" | "campagne";
+            coverImage?: string | null;
+        },
+        userId: string,
+        userName: string
+    ): Promise<void> {
+        try {
+            console.log("🔄 Mise à jour du voyage:", tripId, updates);
+
+            // Vérifier que le voyage existe et que l'utilisateur peut le modifier
+            const trip = await this.getTripById(tripId);
+            if (!trip) {
+                throw new Error("Voyage introuvable");
+            }
+
+            if (trip.creatorId !== userId) {
+                throw new Error("Seul le créateur peut modifier ce voyage");
+            }
+
+            const tripRef = this.db.collection("trips").doc(tripId);
+
+            // Préparer les données de mise à jour
+            const updateData: any = {
+                ...updates,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+
+            // Convertir les dates en Timestamp Firebase si nécessaire
+            if (updates.startDate) {
+                updateData.startDate = firebase.firestore.Timestamp.fromDate(
+                    updates.startDate
+                );
+            }
+            if (updates.endDate) {
+                updateData.endDate = firebase.firestore.Timestamp.fromDate(
+                    updates.endDate
+                );
+            }
+
+            // Effectuer la mise à jour
+            await tripRef.update(updateData);
+
+            // Logger les modifications dans le feed d'activités
+            const changedFields = Object.keys(updates).filter(
+                (key) =>
+                    updates[key as keyof typeof updates] !== undefined &&
+                    key !== "coverImage"
+            );
+
+            if (changedFields.length > 0) {
+                await this.logActivity(
+                    tripId,
+                    userId,
+                    userName,
+                    "trip_update",
+                    {
+                        modifiedFields: changedFields,
+                        changes: updates,
+                    }
+                );
+            }
+
+            console.log("✅ Voyage mis à jour avec succès");
+        } catch (error) {
+            console.error("❌ Erreur mise à jour du voyage:", error);
+            throw error;
+        }
+    }
+
     // ==========================================
     // TRIP SUBSCRIPTION - TEMPS RÉEL
     // ==========================================
