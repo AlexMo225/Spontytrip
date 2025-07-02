@@ -6,7 +6,7 @@ export { useDiscoverScreenStyle as useDiscoverStyles } from "./discoverStyles";
 export { useEditProfileScreenStyle as useEditProfileStyles } from "./editProfileStyles";
 export { useEditTripStyles } from "./editTripStyles";
 export { useExpensesScreenStyle as useExpensesStyles } from "./expensesStyles";
-export { useExploreScreenStyle as useExploreStyles } from "./exploreStyles";
+export { useExploreStyles } from "./exploreStyles";
 export { useFeedDetailsScreenStyle as useFeedDetailsStyles } from "./feedDetailsStyles";
 export { useForgotPasswordScreenStyle as useForgotPasswordStyles } from "./forgotPasswordStyles";
 export { useHomeScreenStyle as useHomeStyles } from "./homeStyles";

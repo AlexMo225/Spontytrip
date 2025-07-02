@@ -149,17 +149,6 @@ export interface Activity {
     updatedAt?: Date;
 }
 
-export interface CityDestination {
-    id: string;
-    name: string;
-    country: string;
-    imageUrl: string;
-    description: string;
-    popularActivities: string[];
-    averageTemperature: number;
-    bestTimeToVisit: string;
-}
-
 // Types pour la navigation
 export type RootStackParamList = {
     // Onboarding
@@ -192,11 +181,11 @@ export type RootStackParamList = {
     Notes: { tripId: string };
     FeedDetails: { tripId: string };
 
-    // Activity Management - À implémenter avec les maquettes
+    // Activity Management
     AddActivity: { tripId: string; editActivity?: any };
     EditActivity: { tripId: string; activityId: string };
 
-    // Checklist Item Management - À implémenter avec les maquettes
+    // Checklist Item Management
     AddChecklistItem: { tripId: string };
     EditChecklistItem: { tripId: string; itemId: string };
 
@@ -250,7 +239,6 @@ export interface LoginRequest {
     password: string;
 }
 
-// Types pour les activités récentes (Activity Feed)
 export interface ActivityLogEntry {
     id: string;
     tripId: string;
