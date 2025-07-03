@@ -1,7 +1,6 @@
 ﻿import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useState } from "react";
 import {
-    Alert,
     Linking,
     Modal,
     ScrollView,
@@ -11,6 +10,7 @@ import {
     View,
 } from "react-native";
 import { TripActivity } from "../../services/firebaseService";
+import SpontyModal from "../SpontyModal";
 
 interface ActivityDetailModalProps {
     visible: boolean;
@@ -102,6 +102,11 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
         });
     };
 
+    const [errorModal, setErrorModal] = useState({
+        visible: false,
+        message: "",
+    });
+
     // 🔗 Fonction pour ouvrir les liens
     const handleOpenLink = async (url: string) => {
         try {
@@ -109,13 +114,17 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
             if (supported) {
                 await Linking.openURL(url);
             } else {
-                Alert.alert("Erreur", "Impossible d'ouvrir ce lien");
+                setErrorModal({
+                    visible: true,
+                    message: "Impossible d'ouvrir ce lien",
+                });
             }
         } catch (error) {
-            Alert.alert(
-                "Erreur",
-                "Une erreur s'est produite lors de l'ouverture du lien"
-            );
+            setErrorModal({
+                visible: true,
+                message:
+                    "Une erreur s'est produite lors de l'ouverture du lien",
+            });
         }
     };
 
@@ -317,6 +326,22 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     </View>
                 )}
             </View>
+
+            {/* Modale d'erreur */}
+            <SpontyModal
+                visible={errorModal.visible}
+                type="error"
+                title="Erreur"
+                message={errorModal.message}
+                buttons={[
+                    {
+                        text: "OK",
+                        onPress: () =>
+                            setErrorModal({ visible: false, message: "" }),
+                        style: "default",
+                    },
+                ]}
+            />
         </Modal>
     );
 };

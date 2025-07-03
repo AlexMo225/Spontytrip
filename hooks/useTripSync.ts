@@ -479,6 +479,11 @@ export const useCreateTrip = () => {
             };
 
             const tripId = await firebaseService.createTrip(newTrip);
+
+            // 🔄 Déclencher le refresh automatique des voyages
+            console.log("✅ Voyage créé, déclenchement du refresh global");
+            tripRefreshEmitter.emitRefresh();
+
             return { tripId, inviteCode };
         } catch (err) {
             console.error("Erreur création voyage:", err);

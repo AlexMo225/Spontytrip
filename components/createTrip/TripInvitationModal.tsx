@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import * as Clipboard from "expo-clipboard";
+import React, { useState } from "react";
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface TripInvitationModalProps {
@@ -19,6 +20,19 @@ export const TripInvitationModal: React.FC<TripInvitationModalProps> = ({
     handleShareInvitation,
     handleCloseInvitationModal,
 }) => {
+    const [copyFeedback, setCopyFeedback] = useState(false);
+
+    const handleCopyWithFeedback = async () => {
+        try {
+            await Clipboard.setStringAsync(invitationCode);
+            setCopyFeedback(true);
+            setTimeout(() => setCopyFeedback(false), 2000);
+            handleCopyCode();
+        } catch (error) {
+            console.error("Erreur copie:", error);
+        }
+    };
+
     return (
         <Modal
             visible={showInvitationModal}
@@ -41,7 +55,8 @@ export const TripInvitationModal: React.FC<TripInvitationModalProps> = ({
                     </View>
 
                     <Text style={styles.invitationModalSubtitle}>
-                        Partagez ce code pour inviter vos amis à rejoindre "{tripName}"
+                        Partagez ce code pour inviter vos amis à rejoindre "
+                        {tripName}"
                     </Text>
 
                     {/* Code d'invitation */}
@@ -54,21 +69,40 @@ export const TripInvitationModal: React.FC<TripInvitationModalProps> = ({
                                 {invitationCode}
                             </Text>
                             <TouchableOpacity
-                                style={styles.copyButton}
-                                onPress={handleCopyCode}
+                                style={[
+                                    styles.copyButton,
+                                    copyFeedback && styles.copyButtonSuccess,
+                                ]}
+                                onPress={handleCopyWithFeedback}
                             >
-                                <Ionicons name="copy" size={20} color="#4DA1A9" />
+                                <Ionicons
+                                    name={copyFeedback ? "checkmark" : "copy"}
+                                    size={20}
+                                    color={copyFeedback ? "#7ED957" : "#4DA1A9"}
+                                />
                             </TouchableOpacity>
                         </View>
+                        {copyFeedback && (
+                            <Text style={styles.copyFeedbackText}>
+                                ✅ Code copié !
+                            </Text>
+                        )}
                     </View>
 
-                    {/* QR Code placeholder */}
+                    {/* QR Code amélioré */}
                     <View style={styles.qrCodeContainer}>
                         <Text style={styles.qrCodeLabel}>QR Code</Text>
                         <View style={styles.qrCodePlaceholder}>
-                            <Ionicons name="qr-code-outline" size={80} color="#999" />
+                            <Ionicons
+                                name="qr-code-outline"
+                                size={80}
+                                color="#4DA1A9"
+                            />
                             <Text style={styles.qrCodePlaceholderText}>
-                                QR Code généré automatiquement
+                                Scan pour rejoindre rapidement
+                            </Text>
+                            <Text style={styles.qrCodeSubtext}>
+                                Fonctionnalité à venir
                             </Text>
                         </View>
                     </View>
@@ -79,7 +113,11 @@ export const TripInvitationModal: React.FC<TripInvitationModalProps> = ({
                             style={styles.shareButton}
                             onPress={handleShareInvitation}
                         >
-                            <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+                            <Ionicons
+                                name="share-outline"
+                                size={20}
+                                color="#FFFFFF"
+                            />
                             <Text style={styles.shareButtonText}>Partager</Text>
                         </TouchableOpacity>
 
@@ -87,7 +125,9 @@ export const TripInvitationModal: React.FC<TripInvitationModalProps> = ({
                             style={styles.continueButton}
                             onPress={handleCloseInvitationModal}
                         >
-                            <Text style={styles.continueButtonText}>Continuer</Text>
+                            <Text style={styles.continueButtonText}>
+                                Continuer
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -179,6 +219,15 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#DBE0E5",
     },
+    copyButtonSuccess: {
+        borderColor: "#7ED957",
+    },
+    copyFeedbackText: {
+        fontSize: 14,
+        color: "#7ED957",
+        marginTop: 8,
+        textAlign: "center",
+    },
     qrCodeContainer: {
         marginBottom: 24,
     },
@@ -202,6 +251,12 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#999",
         marginTop: 12,
+        textAlign: "center",
+    },
+    qrCodeSubtext: {
+        fontSize: 12,
+        color: "#999",
+        marginTop: 4,
         textAlign: "center",
     },
     modalButtonsContainer: {
@@ -246,4 +301,4 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
         fontWeight: "600",
     },
-}); 
+});

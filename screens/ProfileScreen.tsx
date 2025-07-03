@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "../components/Avatar";
 import { Colors } from "../constants";
 import { useAuth } from "../contexts/AuthContext";
-import { useModal } from "../hooks/useModal";
+import { useModal, useQuickModals } from "../hooks/useModal";
 import { useProfileStyles } from "../styles/screens/profileStyles";
 import { RootStackParamList } from "../types";
 
@@ -30,6 +30,7 @@ const formatDate = (date: Date) => {
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     const modal = useModal();
+    const quickModals = useQuickModals();
     const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
     const styles = useProfileStyles();
@@ -98,9 +99,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             "Êtes-vous sûr de vouloir vous déconnecter ?",
             async () => {
                 try {
-                    await signOut();
+                    console.log("🔄 Début de la déconnexion...");
+
+                    // Afficher d'abord la modale de succès
+                    console.log("✅ Affichage modale de succès");
+                    quickModals.logoutSuccess();
+
+                    // Délai pour laisser l'utilisateur voir la modale avant la déconnexion
+                    setTimeout(async () => {
+                        console.log("🔄 Déconnexion effective après délai");
+                        const success = await signOut();
+                        console.log("📋 Résultat de la déconnexion:", success);
+
+                        if (!success) {
+                            console.error("❌ Déconnexion échouée");
+                            modal.showError(
+                                "Erreur",
+                                "Une erreur est survenue lors de la déconnexion. Veuillez réessayer."
+                            );
+                        }
+                    }, 2000); // 2 secondes pour lire la modale
                 } catch (error) {
-                    console.error("Erreur lors de la déconnexion:", error);
+                    console.error("❌ Erreur lors de la déconnexion:", error);
                     modal.showError(
                         "Erreur",
                         "Une erreur est survenue lors de la déconnexion. Veuillez réessayer."

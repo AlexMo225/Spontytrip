@@ -18,7 +18,7 @@ interface AuthContextType {
         password: string,
         displayName?: string
     ) => Promise<boolean>;
-    signOut: () => Promise<void>;
+    signOut: () => Promise<boolean>;
     resetPassword: (email: string) => Promise<boolean>;
     updateProfile: (updates: {
         displayName?: string;
@@ -127,12 +127,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
-    const signOut = async (): Promise<void> => {
+    const signOut = async (): Promise<boolean> => {
         try {
-            await AuthService.signOut();
-            setIsNewUser(false);
+            const result = await AuthService.signOut();
+            if (result.success) {
+                setIsNewUser(false);
+                console.log("✅ Déconnexion réussie");
+                return true;
+            } else {
+                console.error("❌ Erreur déconnexion:", result.error);
+                return false;
+            }
         } catch (error) {
-            console.error("Erreur déconnexion:", error);
+            console.error("❌ Erreur déconnexion:", error);
+            return false;
         }
     };
 

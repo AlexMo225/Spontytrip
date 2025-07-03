@@ -11,6 +11,10 @@ import { ModalProvider } from "./hooks/useModal";
 // Expo
 import { StatusBar } from "expo-status-bar";
 import React from "react";
+import { LogBox } from "react-native";
+
+// Masquer tous les logs et warnings dans l'application
+LogBox.ignoreAllLogs();
 
 export default function App() {
     console.log("🚀 Démarrage de SpontyTrip avec polices système");

@@ -14,7 +14,12 @@ interface ModalContextType {
     showModal: (config: ModalConfig) => void;
     hideModal: () => void;
     // Méthodes de commodité
-    showSuccess: (title: string, message?: string, autoClose?: boolean) => void;
+    showSuccess: (
+        title: string,
+        message?: string,
+        autoClose?: boolean,
+        customDelay?: number
+    ) => void;
     showError: (title: string, message?: string) => void;
     showWarning: (title: string, message?: string) => void;
     showInfo: (title: string, message?: string, autoClose?: boolean) => void;
@@ -65,7 +70,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({
     const showSuccess = (
         title: string,
         message?: string,
-        autoClose: boolean = true
+        autoClose: boolean = true,
+        customDelay?: number
     ) => {
         showModal({
             type: "success",
@@ -78,7 +84,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({
                     primary: true,
                 },
             ],
-            autoCloseDelay: autoClose ? 2500 : undefined,
+            autoCloseDelay: autoClose ? customDelay || 2500 : undefined,
         });
     };
 
@@ -294,6 +300,15 @@ export const useQuickModals = () => {
             modal.showError(
                 "Erreur",
                 "Impossible de sauvegarder vos modifications"
+            ),
+
+        // Messages de déconnexion
+        logoutSuccess: () =>
+            modal.showSuccess(
+                "Déconnexion réussie",
+                "Vous avez été déconnecté avec succès. À bientôt sur SpontyTrip ! 👋",
+                true,
+                4000 // Délai étendu pour laisser le temps de lire
             ),
     };
 };

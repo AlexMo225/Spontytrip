@@ -149,9 +149,14 @@ export class AuthService {
     // Déconnexion
     static async signOut(): Promise<AuthResult> {
         try {
+            console.log("🔄 AuthService.signOut() - Début de la déconnexion");
             await auth.signOut();
+            console.log(
+                "✅ AuthService.signOut() - Déconnexion Firebase réussie"
+            );
             return { success: true };
         } catch (error) {
+            console.error("❌ AuthService.signOut() - Erreur Firebase:", error);
             return {
                 success: false,
                 error: "Erreur lors de la déconnexion.",

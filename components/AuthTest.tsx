@@ -8,12 +8,14 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useAuth } from "../contexts/AuthContext";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { AuthService, AuthUser } from "../services/authService";
 
 const AuthTest: React.FC = () => {
     const modal = useModal();
     const quickModals = useQuickModals();
+    const { signOut: authSignOut } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [displayName, setDisplayName] = useState("");
@@ -77,15 +79,15 @@ const AuthTest: React.FC = () => {
 
     const handleSignOut = async () => {
         setLoading(true);
-        const result = await AuthService.signOut();
+        const success = await authSignOut();
         setLoading(false);
 
-        if (result.success) {
-            modal.showSuccess("Succès", "Déconnexion réussie !");
+        if (success) {
+            quickModals.logoutSuccess();
         } else {
             modal.showError(
                 "Déconnexion impossible",
-                result.error || "Impossible de vous déconnecter."
+                "Impossible de vous déconnecter."
             );
         }
     };
