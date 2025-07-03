@@ -100,8 +100,8 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     activeTab: {
-        backgroundColor: "#6366F1",
-        shadowColor: "#6366F1",
+        backgroundColor: Colors.checklistGreen,
+        shadowColor: Colors.checklistGreen,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,

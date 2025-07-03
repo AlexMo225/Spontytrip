@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors, TaskAssignmentColors } from "../../constants/Colors";
+import { Colors } from "../../constants/Colors";
 import { TripMember } from "../../services/firebaseService";
 import { ChecklistItem as ChecklistItemType } from "../../types";
 
@@ -114,7 +114,7 @@ export const ChecklistItem: React.FC<ChecklistItemProps> = ({
                     size={24}
                     color={
                         item.isCompleted
-                            ? TaskAssignmentColors.taskStatus.completed
+                            ? Colors.checklistGreen
                             : Colors.text.muted
                     }
                 />
@@ -171,7 +171,7 @@ export const ChecklistItem: React.FC<ChecklistItemProps> = ({
                             <Ionicons
                                 name="person-add-outline"
                                 size={16}
-                                color={Colors.primary}
+                                color={Colors.checklistGreen}
                             />
                             <Text style={styles.unassignedText}>Assigner</Text>
                         </TouchableOpacity>
@@ -201,9 +201,7 @@ export const ChecklistItem: React.FC<ChecklistItemProps> = ({
                         styles.progressBar,
                         {
                             width: progressWidth,
-                            backgroundColor: item.assignedTo
-                                ? getMemberColor(item.assignedTo)
-                                : TaskAssignmentColors.taskStatus.completed,
+                            backgroundColor: Colors.checklistGreen,
                         },
                     ]}
                 />
@@ -298,7 +296,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: Colors.backgroundColors.primary,
         borderWidth: 1,
-        borderColor: Colors.primary,
+        borderColor: Colors.checklistGreen,
         borderStyle: "dashed",
         paddingHorizontal: 8,
         paddingVertical: 4,
@@ -306,7 +304,7 @@ const styles = StyleSheet.create({
     },
     unassignedText: {
         fontSize: 12,
-        color: Colors.primary,
+        color: Colors.checklistGreen,
         fontWeight: "500",
         marginLeft: 4,
     },

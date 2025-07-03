@@ -20,14 +20,13 @@ import {
     ChecklistCategorySection,
     ChecklistMyTasksView,
     ChecklistTabBar,
-    ChecklistStatsHeader,
 } from "../components/checklist";
 import { Colors, TaskAssignmentColors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
 import { useChecklist } from "../hooks/useChecklist";
-import { useChecklistStyles  } from "../styles/screens";
 import { useModal, useQuickModals } from "../hooks/useModal";
 import { useTripSync } from "../hooks/useTripSync";
+import { useChecklistStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type ChecklistScreenNavigationProp = StackNavigationProp<
@@ -321,7 +320,11 @@ const ChecklistScreen: React.FC<Props> = ({ navigation, route }) => {
                         navigation.navigate("AddChecklistItem", { tripId })
                     }
                 >
-                    <Ionicons name="add" size={24} color={Colors.white} />
+                    <Ionicons
+                        name="add-circle"
+                        size={28}
+                        color={Colors.white}
+                    />
                 </TouchableOpacity>
             </View>
 

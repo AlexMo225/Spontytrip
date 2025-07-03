@@ -1,7 +1,5 @@
 import { Platform, StyleSheet } from "react-native";
-import { Colors } from "../../constants";
-import { Fonts } from "../../constants";
-import { Spacing } from "../../constants";
+import { Colors, Fonts, Spacing } from "../../constants";
 
 export const useChecklistScreenStyle = () => {
     return StyleSheet.create({
@@ -33,12 +31,22 @@ export const useChecklistScreenStyle = () => {
             marginTop: Spacing.small,
         },
         addButton: {
-            backgroundColor: Colors.primary + "10",
-            width: 40,
-            height: 40,
-            borderRadius: 20,
+            backgroundColor: Colors.checklistGreen,
+            width: 48,
+            height: 48,
+            borderRadius: 24,
             justifyContent: "center",
             alignItems: "center",
+            shadowColor: Colors.checklistGreen,
+            shadowOffset: {
+                width: 0,
+                height: 4,
+            },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+            marginLeft: Spacing.medium,
+            transform: [{ scale: 1 }],
         },
         progressContainer: {
             paddingHorizontal: Spacing.large,
@@ -55,7 +63,7 @@ export const useChecklistScreenStyle = () => {
         },
         progressFill: {
             height: "100%",
-            backgroundColor: Colors.primary,
+            backgroundColor: Colors.checklistGreen,
             borderRadius: 4,
         },
         listContainer: {
@@ -94,7 +102,7 @@ export const useChecklistScreenStyle = () => {
             lineHeight: 24,
         },
         retryButton: {
-            backgroundColor: Colors.primary,
+            backgroundColor: Colors.checklistGreen,
             paddingHorizontal: Spacing.large,
             paddingVertical: Spacing.medium,
             borderRadius: 12,
