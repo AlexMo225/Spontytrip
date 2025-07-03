@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
     ActivityIndicator,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -116,9 +117,23 @@ export const HomeTripsList: React.FC<HomeTripsListProps> = ({
             )}
 
             {!loading && !error && trips.length > 0 && (
-                <View style={styles.modernTripsHorizontalList}>
-                    {trips.slice(0, 3).map((trip) => (
-                        <View key={trip.id} style={styles.tripCardContainer}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.modernTripsHorizontalList}
+                    contentContainerStyle={styles.horizontalScrollContent}
+                    decelerationRate="fast"
+                    snapToInterval={300} // Largeur approximative d'une carte + espacement (75% screen width + 16px)
+                    snapToAlignment="start"
+                >
+                    {trips.slice(0, 5).map((trip, index) => (
+                        <View
+                            key={trip.id}
+                            style={[
+                                styles.tripCardContainer,
+                                { marginLeft: index === 0 ? 20 : 0 },
+                            ]}
+                        >
                             <HomeTripCard
                                 trip={trip}
                                 formatDateRange={formatDateRange}
@@ -129,7 +144,9 @@ export const HomeTripsList: React.FC<HomeTripsListProps> = ({
                             />
                         </View>
                     ))}
-                </View>
+                    {/* Espacement à la fin pour le scroll */}
+                    <View style={styles.endSpacing} />
+                </ScrollView>
             )}
         </View>
     );
@@ -160,12 +177,16 @@ const styles = StyleSheet.create({
         color: "#4DA1A9",
     },
     modernTripsHorizontalList: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
+        flexGrow: 0,
+    },
+    horizontalScrollContent: {
+        paddingRight: 20,
     },
     tripCardContainer: {
-        marginBottom: 8,
+        marginRight: 16,
+    },
+    endSpacing: {
+        width: 4,
     },
 
     // 🔄 ÉTATS DE CHARGEMENT MODERNES
@@ -198,13 +219,16 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         color: "#94A3B8",
         textAlign: "center",
-        marginBottom: 24,
+        marginBottom: 16,
+        paddingHorizontal: 20,
     },
     modernRetryButton: {
-        backgroundColor: "#4DA1A9",
-        borderRadius: 12,
+        backgroundColor: "#7ED957",
+        paddingHorizontal: 20,
         paddingVertical: 12,
-        paddingHorizontal: 24,
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
     },
     modernRetryButtonText: {
         fontSize: 16,

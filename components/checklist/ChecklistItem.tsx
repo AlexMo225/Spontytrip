@@ -1,6 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import React, { useEffect, useRef, useState } from "react";
+import {
+    Animated,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { Colors, TaskAssignmentColors } from "../../constants/Colors";
 import { TripMember } from "../../services/firebaseService";
 import { ChecklistItem as ChecklistItemType } from "../../types";
@@ -32,12 +40,73 @@ export const ChecklistItem: React.FC<ChecklistItemProps> = ({
     const assignedMember = members.find((m) => m.userId === item.assignedTo);
     const canDelete = isCreator || item.createdBy === currentUserId;
 
+    // Animation refs
+    const progressAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const [hasAnimated, setHasAnimated] = useState(false);
+
+    // Initialiser la progression selon l'état
+    useEffect(() => {
+        if (item.isCompleted && !hasAnimated) {
+            // Déclencher l'animation seulement si pas encore animé
+            setHasAnimated(true);
+
+            // Feedback haptique pour la validation
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Animation de scale + progression
+            Animated.sequence([
+                Animated.timing(scaleAnim, {
+                    toValue: 1.02,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.parallel([
+                    Animated.timing(scaleAnim, {
+                        toValue: 1,
+                        duration: 200,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(progressAnim, {
+                        toValue: 1,
+                        duration: 800,
+                        useNativeDriver: false,
+                    }),
+                ]),
+            ]).start();
+        } else if (!item.isCompleted && hasAnimated) {
+            // Réinitialiser si l'item est décoché
+            setHasAnimated(false);
+            Animated.timing(progressAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: false,
+            }).start();
+        } else if (item.isCompleted && hasAnimated) {
+            // Si déjà complété et animé, juste définir la valeur
+            progressAnim.setValue(1);
+        }
+    }, [item.isCompleted, hasAnimated]);
+
+    const progressWidth = progressAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["0%", "100%"],
+    });
+
+    const handleToggle = () => {
+        // Feedback haptique léger au touch
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onToggle(item.id);
+    };
+
     return (
-        <View style={styles.item}>
+        <Animated.View
+            style={[styles.item, { transform: [{ scale: scaleAnim }] }]}
+        >
             {/* ✅ Checkbox */}
             <TouchableOpacity
                 style={styles.itemCheckbox}
-                onPress={() => onToggle(item.id)}
+                onPress={handleToggle}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
                 <Ionicons
@@ -124,7 +193,22 @@ export const ChecklistItem: React.FC<ChecklistItemProps> = ({
                     />
                 </TouchableOpacity>
             )}
-        </View>
+
+            {/* Barre de progression animée - maintenant en bas */}
+            <View style={styles.progressContainer}>
+                <Animated.View
+                    style={[
+                        styles.progressBar,
+                        {
+                            width: progressWidth,
+                            backgroundColor: item.assignedTo
+                                ? getMemberColor(item.assignedTo)
+                                : TaskAssignmentColors.taskStatus.completed,
+                        },
+                    ]}
+                />
+            </View>
+        </Animated.View>
     );
 };
 
@@ -141,6 +225,21 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 1,
+        position: "relative",
+        overflow: "hidden",
+    },
+    progressContainer: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 3,
+        backgroundColor: "transparent",
+    },
+    progressBar: {
+        height: "100%",
+        borderBottomLeftRadius: 12,
+        borderBottomRightRadius: 12,
     },
     itemCheckbox: {
         marginRight: 12,

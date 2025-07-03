@@ -25,22 +25,17 @@ export const ChecklistTabBar: React.FC<ChecklistTabBarProps> = ({
                 style={[styles.tab, activeTab === "list" && styles.activeTab]}
                 onPress={() => onTabChange("list")}
             >
-                <Text
-                    style={[
-                        styles.tabText,
-                        activeTab === "list" && styles.activeTabText,
-                    ]}
-                >
-                    📋 Liste
-                </Text>
-                {assignmentStats.totalTasks > 0 && (
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>
-                            {assignmentStats.completedTasks}/
-                            {assignmentStats.totalTasks}
-                        </Text>
-                    </View>
-                )}
+                <View style={styles.tabContent}>
+                    <Text style={styles.tabIcon}>📋</Text>
+                    <Text
+                        style={[
+                            styles.tabText,
+                            activeTab === "list" && styles.activeTabText,
+                        ]}
+                    >
+                        Liste
+                    </Text>
+                </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -50,21 +45,17 @@ export const ChecklistTabBar: React.FC<ChecklistTabBarProps> = ({
                 ]}
                 onPress={() => onTabChange("assignment")}
             >
-                <Text
-                    style={[
-                        styles.tabText,
-                        activeTab === "assignment" && styles.activeTabText,
-                    ]}
-                >
-                    👥 Répartition
-                </Text>
-                {assignmentStats.unassignedTasks > 0 && (
-                    <View style={[styles.badge, styles.warningBadge]}>
-                        <Text style={styles.badgeText}>
-                            {assignmentStats.unassignedTasks}
-                        </Text>
-                    </View>
-                )}
+                <View style={styles.tabContent}>
+                    <Text style={styles.tabIcon}>👥</Text>
+                    <Text
+                        style={[
+                            styles.tabText,
+                            activeTab === "assignment" && styles.activeTabText,
+                        ]}
+                    >
+                        Répartition
+                    </Text>
+                </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -74,19 +65,17 @@ export const ChecklistTabBar: React.FC<ChecklistTabBarProps> = ({
                 ]}
                 onPress={() => onTabChange("myTasks")}
             >
-                <Text
-                    style={[
-                        styles.tabText,
-                        activeTab === "myTasks" && styles.activeTabText,
-                    ]}
-                >
-                    🙋‍♂️ Mes tâches
-                </Text>
-                {myTasksCount > 0 && (
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{myTasksCount}</Text>
-                    </View>
-                )}
+                <View style={styles.tabContent}>
+                    <Text style={styles.tabIcon}>👤</Text>
+                    <Text
+                        style={[
+                            styles.tabText,
+                            activeTab === "myTasks" && styles.activeTabText,
+                        ]}
+                    >
+                        Mes Tâches
+                    </Text>
+                </View>
             </TouchableOpacity>
         </View>
     );
@@ -96,27 +85,35 @@ const styles = StyleSheet.create({
     tabContainer: {
         flexDirection: "row",
         backgroundColor: Colors.backgroundColors.secondary,
-        borderRadius: 12,
-        padding: 4,
+        borderRadius: 16,
+        padding: 6,
         marginHorizontal: 16,
         marginBottom: 16,
+        marginTop: 8,
     },
     tab: {
         flex: 1,
         paddingVertical: 12,
         paddingHorizontal: 8,
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        flexDirection: "row",
     },
     activeTab: {
-        backgroundColor: Colors.white,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        backgroundColor: "#6366F1",
+        shadowColor: "#6366F1",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    tabContent: {
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    tabIcon: {
+        fontSize: 18,
+        marginBottom: 4,
     },
     tabText: {
         fontSize: 14,
@@ -125,23 +122,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
     activeTabText: {
-        color: Colors.text.primary,
-    },
-    badge: {
-        backgroundColor: Colors.primary,
-        borderRadius: 10,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        marginLeft: 6,
-        minWidth: 20,
-        alignItems: "center",
-    },
-    warningBadge: {
-        backgroundColor: Colors.warning,
-    },
-    badgeText: {
-        fontSize: 11,
-        fontWeight: "600",
         color: Colors.white,
+        fontWeight: "700",
     },
 });

@@ -126,61 +126,71 @@ export const ChecklistAssignmentView: React.FC<
         );
     };
 
+    // Composant pour les tâches non assignées (footer)
+    const renderUnassignedFooter = () => {
+        if (unassignedTasks.length === 0) return null;
+
+        return (
+            <View style={styles.unassignedContainer}>
+                <Text style={styles.unassignedTitle}>
+                    📋 Tâches non assignées ({unassignedTasks.length})
+                </Text>
+                {unassignedTasks.map((task) => (
+                    <View key={task.id} style={styles.unassignedTask}>
+                        <Text style={styles.unassignedTaskText}>
+                            {task.title}
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.assignButton}
+                            onPress={() => onAssignTask(task.id)}
+                        >
+                            <Ionicons
+                                name="person-add-outline"
+                                size={16}
+                                color={Colors.primary}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+            </View>
+        );
+    };
+
+    // Composant pour le header avec bouton d'auto-assignation
+    const renderHeader = () => {
+        if (!isCreator || unassignedTasks.length === 0) return null;
+
+        return (
+            <View style={styles.headerSection}>
+                <TouchableOpacity
+                    style={styles.autoAssignButton}
+                    onPress={onAutoAssign}
+                >
+                    <Ionicons
+                        name="shuffle-outline"
+                        size={20}
+                        color={Colors.white}
+                    />
+                    <Text style={styles.autoAssignText}>
+                        Répartir automatiquement
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
-            {/* Header avec bouton d'auto-assignation */}
-            {isCreator && unassignedTasks.length > 0 && (
-                <View style={styles.headerSection}>
-                    <TouchableOpacity
-                        style={styles.autoAssignButton}
-                        onPress={onAutoAssign}
-                    >
-                        <Ionicons
-                            name="shuffle-outline"
-                            size={20}
-                            color={Colors.white}
-                        />
-                        <Text style={styles.autoAssignText}>
-                            Répartir automatiquement
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Liste des membres et leurs tâches */}
             <FlatList
                 data={tasksByMember}
                 renderItem={renderMemberSection}
                 keyExtractor={(item) => item.member.userId}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContent}
+                ListHeaderComponent={renderHeader}
+                ListFooterComponent={renderUnassignedFooter}
+                ListFooterComponentStyle={styles.footerStyle}
             />
-
-            {/* Tâches non assignées */}
-            {unassignedTasks.length > 0 && (
-                <View style={styles.unassignedContainer}>
-                    <Text style={styles.unassignedTitle}>
-                        📋 Tâches non assignées ({unassignedTasks.length})
-                    </Text>
-                    {unassignedTasks.map((task) => (
-                        <View key={task.id} style={styles.unassignedTask}>
-                            <Text style={styles.unassignedTaskText}>
-                                {task.title}
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.assignButton}
-                                onPress={() => onAssignTask(task.id)}
-                            >
-                                <Ionicons
-                                    name="person-add-outline"
-                                    size={16}
-                                    color={Colors.primary}
-                                />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                </View>
-            )}
         </View>
     );
 };
@@ -210,6 +220,10 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: 16,
+        paddingBottom: 20,
+    },
+    footerStyle: {
+        marginTop: 0,
     },
     memberSection: {
         backgroundColor: Colors.white,
@@ -313,10 +327,14 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white,
         borderRadius: 12,
         padding: 16,
-        marginHorizontal: 16,
         marginBottom: 16,
         borderLeftWidth: 4,
         borderLeftColor: TaskAssignmentColors.taskStatus.pending,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     unassignedTitle: {
         fontSize: 16,

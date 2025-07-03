@@ -20,6 +20,7 @@ import {
     ChecklistCategorySection,
     ChecklistMyTasksView,
     ChecklistTabBar,
+    ChecklistStatsHeader,
 } from "../components/checklist";
 import { Colors, TaskAssignmentColors } from "../constants/Colors";
 import { useAuth } from "../contexts/AuthContext";
@@ -476,11 +477,7 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: Colors.text.primary,
     },
-    headerSubtitle: {
-        fontSize: 14,
-        color: Colors.text.secondary,
-        marginTop: 2,
-    },
+
     addButton: {
         backgroundColor: Colors.primary,
         width: 40,
@@ -489,22 +486,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    progressContainer: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: Colors.white,
-    },
-    progressBar: {
-        height: 8,
-        backgroundColor: Colors.backgroundColors.secondary,
-        borderRadius: 4,
-        overflow: "hidden",
-    },
-    progressFill: {
-        height: "100%",
-        backgroundColor: Colors.primary,
-        borderRadius: 4,
-    },
+
     listContainer: {
         flex: 1,
         paddingBottom: 20,

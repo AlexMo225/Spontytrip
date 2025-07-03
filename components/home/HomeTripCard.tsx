@@ -13,7 +13,7 @@ import { Colors } from "../../constants";
 import { FirestoreTrip } from "../../services/firebaseService";
 
 const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.8;
+const CARD_WIDTH = screenWidth * 0.75;
 
 interface HomeTripCardProps {
     trip: FirestoreTrip;
