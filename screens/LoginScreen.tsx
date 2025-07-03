@@ -13,10 +13,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import PasswordInput from "../components/PasswordInput";
 import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
-import { Colors } from "../constants";
-import { useLoginStyles  } from "../styles/screens";
-import { useModal, useQuickModals } from "../hooks/useModal";
+import { Colors } from "../constants/Colors";
+import { useModal, useQuickModals } from "../hooks";
 import { AuthService } from "../services/authService";
+import { useLoginStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 
 type LoginScreenNavigationProp = StackNavigationProp<
@@ -32,6 +32,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [loginSuccess, setLoginSuccess] = useState(false);
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
     const modal = useModal();
@@ -43,10 +44,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             headerShown: false,
         });
 
-        // Animation d'entrée
+        // Animation d'entrée plus fluide
         Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 500,
+            duration: 600,
             useNativeDriver: true,
         }).start();
     }, [navigation, fadeAnim]);
@@ -63,11 +64,26 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             const result = await AuthService.signIn(email, password);
 
             if (result.success) {
+                console.log(
+                    "✅ Connexion réussie, attente de la transition automatique"
+                );
+                setLoginSuccess(true);
+
+                // Animation de sortie fluide
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }).start();
+
+                // Afficher brièvement le succès
                 modal.showSuccess(
                     "Connexion réussie",
                     "Bienvenue dans SpontyTrip !"
                 );
+
                 // La navigation sera gérée automatiquement par AuthNavigator
+                // Pas besoin de navigation manuelle
             } else {
                 modal.showError(
                     "Connexion impossible",
@@ -75,6 +91,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 );
             }
         } catch (error) {
+            console.error("Erreur connexion:", error);
             modal.showError("Erreur", "Une erreur inattendue est survenue");
         } finally {
             setIsLoading(false);
@@ -104,7 +121,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                         style={[styles.content, { opacity: fadeAnim }]}
                     >
                         <View style={styles.logoContainer}>
-                            <SpontyTripLogoAnimated size="large" />
+                            <SpontyTripLogoAnimated
+                                size="large"
+                                autoPlay={!loginSuccess}
+                            />
                         </View>
 
                         <View style={styles.form}>
@@ -119,7 +139,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     autoCorrect={false}
-                                    editable={!isLoading}
+                                    editable={!isLoading && !loginSuccess}
                                 />
                             </View>
 
@@ -128,35 +148,38 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                                 <PasswordInput
                                     value={password}
                                     onChangeText={setPassword}
-                                    editable={!isLoading}
+                                    editable={!isLoading && !loginSuccess}
                                     showStrengthIndicator={false}
                                     placeholder="••••••••"
                                 />
                             </View>
 
                             <TouchableOpacity
-                                style={styles.forgotPasswordContainer}
-                                onPress={handleForgotPassword}
-                                disabled={isLoading}
+                                style={[
+                                    styles.loginButton,
+                                    (isLoading || loginSuccess) &&
+                                        styles.loginButtonDisabled,
+                                ]}
+                                onPress={handleLogin}
+                                disabled={isLoading || loginSuccess}
+                                activeOpacity={0.8}
                             >
-                                <Text style={styles.forgotPasswordText}>
-                                    Mot de passe oublié ?
+                                <Text style={styles.loginButtonText}>
+                                    {loginSuccess
+                                        ? "Connexion réussie !"
+                                        : isLoading
+                                        ? "Connexion..."
+                                        : "Se connecter"}
                                 </Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[
-                                    styles.loginButton,
-                                    isLoading && styles.loginButtonDisabled,
-                                ]}
-                                onPress={handleLogin}
-                                disabled={isLoading}
-                                activeOpacity={0.8}
+                                onPress={handleForgotPassword}
+                                disabled={isLoading || loginSuccess}
+                                style={styles.forgotPassword}
                             >
-                                <Text style={styles.loginButtonText}>
-                                    {isLoading
-                                        ? "Connexion..."
-                                        : "Se connecter"}
+                                <Text style={styles.forgotPasswordText}>
+                                    Mot de passe oublié ?
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -166,7 +189,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
                     <TouchableOpacity
                         onPress={handleGoToRegister}
-                        disabled={isLoading}
+                        disabled={isLoading || loginSuccess}
                     >
                         <Text style={styles.signUpText}>
                             Pas de compte ?{" "}

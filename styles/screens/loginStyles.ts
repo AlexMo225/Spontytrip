@@ -124,7 +124,7 @@ export const useLoginScreenStyle = () => {
             color: Colors.textSecondary,
         },
         signUpLink: {
-            color: Colors.primary,
+            color: "#7ED957",
             fontWeight: "600",
         },
     });

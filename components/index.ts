@@ -3,7 +3,7 @@
 export { default as ActivityFeed } from "./ActivityFeed";
 export { AddExpenseForm } from "./AddExpenseForm";
 export { default as AuthTest } from "./AuthTest";
-export { Avatar } from "./Avatar";
+export { default as Avatar } from "./Avatar";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
 export { default as ChecklistCelebration } from "./ChecklistCelebration";
@@ -12,9 +12,11 @@ export { default as CurrencyConverterModal } from "./CurrencyConverterModal";
 // export { default as ExpenseItem } from "./ExpenseItem";
 export { ExpensesList } from "./ExpensesList";
 export { ExpensesSummaryHeader } from "./ExpensesSummaryHeader";
+export { default as PasswordInput } from "./PasswordInput";
 export { SettlementsSection } from "./SettlementsSection";
 export { default as SpontyModal } from "./SpontyModal";
 export { default as SpontyTripLogoAnimated } from "./SpontyTripLogoAnimated";
+export { default as WelcomeModal } from "./WelcomeModal";
 // 🚫 ANCIEN COMPOSANT - Remplacé par SettlementsSection (nouvelle architecture Splitwise)
 // export { default as TripBalanceSummary } from "./TripBalanceSummary";
 

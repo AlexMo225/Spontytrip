@@ -2,7 +2,7 @@
 
 export const Colors = {
     // Couleurs principales
-    primary: "#6366F1", // Bleu-vert moderne
+    primary: "#4DA1A9", // Bleu-vert moderne
     primaryLight: "#7FBDC3",
     primaryDark: "#3A7A80",
 

@@ -1,7 +1,5 @@
 import { Platform, StyleSheet } from "react-native";
-import { Colors } from "../../constants";
-import { TextStyles } from "../../constants";
-import { Spacing } from "../../constants";
+import { Colors, Spacing, TextStyles } from "../../constants";
 
 export const useForgotPasswordScreenStyle = () => {
     return StyleSheet.create({
@@ -81,7 +79,7 @@ export const useForgotPasswordScreenStyle = () => {
             marginTop: Spacing.xsmall,
         },
         primaryButton: {
-            backgroundColor: Colors.primary,
+            backgroundColor: "#7ED957",
             borderRadius: 12,
             paddingVertical: Spacing.medium,
             alignItems: "center",

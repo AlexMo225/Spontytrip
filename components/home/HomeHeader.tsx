@@ -38,13 +38,24 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         return "Voyageur";
     };
 
+    // Styles animés avec vérifications défensives
+    const getAnimatedStyle = () => {
+        if (!fadeAnim || !slideAnim) {
+            return { opacity: 1, transform: [{ translateY: 0 }] };
+        }
+        return {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+        };
+    };
+
     return (
         <Animated.View
             style={[
                 styles.modernHeader,
                 {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: slideAnim }],
+                    opacity: fadeAnim || 1,
+                    transform: [{ translateY: slideAnim || 0 }],
                 },
             ]}
         >
@@ -58,7 +69,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
                             {getGreeting()}, {getUserFirstName()} ! 👋
                         </Text>
                         <Text style={styles.inspirationalText}>
-                            {inspirationalQuotes[currentQuote]}
+                            {inspirationalQuotes[currentQuote] || ""}
                         </Text>
                     </View>
                     <View style={styles.profileSection}>

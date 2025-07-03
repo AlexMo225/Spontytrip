@@ -20,7 +20,7 @@ export const HomeFunZone: React.FC<HomeFunZoneProps> = ({
             style={[
                 styles.modernFunZone,
                 {
-                    transform: [{ scale: scaleAnim }],
+                    transform: [{ scale: scaleAnim || 1 }],
                 },
             ]}
         >
@@ -36,12 +36,12 @@ export const HomeFunZone: React.FC<HomeFunZoneProps> = ({
 
                 <View style={styles.quoteContainer}>
                     <Text style={styles.quoteText}>
-                        "{inspirationalQuotes[currentQuote]}"
+                        "{inspirationalQuotes[currentQuote] || ""}"
                     </Text>
                 </View>
 
                 <View style={styles.quoteIndicators}>
-                    {inspirationalQuotes.map((_, index) => (
+                    {(inspirationalQuotes || []).map((_, index) => (
                         <View
                             key={index}
                             style={[

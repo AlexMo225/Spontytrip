@@ -11,6 +11,7 @@ import FirebaseServiceInstance from "../services/firebaseService";
 interface AuthContextType {
     user: AuthUser | null;
     loading: boolean;
+    isNewUser: boolean;
     signIn: (email: string, password: string) => Promise<boolean>;
     signUp: (
         email: string,
@@ -26,6 +27,7 @@ interface AuthContextType {
     updateEmail: (newEmail: string) => Promise<boolean>;
     updatePassword: (newPassword: string) => Promise<boolean>;
     deleteAccount: () => Promise<{ success: boolean; error?: string }>;
+    markUserAsExisting: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +39,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isNewUser, setIsNewUser] = useState(false);
 
     // Fonction pour forcer le rechargement des données utilisateur
     const refreshUser = async () => {
@@ -86,6 +89,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     ): Promise<boolean> => {
         try {
             const result = await AuthService.signIn(email, password);
+            if (result.success) {
+                setIsNewUser(false);
+            }
             return result.success;
         } catch (error) {
             console.error("Erreur connexion:", error);
@@ -104,6 +110,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 password,
                 displayName
             );
+            if (result.success) {
+                console.log(
+                    "✅ Inscription réussie, marquage comme nouvel utilisateur"
+                );
+                setIsNewUser(true);
+
+                setTimeout(() => {
+                    console.log("🔄 Synchronisation post-inscription terminée");
+                }, 2000);
+            }
             return result.success;
         } catch (error) {
             console.error("Erreur inscription:", error);
@@ -114,6 +130,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const signOut = async (): Promise<void> => {
         try {
             await AuthService.signOut();
+            setIsNewUser(false);
         } catch (error) {
             console.error("Erreur déconnexion:", error);
         }
@@ -194,6 +211,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             if (result.success) {
                 console.log("✅ Compte supprimé avec succès");
+                setIsNewUser(false);
                 // Le listener onAuthStateChanged se chargera de mettre à jour l'état
                 return { success: true };
             } else {
@@ -213,9 +231,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
+    const markUserAsExisting = () => {
+        console.log("👤 Utilisateur marqué comme existant");
+        setIsNewUser(false);
+    };
+
     const value: AuthContextType = {
         user,
         loading,
+        isNewUser,
         signIn,
         signUp,
         signOut,
@@ -224,6 +248,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updateEmail,
         updatePassword,
         deleteAccount,
+        markUserAsExisting,
     };
 
     return (

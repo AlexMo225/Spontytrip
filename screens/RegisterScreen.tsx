@@ -15,8 +15,8 @@ import PasswordInput from "../components/PasswordInput";
 import SpontyTripLogoAnimated from "../components/SpontyTripLogoAnimated";
 import { Colors } from "../constants/Colors";
 import { useModal } from "../hooks";
-import { useRegisterStyles  } from "../styles/screens";
 import { AuthService } from "../services/authService";
+import { useRegisterStyles } from "../styles/screens";
 import { RootStackParamList } from "../types";
 import { validatePassword } from "../utils/passwordUtils";
 
@@ -38,6 +38,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [passwordError, setPasswordError] = useState("");
     const [confirmPasswordError, setConfirmPasswordError] = useState("");
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+    const [registrationSuccess, setRegistrationSuccess] = useState(false);
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
     const modal = useModal();
@@ -48,10 +50,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             headerShown: false,
         });
 
-        // Animation d'entrée
+        // Animation d'entrée plus fluide
         Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 500,
+            duration: 600,
             useNativeDriver: true,
         }).start();
     }, [navigation, fadeAnim]);
@@ -133,14 +135,36 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             );
 
             if (result.success) {
-                navigation.replace("MainApp");
+                console.log(
+                    "✅ Inscription réussie, attente de la transition automatique"
+                );
+                setRegistrationSuccess(true);
+
+                // Afficher la modale de bienvenue
+                modal.showSuccess(
+                    "🎉 Bienvenue dans SpontyTrip !",
+                    `Salut ${firstName} ! Ton compte a été créé avec succès. Tu peux maintenant organiser tes voyages spontanés !`,
+                    () => {
+                        // La navigation sera automatiquement gérée par AuthNavigator
+                        // Pas besoin de navigation manuelle
+                    }
+                );
+
+                // Animation de sortie fluide
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }).start();
             } else {
                 modal.showError(
                     "Erreur d'inscription",
-                    result.error || "Une erreur est survenue"
+                    result.error ||
+                        "Une erreur est survenue lors de l'inscription"
                 );
             }
         } catch (error) {
+            console.error("Erreur inscription:", error);
             modal.showError(
                 "Erreur",
                 "Une erreur est survenue lors de l'inscription"
@@ -169,7 +193,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                         style={[styles.content, { opacity: fadeAnim }]}
                     >
                         <View style={styles.logoContainer}>
-                            <SpontyTripLogoAnimated size="large" />
+                            <SpontyTripLogoAnimated
+                                size="large"
+                                autoPlay={!registrationSuccess}
+                            />
                         </View>
 
                         <View style={styles.form}>
@@ -248,14 +275,17 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                             <TouchableOpacity
                                 style={[
                                     styles.registerButton,
-                                    isLoading && styles.registerButtonDisabled,
+                                    (isLoading || registrationSuccess) &&
+                                        styles.registerButtonDisabled,
                                 ]}
                                 onPress={handleRegister}
-                                disabled={isLoading}
+                                disabled={isLoading || registrationSuccess}
                                 activeOpacity={0.8}
                             >
                                 <Text style={styles.registerButtonText}>
-                                    {isLoading
+                                    {registrationSuccess
+                                        ? "Inscription réussie !"
+                                        : isLoading
                                         ? "Inscription..."
                                         : "S'inscrire"}
                                 </Text>
@@ -267,7 +297,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
                     <TouchableOpacity
                         onPress={handleGoToLogin}
-                        disabled={isLoading}
+                        disabled={isLoading || registrationSuccess}
                     >
                         <Text style={styles.loginText}>
                             Déjà un compte ?{" "}

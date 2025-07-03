@@ -49,7 +49,7 @@ export const useRegisterScreenStyle = () => {
         },
         registerButton: {
             height: 56,
-            backgroundColor: Colors.primary,
+            backgroundColor: "#7ED957",
             borderRadius: 12,
             justifyContent: "center",
             alignItems: "center",
@@ -72,7 +72,7 @@ export const useRegisterScreenStyle = () => {
             color: Colors.textSecondary,
         },
         loginLink: {
-            color: Colors.primary,
+            color: "#7ED957",
             fontWeight: "600",
         },
     });

@@ -23,26 +23,33 @@ export const HomeActionButtons: React.FC<HomeActionButtonsProps> = ({
     onCreateTrip,
     onJoinTrip,
 }) => {
-    return (
-        <Animated.View
-            style={[
-                styles.modernActionButtons,
+    // Styles animés avec vérifications défensives
+    const getAnimatedStyle = () => {
+        if (!actionButtonsAnim) {
+            return { opacity: 1, transform: [{ scale: 1 }] };
+        }
+        return {
+            opacity: actionButtonsAnim,
+            transform: [
                 {
-                    opacity: actionButtonsAnim,
-                    transform: [
-                        {
-                            scale: actionButtonsAnim.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [0.8, 1],
-                            }),
-                        },
-                    ],
+                    scale: actionButtonsAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1],
+                    }),
                 },
-            ]}
-        >
+            ],
+        };
+    };
+
+    return (
+        <Animated.View style={[styles.modernActionButtons, getAnimatedStyle()]}>
             <TouchableOpacity
                 style={styles.modernActionButton}
-                onPress={() => animateButtonPress(onCreateTrip)}
+                onPress={() =>
+                    animateButtonPress
+                        ? animateButtonPress(onCreateTrip)
+                        : onCreateTrip()
+                }
                 activeOpacity={0.9}
             >
                 <LinearGradient
@@ -66,7 +73,11 @@ export const HomeActionButtons: React.FC<HomeActionButtonsProps> = ({
 
             <TouchableOpacity
                 style={styles.modernActionButton}
-                onPress={() => animateButtonPress(onJoinTrip)}
+                onPress={() =>
+                    animateButtonPress
+                        ? animateButtonPress(onJoinTrip)
+                        : onJoinTrip()
+                }
                 activeOpacity={0.9}
             >
                 <View style={styles.modernActionButtonSecondary}>

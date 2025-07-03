@@ -24,6 +24,8 @@ export interface UseHomeReturn {
     // État local
     refreshing: boolean;
     currentQuote: number;
+    showWelcomeModal: boolean;
+    setShowWelcomeModal: (show: boolean) => void;
 
     // Animations
     fadeAnim: Animated.Value;
@@ -34,6 +36,7 @@ export interface UseHomeReturn {
     // Handlers
     onRefresh: () => Promise<void>;
     animateButtonPress: (callback: () => void) => void;
+    handleWelcomeComplete: () => void;
 
     // Utilitaires
     formatDateRange: (startDate: Date | any, endDate: Date | any) => string;
@@ -50,16 +53,31 @@ export interface UseHomeReturn {
 }
 
 export const useHome = (): UseHomeReturn => {
-    const { user } = useAuth();
+    const { user, isNewUser, markUserAsExisting } = useAuth();
     const { trips, loading, error, refreshTrips } = useUserTrips();
     const [refreshing, setRefreshing] = useState(false);
     const [currentQuote, setCurrentQuote] = useState(0);
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
     // 🎯 Animations pour l'effet "wow"
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const actionButtonsAnim = useRef(new Animated.Value(0)).current;
+
+    // 🎉 Détecter les nouveaux utilisateurs et afficher la modale de bienvenue
+    useEffect(() => {
+        if (user && isNewUser && !loading) {
+            console.log(
+                "🎉 Nouvel utilisateur détecté, affichage de la modale de bienvenue"
+            );
+            // Délai pour laisser l'interface se charger complètement
+            const timer = setTimeout(() => {
+                setShowWelcomeModal(true);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [user, isNewUser, loading]);
 
     // 🚀 Animation d'entrée au chargement
     useEffect(() => {
@@ -101,9 +119,25 @@ export const useHome = (): UseHomeReturn => {
 
     // 🔄 Fonction de refresh
     const onRefresh = async () => {
+        if (!refreshTrips) return;
+
         setRefreshing(true);
-        await refreshTrips();
-        setRefreshing(false);
+        try {
+            await refreshTrips();
+        } catch (error) {
+            console.error("Erreur lors du refresh:", error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    // 🎉 Handler pour terminer l'accueil
+    const handleWelcomeComplete = () => {
+        console.log(
+            "✅ Modale de bienvenue fermée, marquage utilisateur comme existant"
+        );
+        setShowWelcomeModal(false);
+        markUserAsExisting();
     };
 
     // 📅 Utilitaires de formatage
@@ -201,37 +235,35 @@ export const useHome = (): UseHomeReturn => {
         }
     };
 
-    // 🎯 Animation au tap des boutons d'action
+    // 🎭 Animation pour les boutons d'action
     const animateButtonPress = (callback: () => void) => {
-        const scaleDown = new Animated.Value(1);
-
         Animated.sequence([
-            Animated.timing(scaleDown, {
+            Animated.timing(scaleAnim, {
                 toValue: 0.95,
                 duration: 100,
                 useNativeDriver: true,
             }),
-            Animated.timing(scaleDown, {
+            Animated.timing(scaleAnim, {
                 toValue: 1,
                 duration: 100,
                 useNativeDriver: true,
             }),
-        ]).start(() => {
-            callback();
-        });
+        ]).start(callback);
     };
 
     return {
         // Données utilisateur et voyages
-        user,
-        trips,
-        loading,
-        error,
-        refreshTrips,
+        user: user || null,
+        trips: trips || [],
+        loading: loading || false,
+        error: error || null,
+        refreshTrips: refreshTrips || (() => Promise.resolve()),
 
         // État local
-        refreshing,
-        currentQuote,
+        refreshing: refreshing || false,
+        currentQuote: currentQuote || 0,
+        showWelcomeModal: showWelcomeModal || false,
+        setShowWelcomeModal: setShowWelcomeModal || (() => {}),
 
         // Animations
         fadeAnim,
@@ -240,8 +272,9 @@ export const useHome = (): UseHomeReturn => {
         actionButtonsAnim,
 
         // Handlers
-        onRefresh,
-        animateButtonPress,
+        onRefresh: onRefresh || (() => Promise.resolve()),
+        animateButtonPress: animateButtonPress || (() => {}),
+        handleWelcomeComplete: handleWelcomeComplete || (() => {}),
 
         // Utilitaires
         formatDateRange,
@@ -250,6 +283,6 @@ export const useHome = (): UseHomeReturn => {
         getTypeEmoji,
 
         // Citations
-        inspirationalQuotes,
+        inspirationalQuotes: inspirationalQuotes || [],
     };
 };
